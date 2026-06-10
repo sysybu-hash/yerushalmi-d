@@ -17,6 +17,13 @@ const config: Config = {
   			luxury: '0.25em'
   		},
   		colors: {
+  			gold: {
+  				DEFAULT: '#B49A5E',
+  				light: '#CDB98A',
+  				dark: '#94793E'
+  			},
+  			ivory: '#FAF8F4',
+  			charcoal: '#1A1714',
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
   			card: {

@@ -3,6 +3,7 @@ import {
   Gem,
   LayoutDashboard,
   Megaphone,
+  Settings,
   Sparkles,
   Users,
   type LucideIcon,
@@ -21,4 +22,5 @@ export const WORKSPACE_NAV_LINKS: WorkspaceNavLink[] = [
   { label: "לקוחות", href: "/workspace/customers", icon: Users },
   { label: "שיווק", href: "/workspace/marketing", icon: Megaphone },
   { label: "סטודיו AI", href: "/studio", icon: Sparkles },
+  { label: "הגדרות האתר", href: "/workspace/settings", icon: Settings },
 ];

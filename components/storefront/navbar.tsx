@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, UserRound } from "lucide-react";
+import { Menu, Phone, UserRound } from "lucide-react";
 
 import { CartSheet } from "@/components/storefront/cart-sheet";
 import { Button } from "@/components/ui/button";
@@ -15,107 +15,183 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
   { label: "דף הבית", href: "/" },
   { label: "טבעות אירוסין", href: "/collections/engagement-rings" },
-  { label: "יהלומים", href: "/collections/diamonds" },
-  { label: "שרשראות", href: "/collections/necklaces" },
+  { label: "טבעות", href: "/collections/rings" },
+  { label: "תליונים ושרשראות", href: "/collections/necklaces" },
   { label: "עגילים", href: "/collections/earrings" },
   { label: "צמידים", href: "/collections/bracelets" },
-  { label: "אודות הבית", href: "/about" },
+  { label: "עיצוב אישי", href: "/collections/custom" },
   { label: "צור קשר", href: "/contact" },
 ] as const;
 
-export function Navbar() {
+type NavbarProps = {
+  announcementText: string;
+  contactPhone: string;
+};
+
+export function Navbar({ announcementText, contactPhone }: NavbarProps) {
   const [open, setOpen] = React.useState(false);
   const pathname = usePathname();
 
-  // סגירה אוטומטית של המגירה בעת מעבר עמוד.
+  // Navbar שקוף מעל ה-Hero בדף הבית, מתמלא בגלילה
+  const isHome = pathname === "/";
+  const [scrolled, setScrolled] = React.useState(false);
+
+  React.useEffect(() => {
+    function onScroll() {
+      setScrolled(window.scrollY > 24);
+    }
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // סגירה אוטומטית של המגירה בעת מעבר עמוד
   React.useEffect(() => {
     setOpen(false);
   }, [pathname]);
 
+  const transparent = isHome && !scrolled;
+
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/80 backdrop-blur-md">
-      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-8">
-        {/* ימין — כפתור תפריט */}
-        <Sheet open={open} onOpenChange={setOpen}>
-          <SheetTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="פתיחת תפריט"
-              className="hover:bg-transparent"
-            >
-              <Menu className="h-5 w-5" strokeWidth={1.25} />
-            </Button>
-          </SheetTrigger>
-
-          <SheetContent
-            side="right"
-            className="flex w-[320px] flex-col border-l border-border/60 bg-background p-0 sm:w-[380px]"
+    <header className="fixed top-0 z-50 w-full">
+      {/* פס הכרזה */}
+      <div className="bg-charcoal px-4 py-1.5 text-center">
+        <p className="text-[11px] font-light tracking-[0.15em] text-ivory/90">
+          {announcementText}
+          <a
+            href={`tel:${contactPhone}`}
+            className="mr-2 text-gold-light transition-colors hover:text-gold"
+            dir="ltr"
           >
-            <SheetHeader className="px-8 pb-4 pt-10 text-right">
-              <SheetTitle className="font-serif text-xl font-light tracking-[0.1em]">
-                ירושלמי
-              </SheetTitle>
-              <p className="text-[10px] tracking-luxury text-muted-foreground">
-                יהלומים
-              </p>
-            </SheetHeader>
+            {contactPhone}
+          </a>
+        </p>
+      </div>
 
-            <Separator className="bg-border/60" />
-
-            {/* ניווט */}
-            <nav className="flex-1 overflow-y-auto px-8 py-8">
-              <ul className="space-y-6">
-                {NAV_LINKS.map((link) => (
-                  <li key={link.href}>
-                    <Link
-                      href={link.href}
-                      className="text-sm font-light tracking-[0.08em] text-foreground/80 transition-colors duration-300 hover:text-foreground"
-                    >
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </nav>
-
-            <Separator className="bg-border/60" />
-
-            {/* אזור אישי — כניסה מאובטחת ודיסקרטית */}
-            <div className="px-8 py-8">
+      {/* שורת הניווט */}
+      <div
+        className={cn(
+          "transition-all duration-500",
+          transparent
+            ? "bg-transparent"
+            : "border-b border-border/60 bg-background/95 shadow-sm backdrop-blur-md"
+        )}
+      >
+        <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-4 sm:px-8">
+          {/* ימין — תפריט */}
+          <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger asChild>
               <Button
-                asChild
-                variant="outline"
-                className="w-full rounded-none border-foreground/30 text-xs font-light tracking-[0.15em] hover:bg-foreground hover:text-background"
+                variant="ghost"
+                size="icon"
+                aria-label="פתיחת תפריט"
+                className={cn(
+                  "hover:bg-transparent",
+                  transparent
+                    ? "text-ivory hover:text-gold-light"
+                    : "text-foreground hover:text-gold-dark"
+                )}
               >
-                <Link href="/login">
-                  <UserRound className="ml-2 h-3.5 w-3.5" strokeWidth={1.25} />
-                  אזור אישי
-                </Link>
+                <Menu className="h-6 w-6" strokeWidth={1.25} />
               </Button>
-            </div>
-          </SheetContent>
-        </Sheet>
+            </SheetTrigger>
 
-        {/* מרכז — לוגו */}
-        <Link
-          href="/"
-          className="absolute left-1/2 -translate-x-1/2 text-center"
-        >
-          <span className="block font-serif text-xl font-light tracking-[0.15em] sm:text-2xl">
-            ירושלמי
-          </span>
-          <span className="block text-[9px] uppercase tracking-[0.5em] text-muted-foreground">
-            DIAMONDS
-          </span>
-        </Link>
+            {/* המגירה — פחם כהה, קונטרסט מלא */}
+            <SheetContent
+              side="right"
+              className="flex w-[340px] flex-col border-l-0 bg-charcoal p-0 text-ivory sm:w-[400px]"
+            >
+              <SheetHeader className="px-8 pb-5 pt-12 text-right">
+                <SheetTitle className="font-serif text-2xl font-medium tracking-[0.12em] text-ivory">
+                  ירושלמי
+                </SheetTitle>
+                <p className="text-[10px] uppercase tracking-[0.45em] text-gold">
+                  Diamonds
+                </p>
+              </SheetHeader>
 
-        {/* שמאל — סל קניות */}
-        <CartSheet />
+              <Separator className="bg-ivory/10" />
+
+              {/* ניווט */}
+              <nav className="flex-1 overflow-y-auto px-8 py-8">
+                <ul className="space-y-5">
+                  {NAV_LINKS.map((link, index) => (
+                    <li key={link.href}>
+                      <Link
+                        href={link.href}
+                        className="group flex items-baseline gap-4"
+                      >
+                        <span className="text-[11px] font-light tabular-nums text-gold/70">
+                          {String(index + 1).padStart(2, "0")}
+                        </span>
+                        <span className="border-b border-transparent pb-0.5 text-lg font-normal tracking-[0.04em] text-ivory transition-all duration-300 group-hover:border-gold group-hover:text-gold-light">
+                          {link.label}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+
+              <Separator className="bg-ivory/10" />
+
+              {/* אזור אישי */}
+              <div className="space-y-4 px-8 py-8">
+                <Button
+                  asChild
+                  variant="outline"
+                  className="w-full rounded-none border-gold/60 bg-transparent text-xs font-normal tracking-[0.2em] text-gold-light hover:bg-gold hover:text-charcoal"
+                >
+                  <Link href="/login">
+                    <UserRound className="ml-2 h-4 w-4" strokeWidth={1.25} />
+                    אזור אישי
+                  </Link>
+                </Button>
+                <a
+                  href={`tel:${contactPhone}`}
+                  className="flex items-center justify-center gap-2 text-sm font-light text-ivory/70 transition-colors hover:text-gold-light"
+                >
+                  <Phone className="h-3.5 w-3.5" strokeWidth={1.25} />
+                  <span dir="ltr">{contactPhone}</span>
+                </a>
+              </div>
+            </SheetContent>
+          </Sheet>
+
+          {/* מרכז — לוגו */}
+          <Link
+            href="/"
+            className="group absolute left-1/2 -translate-x-1/2 text-center"
+          >
+            <span
+              className={cn(
+                "block font-serif text-2xl font-medium tracking-[0.14em] transition-colors duration-500",
+                transparent ? "text-ivory" : "text-foreground"
+              )}
+            >
+              ירושלמי
+            </span>
+            <span className="mx-auto mt-1 block h-px w-8 bg-gold transition-all duration-300 group-hover:w-full" />
+            <span
+              className={cn(
+                "mt-1 block text-[9px] uppercase tracking-[0.5em] transition-colors duration-500",
+                transparent ? "text-gold-light" : "text-gold-dark"
+              )}
+            >
+              Diamonds
+            </span>
+          </Link>
+
+          {/* שמאל — סל קניות */}
+          <div className={cn(transparent ? "text-ivory" : "text-foreground")}>
+            <CartSheet />
+          </div>
+        </div>
       </div>
     </header>
   );

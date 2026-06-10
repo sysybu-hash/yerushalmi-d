@@ -79,6 +79,13 @@ export const orderItems = pgTable("order_items", {
   quantity: integer("quantity").notNull().default(1),
 });
 
+// הגדרות האתר — key/value: טקסטים ותמונות הניתנים לעריכה מאזור הניהול
+export const siteSettings = pgTable("site_settings", {
+  key: varchar("key", { length: 100 }).primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // יחסים — מאפשרים שליפת הזמנה עם פריטיה בשאילתה אחת (db.query)
 export const ordersRelations = relations(orders, ({ many }) => ({
   items: many(orderItems),

@@ -4,7 +4,7 @@ import "./globals.css";
 
 const serif = Frank_Ruhl_Libre({
   subsets: ["hebrew", "latin"],
-  weight: ["300", "400", "500", "700"],
+  weight: ["400", "500", "700"],
   variable: "--font-serif",
 });
 
