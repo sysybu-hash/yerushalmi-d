@@ -15,8 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ProductCard } from "@/components/storefront/product-card";
 
-// הדף מציג מלאי חי מהדאטהבייס — מתרענן עד פעם בדקה
-export const revalidate = 60;
+// הדף מציג מלאי חי מהדאטהבייס — נטען בזמן בקשה, לא בזמן בנייה
+export const dynamic = "force-dynamic";
 
 /* ------------------------------------------------------------------ */
 /* נתוני תוכן קבועים                                                   */

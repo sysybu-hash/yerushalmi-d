@@ -5,8 +5,8 @@ import { db } from "@/db";
 import { products } from "@/db/schema";
 import { ProductCard } from "@/components/storefront/product-card";
 
-// העמוד מציג מלאי חי מהדאטהבייס — מתרענן עד פעם בדקה
-export const revalidate = 60;
+// העמוד מציג מלאי חי מהדאטהבייס — נטען בזמן בקשה, לא בזמן בנייה
+export const dynamic = "force-dynamic";
 
 type CategoryPageProps = {
   params: { category: string };

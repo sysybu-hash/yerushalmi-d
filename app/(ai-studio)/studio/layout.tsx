@@ -1,5 +1,8 @@
 export const metadata = { title: "סטודיו תוכן AI" };
 
+// הסטודיו תלוי במשתני סביבה (Cloudinary) — לא לבנות אותו מראש
+export const dynamic = "force-dynamic";
+
 export default function StudioLayout({
   children,
 }: Readonly<{
