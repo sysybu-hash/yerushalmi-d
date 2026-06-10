@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { LogOut, Menu, UserRound } from "lucide-react";
 
+import { logout } from "@/app/(auth)/login/actions";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -95,8 +96,7 @@ export function Topbar() {
           <DropdownMenuSeparator />
           <DropdownMenuItem
             className="cursor-pointer text-destructive focus:text-destructive"
-            // TODO: חיבור ללוגיקת התנתקות אמיתית כשספק ההזדהות יחובר
-            onSelect={() => (window.location.href = "/")}
+            onSelect={() => void logout()}
           >
             <LogOut className="ml-2 h-4 w-4" strokeWidth={1.5} />
             התנתקות

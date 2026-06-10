@@ -1,4 +1,5 @@
 import {
+  ClipboardList,
   Gem,
   LayoutDashboard,
   Megaphone,
@@ -16,6 +17,7 @@ export type WorkspaceNavLink = {
 export const WORKSPACE_NAV_LINKS: WorkspaceNavLink[] = [
   { label: "לוח בקרה", href: "/workspace", icon: LayoutDashboard },
   { label: "ניהול מלאי", href: "/workspace/products", icon: Gem },
+  { label: "הזמנות", href: "/workspace/orders", icon: ClipboardList },
   { label: "לקוחות", href: "/workspace/customers", icon: Users },
   { label: "שיווק", href: "/workspace/marketing", icon: Megaphone },
   { label: "סטודיו AI", href: "/studio", icon: Sparkles },

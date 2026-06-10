@@ -1,4 +1,5 @@
-import { Gem } from "lucide-react";
+import Image from "next/image";
+import { Gem, ImageOff } from "lucide-react";
 
 import { AddProductSheet } from "@/components/workspace/add-product-sheet";
 import {
@@ -74,6 +75,9 @@ export default async function ProductsPage() {
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
+                <TableHead className="w-16 text-right font-light">
+                  תמונה
+                </TableHead>
                 <TableHead className="text-right font-light">שם</TableHead>
                 <TableHead className="text-right font-light">
                   קטגוריה
@@ -88,6 +92,26 @@ export default async function ProductsPage() {
             <TableBody>
               {products.map((product) => (
                 <TableRow key={product.id}>
+                  <TableCell>
+                    {product.imageUrl ? (
+                      <div className="relative h-12 w-12 overflow-hidden border border-border/60">
+                        <Image
+                          src={product.imageUrl}
+                          alt={product.title}
+                          fill
+                          sizes="48px"
+                          className="object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex h-12 w-12 items-center justify-center border border-dashed border-border/60 bg-muted/30">
+                        <ImageOff
+                          className="h-4 w-4 text-muted-foreground"
+                          strokeWidth={1.25}
+                        />
+                      </div>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <p className="font-medium">{product.title}</p>
                     {product.description && (

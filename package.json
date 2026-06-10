@@ -24,12 +24,16 @@
         "clsx": "^2.1.1",
         "dotenv": "^17.4.2",
         "drizzle-orm": "^0.45.2",
+        "jose": "^6.2.3",
         "lucide-react": "^1.17.0",
         "next": "14.2.35",
+        "next-cloudinary": "^6.17.5",
         "react": "^18",
         "react-dom": "^18",
+        "replicate": "^1.4.0",
         "tailwind-merge": "^3.6.0",
-        "tailwindcss-animate": "^1.0.7"
+        "tailwindcss-animate": "^1.0.7",
+        "zustand": "^5.0.14"
     },
     "devDependencies": {
         "@types/node": "^20",

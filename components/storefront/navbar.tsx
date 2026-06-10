@@ -3,8 +3,9 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, ShoppingBag, UserRound } from "lucide-react";
+import { Menu, UserRound } from "lucide-react";
 
+import { CartSheet } from "@/components/storefront/cart-sheet";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -114,14 +115,7 @@ export function Navbar() {
         </Link>
 
         {/* שמאל — סל קניות */}
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="סל קניות"
-          className="hover:bg-transparent"
-        >
-          <ShoppingBag className="h-5 w-5" strokeWidth={1.25} />
-        </Button>
+        <CartSheet />
       </div>
     </header>
   );

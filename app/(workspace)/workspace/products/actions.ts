@@ -19,8 +19,10 @@ export async function addProduct(formData: FormData) {
   const title = formData.get("title")?.toString().trim();
   const description = formData.get("description")?.toString().trim() || null;
   const priceRaw = formData.get("price")?.toString().trim();
+  const originalPriceRaw = formData.get("original_price")?.toString().trim();
   const type = formData.get("type")?.toString() as ProductType;
   const category = formData.get("category")?.toString().trim();
+  const imageUrl = formData.get("image_url")?.toString().trim() || null;
 
   if (!title) {
     throw new Error("שם המוצר הוא שדה חובה");
@@ -31,6 +33,14 @@ export async function addProduct(formData: FormData) {
     throw new Error("יש להזין מחיר תקין");
   }
 
+  let originalPrice: number | null = null;
+  if (originalPriceRaw) {
+    originalPrice = Number(originalPriceRaw);
+    if (Number.isNaN(originalPrice) || originalPrice < 0) {
+      throw new Error("מחיר לפני הנחה אינו תקין");
+    }
+  }
+
   if (!PRODUCT_TYPES.includes(type)) {
     throw new Error("יש לבחור סוג יהלום");
   }
@@ -39,12 +49,26 @@ export async function addProduct(formData: FormData) {
     throw new Error("יש לבחור קטגוריה");
   }
 
+  const ALLOWED_IMAGE_HOSTS = [
+    "https://res.cloudinary.com/",
+    "https://replicate.delivery/",
+  ];
+  if (
+    imageUrl &&
+    !ALLOWED_IMAGE_HOSTS.some((host) => imageUrl.startsWith(host)) &&
+    !/^https:\/\/[\w-]+\.replicate\.delivery\//.test(imageUrl)
+  ) {
+    throw new Error("כתובת התמונה אינה תקינה");
+  }
+
   await db.insert(products).values({
     title,
     description,
     price: price.toFixed(2),
+    originalPrice: originalPrice !== null ? originalPrice.toFixed(2) : null,
     type,
     category,
+    imageUrl,
   });
 
   revalidatePath("/workspace/products");
