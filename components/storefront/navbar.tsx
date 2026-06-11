@@ -15,29 +15,23 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { STORE_NAV_LINKS } from "@/lib/categories";
 import { cn } from "@/lib/utils";
-
-const NAV_LINKS = [
-  { label: "דף הבית", href: "/" },
-  { label: "טבעות אירוסין", href: "/collections/engagement-rings" },
-  { label: "טבעות", href: "/collections/rings" },
-  { label: "תליונים ושרשראות", href: "/collections/necklaces" },
-  { label: "עגילים", href: "/collections/earrings" },
-  { label: "צמידים", href: "/collections/bracelets" },
-  { label: "עיצוב אישי", href: "/collections/custom" },
-  { label: "צור קשר", href: "/contact" },
-] as const;
 
 type NavbarProps = {
   announcementText: string;
   contactPhone: string;
 };
 
+function isNavActive(pathname: string, href: string) {
+  if (href === "/") return pathname === "/";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export function Navbar({ announcementText, contactPhone }: NavbarProps) {
   const [open, setOpen] = React.useState(false);
   const pathname = usePathname();
 
-  // Navbar שקוף מעל ה-Hero בדף הבית, מתמלא בגלילה
   const isHome = pathname === "/";
   const [scrolled, setScrolled] = React.useState(false);
 
@@ -50,7 +44,6 @@ export function Navbar({ announcementText, contactPhone }: NavbarProps) {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // סגירה אוטומטית של המגירה בעת מעבר עמוד
   React.useEffect(() => {
     setOpen(false);
   }, [pathname]);
@@ -59,7 +52,6 @@ export function Navbar({ announcementText, contactPhone }: NavbarProps) {
 
   return (
     <header className="fixed top-0 z-50 w-full">
-      {/* פס הכרזה */}
       <div className="bg-charcoal px-4 py-1.5 text-center">
         <p className="text-[11px] font-light tracking-[0.15em] text-ivory/90">
           {announcementText}
@@ -73,7 +65,6 @@ export function Navbar({ announcementText, contactPhone }: NavbarProps) {
         </p>
       </div>
 
-      {/* שורת הניווט */}
       <div
         className={cn(
           "transition-all duration-500",
@@ -83,7 +74,6 @@ export function Navbar({ announcementText, contactPhone }: NavbarProps) {
         )}
       >
         <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-4 sm:px-8">
-          {/* ימין — תפריט */}
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
               <Button
@@ -101,7 +91,6 @@ export function Navbar({ announcementText, contactPhone }: NavbarProps) {
               </Button>
             </SheetTrigger>
 
-            {/* המגירה — פחם כהה, קונטרסט מלא */}
             <SheetContent
               side="right"
               className="flex w-[340px] flex-col border-l-0 bg-charcoal p-0 text-ivory sm:w-[400px]"
@@ -111,36 +100,44 @@ export function Navbar({ announcementText, contactPhone }: NavbarProps) {
                   ירושלמי
                 </SheetTitle>
                 <p className="text-[10px] uppercase tracking-[0.45em] text-gold">
-                  Diamonds
+                  יהלומים
                 </p>
               </SheetHeader>
 
               <Separator className="bg-ivory/10" />
 
-              {/* ניווט */}
               <nav className="flex-1 overflow-y-auto px-8 py-8">
                 <ul className="space-y-5">
-                  {NAV_LINKS.map((link, index) => (
-                    <li key={link.href}>
-                      <Link
-                        href={link.href}
-                        className="group flex items-baseline gap-4"
-                      >
-                        <span className="text-[11px] font-light tabular-nums text-gold/70">
-                          {String(index + 1).padStart(2, "0")}
-                        </span>
-                        <span className="border-b border-transparent pb-0.5 text-lg font-normal tracking-[0.04em] text-ivory transition-all duration-300 group-hover:border-gold group-hover:text-gold-light">
-                          {link.label}
-                        </span>
-                      </Link>
-                    </li>
-                  ))}
+                  {STORE_NAV_LINKS.map((link, index) => {
+                    const active = isNavActive(pathname, link.href);
+                    return (
+                      <li key={link.href}>
+                        <Link
+                          href={link.href}
+                          className="group flex items-baseline gap-4"
+                        >
+                          <span className="text-[11px] font-light tabular-nums text-gold/70">
+                            {String(index + 1).padStart(2, "0")}
+                          </span>
+                          <span
+                            className={cn(
+                              "border-b pb-0.5 text-lg font-normal tracking-[0.04em] transition-all duration-300",
+                              active
+                                ? "border-gold text-gold-light"
+                                : "border-transparent text-ivory group-hover:border-gold group-hover:text-gold-light"
+                            )}
+                          >
+                            {link.label}
+                          </span>
+                        </Link>
+                      </li>
+                    );
+                  })}
                 </ul>
               </nav>
 
               <Separator className="bg-ivory/10" />
 
-              {/* אזור אישי */}
               <div className="space-y-4 px-8 py-8">
                 <Button
                   asChild
@@ -149,7 +146,7 @@ export function Navbar({ announcementText, contactPhone }: NavbarProps) {
                 >
                   <Link href="/login">
                     <UserRound className="ml-2 h-4 w-4" strokeWidth={1.25} />
-                    אזור אישי
+                    כניסת מנהל
                   </Link>
                 </Button>
                 <a
@@ -163,7 +160,6 @@ export function Navbar({ announcementText, contactPhone }: NavbarProps) {
             </SheetContent>
           </Sheet>
 
-          {/* מרכז — לוגו */}
           <Link
             href="/"
             className="group absolute left-1/2 -translate-x-1/2 text-center"
@@ -183,11 +179,10 @@ export function Navbar({ announcementText, contactPhone }: NavbarProps) {
                 transparent ? "text-gold-light" : "text-gold-dark"
               )}
             >
-              Diamonds
+              יהלומים
             </span>
           </Link>
 
-          {/* שמאל — סל קניות */}
           <div className={cn(transparent ? "text-ivory" : "text-foreground")}>
             <CartSheet />
           </div>

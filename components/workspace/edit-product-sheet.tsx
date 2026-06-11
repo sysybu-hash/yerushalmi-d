@@ -2,12 +2,12 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { useSearchParams } from "next/navigation";
 import { useFormStatus } from "react-dom";
 import { CldUploadWidget } from "next-cloudinary";
-import { ImagePlus, Loader2, Plus, X } from "lucide-react";
+import { ImagePlus, Loader2, Pencil, X } from "lucide-react";
 
-import { addProduct } from "@/app/(workspace)/workspace/products/actions";
+import { updateProduct } from "@/app/(workspace)/workspace/products/actions";
+import type { products } from "@/db/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,6 +32,8 @@ import {
   PRODUCT_TYPES,
 } from "@/components/workspace/product-constants";
 
+type Product = typeof products.$inferSelect;
+
 function SubmitButton() {
   const { pending } = useFormStatus();
 
@@ -47,114 +49,124 @@ function SubmitButton() {
           שומר...
         </>
       ) : (
-        "הוספת תכשיט"
+        "שמירת שינויים"
       )}
     </Button>
   );
 }
 
-export function AddProductSheet() {
-  // תמונה שהגיעה מסטודיו ה־AI ("דחיפה למלאי") — נפתח אוטומטית איתה
-  const searchParams = useSearchParams();
-  const incomingImageUrl = searchParams.get("image_url");
-
-  const [open, setOpen] = React.useState(Boolean(incomingImageUrl));
+export function EditProductSheet({ product }: { product: Product }) {
+  const [open, setOpen] = React.useState(false);
   const [imageUrl, setImageUrl] = React.useState<string | null>(
-    incomingImageUrl
+    product.imageUrl
   );
   const [error, setError] = React.useState<string | null>(null);
 
   async function handleSubmit(formData: FormData) {
     setError(null);
     try {
-      await addProduct(formData);
-      setImageUrl(null);
+      await updateProduct(product.id, formData);
       setOpen(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "ההוספה נכשלה");
+      setError(e instanceof Error ? e.message : "השמירה נכשלה");
     }
   }
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button className="rounded-none text-xs font-light tracking-[0.15em]">
-          <Plus className="ml-2 h-4 w-4" strokeWidth={1.5} />
-          תכשיט חדש
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label={`עריכת ${product.title}`}
+          className="text-muted-foreground hover:text-foreground"
+        >
+          <Pencil className="h-4 w-4" strokeWidth={1.5} />
         </Button>
       </SheetTrigger>
 
       <SheetContent side="left" className="w-full overflow-y-auto sm:max-w-md">
         <SheetHeader className="text-right">
           <SheetTitle className="font-serif text-2xl font-light tracking-wide">
-            תכשיט חדש
+            עריכת תכשיט
           </SheetTitle>
           <SheetDescription className="font-light">
-            הוספת פריט חדש למלאי החנות
+            עדכון פרטי המוצר במלאי
           </SheetDescription>
         </SheetHeader>
 
         <form action={handleSubmit} className="mt-8 space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="title" className="font-light">
+            <Label htmlFor={`title-${product.id}`} className="font-light">
               שם המוצר *
             </Label>
             <Input
-              id="title"
+              id={`title-${product.id}`}
               name="title"
               required
-              placeholder="לדוגמה: טבעת סוליטר 1.5 קראט"
+              defaultValue={product.title}
               className="rounded-none"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description" className="font-light">
+            <Label
+              htmlFor={`description-${product.id}`}
+              className="font-light"
+            >
               תיאור
             </Label>
             <Textarea
-              id="description"
+              id={`description-${product.id}`}
               name="description"
               rows={4}
-              placeholder="תיאור המוצר שיוצג בחנות..."
+              defaultValue={product.description ?? ""}
               className="rounded-none resize-none"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="original_price" className="font-light">
+            <Label
+              htmlFor={`original_price-${product.id}`}
+              className="font-light"
+            >
               מחיר לפני הנחה (אופציונלי)
             </Label>
             <Input
-              id="original_price"
+              id={`original_price-${product.id}`}
               name="original_price"
               type="number"
               min="0"
               step="0.01"
-              placeholder="יוצג מחוק לצד מחיר המבצע"
+              defaultValue={product.originalPrice ?? ""}
               className="rounded-none"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="price" className="font-light">
+            <Label htmlFor={`price-${product.id}`} className="font-light">
               מחיר (₪) *
             </Label>
             <Input
-              id="price"
+              id={`price-${product.id}`}
               name="price"
               type="number"
               required
               min="0"
               step="0.01"
-              placeholder="0.00"
+              defaultValue={product.price}
               className="rounded-none"
             />
           </div>
 
           <div className="space-y-2">
             <Label className="font-light">סוג יהלום *</Label>
-            <Select name="type" required dir="rtl" defaultValue="natural">
+            <Select
+              name="type"
+              required
+              dir="rtl"
+              defaultValue={product.type}
+            >
               <SelectTrigger className="rounded-none">
                 <SelectValue placeholder="בחירת סוג" />
               </SelectTrigger>
@@ -170,7 +182,12 @@ export function AddProductSheet() {
 
           <div className="space-y-2">
             <Label className="font-light">קטגוריה *</Label>
-            <Select name="category" required dir="rtl">
+            <Select
+              name="category"
+              required
+              dir="rtl"
+              defaultValue={product.category}
+            >
               <SelectTrigger className="rounded-none">
                 <SelectValue placeholder="בחירת קטגוריה" />
               </SelectTrigger>
@@ -184,11 +201,8 @@ export function AddProductSheet() {
             </Select>
           </div>
 
-          {/* תמונת מוצר — Cloudinary */}
           <div className="space-y-2">
             <Label className="font-light">תמונת מוצר</Label>
-
-            {/* הכתובת נשלחת עם הטופס דרך שדה נסתר */}
             <input type="hidden" name="image_url" value={imageUrl ?? ""} />
 
             {imageUrl ? (
@@ -196,7 +210,7 @@ export function AddProductSheet() {
                 <div className="relative h-20 w-20 shrink-0 overflow-hidden border border-border/60">
                   <Image
                     src={imageUrl}
-                    alt="תצוגה מקדימה של תמונת המוצר"
+                    alt="תצוגה מקדימה"
                     fill
                     sizes="80px"
                     className="object-cover"
@@ -237,7 +251,7 @@ export function AddProductSheet() {
                     className="w-full rounded-none border-dashed text-xs font-light tracking-[0.1em]"
                   >
                     <ImagePlus className="ml-2 h-4 w-4" strokeWidth={1.5} />
-                    העלאת תמונת תכשיט
+                    העלאת תמונה
                   </Button>
                 )}
               </CldUploadWidget>

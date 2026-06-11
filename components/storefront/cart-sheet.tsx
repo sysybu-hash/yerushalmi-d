@@ -3,7 +3,7 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Gem, ShoppingBag, Trash2 } from "lucide-react";
+import { Gem, Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
 
 import { useCart } from "@/hooks/use-cart";
 import { Button } from "@/components/ui/button";
@@ -24,9 +24,9 @@ const priceFormatter = new Intl.NumberFormat("he-IL", {
 
 export function CartSheet() {
   const [open, setOpen] = React.useState(false);
-  const { items, removeItem, getTotalPrice, getTotalItems } = useCart();
+  const { items, removeItem, updateQuantity, getTotalPrice, getTotalItems } =
+    useCart();
 
-  // מניעת אי-התאמת hydration — localStorage קיים רק בדפדפן
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
 
@@ -59,7 +59,13 @@ export function CartSheet() {
 
         <Separator className="bg-border/60" />
 
-        {!mounted || items.length === 0 ? (
+        {!mounted ? (
+          <div className="flex flex-1 items-center justify-center px-6">
+            <p className="text-sm font-light text-muted-foreground">
+              טוען סל...
+            </p>
+          </div>
+        ) : items.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
             <ShoppingBag
               className="h-10 w-10 text-muted-foreground"
@@ -71,11 +77,14 @@ export function CartSheet() {
           </div>
         ) : (
           <>
-            {/* פריטי הסל */}
             <ul className="flex-1 divide-y divide-border/60 overflow-y-auto px-6">
               {items.map((item) => (
                 <li key={item.id} className="flex items-center gap-4 py-4">
-                  <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden border border-border/60 bg-gradient-to-br from-stone-100 to-stone-200">
+                  <Link
+                    href={`/products/${item.id}`}
+                    onClick={() => setOpen(false)}
+                    className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden border border-border/60 bg-gradient-to-br from-stone-100 to-stone-200"
+                  >
                     {item.imageUrl ? (
                       <Image
                         src={item.imageUrl}
@@ -90,14 +99,48 @@ export function CartSheet() {
                         strokeWidth={0.75}
                       />
                     )}
-                  </div>
+                  </Link>
 
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-light">{item.title}</p>
+                    <Link
+                      href={`/products/${item.id}`}
+                      onClick={() => setOpen(false)}
+                      className="block truncate text-sm font-light hover:text-gold-dark"
+                    >
+                      {item.title}
+                    </Link>
                     <p className="mt-0.5 text-xs font-light text-muted-foreground">
-                      {item.quantity > 1 && `${item.quantity} × `}
                       {priceFormatter.format(item.price)}
                     </p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        aria-label="הפחתת כמות"
+                        className="h-7 w-7 rounded-none"
+                        onClick={() =>
+                          updateQuantity(item.id, item.quantity - 1)
+                        }
+                      >
+                        <Minus className="h-3 w-3" />
+                      </Button>
+                      <span className="min-w-6 text-center text-xs tabular-nums">
+                        {item.quantity}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        aria-label="הוספת כמות"
+                        className="h-7 w-7 rounded-none"
+                        onClick={() =>
+                          updateQuantity(item.id, item.quantity + 1)
+                        }
+                      >
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
 
                   <Button
@@ -115,7 +158,6 @@ export function CartSheet() {
 
             <Separator className="bg-border/60" />
 
-            {/* סיכום ותשלום */}
             <div className="space-y-4 px-6 py-6">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-light">סך הכל</span>
@@ -129,7 +171,7 @@ export function CartSheet() {
                 className="w-full rounded-none text-xs font-light tracking-[0.2em]"
               >
                 <Link href="/checkout" onClick={() => setOpen(false)}>
-                  המשך לתשלום
+                  המשך להזמנה
                 </Link>
               </Button>
             </div>

@@ -1,14 +1,18 @@
 import Link from "next/link";
-import { Gem, MapPin, Phone } from "lucide-react";
+import { Gem, MapPin, MessageCircle, Phone } from "lucide-react";
 
+import { STORE_NAV_LINKS } from "@/lib/categories";
 import type { SiteSettings } from "@/lib/site-settings";
 
 export function Footer({ settings }: { settings: SiteSettings }) {
+  const collectionLinks = STORE_NAV_LINKS.filter((link) =>
+    link.href.startsWith("/collections/")
+  );
+
   return (
     <footer className="border-t border-gold/30 bg-charcoal text-ivory">
       <div className="mx-auto max-w-7xl px-4 py-16 sm:px-8">
         <div className="grid gap-12 text-center sm:grid-cols-3 sm:text-right">
-          {/* מיתוג */}
           <div>
             <Gem
               aria-hidden
@@ -19,25 +23,19 @@ export function Footer({ settings }: { settings: SiteSettings }) {
               ירושלמי
             </p>
             <p className="mt-1 text-[9px] uppercase tracking-[0.5em] text-gold">
-              Diamonds
+              יהלומים
             </p>
             <p className="mt-4 text-xs font-light leading-relaxed text-ivory/60">
               {settings.contactNote}
             </p>
           </div>
 
-          {/* ניווט */}
           <nav>
             <h3 className="text-xs font-normal uppercase tracking-[0.25em] text-gold">
-              ניווט
+              קולקציות
             </h3>
             <ul className="mt-5 space-y-3">
-              {[
-                { label: "טבעות", href: "/collections/rings" },
-                { label: "צמידים", href: "/collections/bracelets" },
-                { label: "תליונים", href: "/collections/necklaces" },
-                { label: "עיצוב אישי", href: "/collections/custom" },
-              ].map((link) => (
+              {collectionLinks.map((link) => (
                 <li key={link.href}>
                   <Link
                     href={link.href}
@@ -47,10 +45,17 @@ export function Footer({ settings }: { settings: SiteSettings }) {
                   </Link>
                 </li>
               ))}
+              <li>
+                <Link
+                  href="/contact"
+                  className="text-sm font-light text-ivory/75 transition-colors hover:text-gold-light"
+                >
+                  צור קשר
+                </Link>
+              </li>
             </ul>
           </nav>
 
-          {/* יצירת קשר */}
           <div>
             <h3 className="text-xs font-normal uppercase tracking-[0.25em] text-gold">
               יצירת קשר
@@ -63,6 +68,20 @@ export function Footer({ settings }: { settings: SiteSettings }) {
                 >
                   <Phone className="h-3.5 w-3.5 text-gold" strokeWidth={1.25} />
                   <span dir="ltr">{settings.contactPhone}</span>
+                </a>
+              </li>
+              <li>
+                <a
+                  href={`https://wa.me/${settings.contactWhatsapp}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 transition-colors hover:text-gold-light"
+                >
+                  <MessageCircle
+                    className="h-3.5 w-3.5 text-gold"
+                    strokeWidth={1.25}
+                  />
+                  וואטסאפ
                 </a>
               </li>
               <li className="flex items-center justify-center gap-2 sm:justify-start">

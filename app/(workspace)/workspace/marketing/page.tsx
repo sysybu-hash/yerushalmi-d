@@ -42,6 +42,10 @@ export default async function MarketingPage() {
               ? `${campaigns.length} קמפיינים במערכת`
               : "עדכנו את הלקוחות על מבצעים ותכשיטים חדשים"}
           </p>
+          <p className="mt-1 text-xs font-light text-muted-foreground/80">
+            שליחה בפועל תתחבר בהמשך ל-Resend (אימייל) או ספק SMS — כרגע נשמר
+            כטיוטה ומסומן כנשלח לצורך בדיקה.
+          </p>
         </div>
         <CreateCampaignSheet />
       </div>

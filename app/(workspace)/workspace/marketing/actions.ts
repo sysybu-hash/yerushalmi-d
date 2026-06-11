@@ -5,17 +5,20 @@ import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
 import { campaigns, customers } from "@/db/schema";
+import { requireAdmin } from "@/lib/auth";
 
 const CAMPAIGN_TYPES = ["email", "sms"] as const;
 type CampaignType = (typeof CAMPAIGN_TYPES)[number];
 
 /** שליפת כל הקמפיינים, מהחדש לישן */
 export async function getCampaigns() {
+  await requireAdmin();
   return db.select().from(campaigns).orderBy(desc(campaigns.createdAt));
 }
 
 /** יצירת טיוטת קמפיין חדשה מתוך טופס */
 export async function createCampaign(formData: FormData) {
+  await requireAdmin();
   const title = formData.get("title")?.toString().trim();
   const content = formData.get("content")?.toString().trim();
   const type = formData.get("type")?.toString() as CampaignType;
@@ -43,6 +46,7 @@ export async function createCampaign(formData: FormData) {
  * Resend (אימייל) או ספק SMS ישראלי (019/InforU) בהמשך.
  */
 export async function sendCampaign(campaignId: number) {
+  await requireAdmin();
   if (!Number.isInteger(campaignId) || campaignId <= 0) {
     throw new Error("מזהה קמפיין לא תקין");
   }

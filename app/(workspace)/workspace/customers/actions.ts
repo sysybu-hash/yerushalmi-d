@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
 import { customers } from "@/db/schema";
+import { requireAdmin } from "@/lib/auth";
 
 export type ImportCustomerRow = {
   full_name: string;
@@ -14,6 +15,7 @@ export type ImportCustomerRow = {
 
 /** שליפת כל הלקוחות, מהחדש לישן */
 export async function getCustomers() {
+  await requireAdmin();
   return db.select().from(customers).orderBy(desc(customers.createdAt));
 }
 
@@ -23,6 +25,7 @@ export async function getCustomers() {
  * ושורות ללא שם נפסלות.
  */
 export async function importCustomers(customersList: ImportCustomerRow[]) {
+  await requireAdmin();
   if (!Array.isArray(customersList) || customersList.length === 0) {
     throw new Error("לא נמצאו לקוחות לייבוא");
   }

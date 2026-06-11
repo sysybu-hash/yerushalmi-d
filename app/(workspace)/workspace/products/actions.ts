@@ -5,17 +5,12 @@ import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
 import { products } from "@/db/schema";
+import { requireAdmin } from "@/lib/auth";
 
 const PRODUCT_TYPES = ["natural", "lab"] as const;
 type ProductType = (typeof PRODUCT_TYPES)[number];
 
-/** שליפת כל המוצרים, מהחדש לישן */
-export async function getProducts() {
-  return db.select().from(products).orderBy(desc(products.createdAt));
-}
-
-/** הוספת מוצר חדש מתוך טופס */
-export async function addProduct(formData: FormData) {
+function parseProductForm(formData: FormData) {
   const title = formData.get("title")?.toString().trim();
   const description = formData.get("description")?.toString().trim() || null;
   const priceRaw = formData.get("price")?.toString().trim();
@@ -61,21 +56,56 @@ export async function addProduct(formData: FormData) {
     throw new Error("כתובת התמונה אינה תקינה");
   }
 
-  await db.insert(products).values({
+  return {
     title,
     description,
     price: price.toFixed(2),
-    originalPrice: originalPrice !== null ? originalPrice.toFixed(2) : null,
+    originalPrice:
+      originalPrice !== null ? originalPrice.toFixed(2) : null,
     type,
     category,
     imageUrl,
-  });
+  };
+}
+
+/** שליפת כל המוצרים, מהחדש לישן */
+export async function getProducts() {
+  await requireAdmin();
+  return db.select().from(products).orderBy(desc(products.createdAt));
+}
+
+/** הוספת מוצר חדש מתוך טופס */
+export async function addProduct(formData: FormData) {
+  await requireAdmin();
+  const data = parseProductForm(formData);
+
+  await db.insert(products).values(data);
 
   revalidatePath("/workspace/products");
+  revalidatePath("/", "layout");
+}
+
+/** עדכון מוצר קיים */
+export async function updateProduct(id: number, formData: FormData) {
+  await requireAdmin();
+
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new Error("מזהה מוצר לא תקין");
+  }
+
+  const data = parseProductForm(formData);
+
+  await db.update(products).set(data).where(eq(products.id, id));
+
+  revalidatePath("/workspace/products");
+  revalidatePath("/", "layout");
+  revalidatePath(`/products/${id}`);
 }
 
 /** מחיקת מוצר לפי מזהה */
 export async function deleteProduct(id: number) {
+  await requireAdmin();
+
   if (!Number.isInteger(id) || id <= 0) {
     throw new Error("מזהה מוצר לא תקין");
   }
@@ -83,4 +113,6 @@ export async function deleteProduct(id: number) {
   await db.delete(products).where(eq(products.id, id));
 
   revalidatePath("/workspace/products");
+  revalidatePath("/", "layout");
 }
+

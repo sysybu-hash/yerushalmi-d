@@ -15,6 +15,7 @@ type CartState = {
   items: CartItem[];
   addItem: (item: Omit<CartItem, "quantity">) => void;
   removeItem: (id: number) => void;
+  updateQuantity: (id: number, quantity: number) => void;
   clearCart: () => void;
   getTotalPrice: () => number;
   getTotalItems: () => number;
@@ -43,6 +44,16 @@ export const useCart = create<CartState>()(
         set((state) => ({
           items: state.items.filter((i) => i.id !== id),
         })),
+
+      updateQuantity: (id, quantity) =>
+        set((state) => {
+          const next = Math.max(1, Math.min(99, Math.trunc(quantity)));
+          return {
+            items: state.items.map((i) =>
+              i.id === id ? { ...i, quantity: next } : i
+            ),
+          };
+        }),
 
       clearCart: () => set({ items: [] }),
 

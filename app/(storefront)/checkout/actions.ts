@@ -1,9 +1,10 @@
 "use server";
 
-import { inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
-import { orderItems, orders, products } from "@/db/schema";
+import { customers, orderItems, orders, products } from "@/db/schema";
 
 export type CheckoutItem = {
   id: number;
@@ -14,11 +15,51 @@ export type CheckoutCustomer = {
   fullName: string;
   email: string;
   phone: string;
+  notes?: string;
 };
+
+async function upsertCustomer(fullName: string, email: string | null, phone: string) {
+  if (email) {
+    const existing = await db
+      .select()
+      .from(customers)
+      .where(eq(customers.email, email))
+      .limit(1);
+
+    if (existing[0]) {
+      await db
+        .update(customers)
+        .set({ fullName, phone })
+        .where(eq(customers.id, existing[0].id));
+      return;
+    }
+  }
+
+  const byPhone = await db
+    .select()
+    .from(customers)
+    .where(eq(customers.phone, phone))
+    .limit(1);
+
+  if (byPhone[0]) {
+    await db
+      .update(customers)
+      .set({ fullName, email: email ?? byPhone[0].email })
+      .where(eq(customers.id, byPhone[0].id));
+    return;
+  }
+
+  await db.insert(customers).values({
+    fullName,
+    email,
+    phone,
+  });
+
+  revalidatePath("/workspace/customers");
+}
 
 /**
  * יצירת הזמנה: המחירים נשלפים מהדאטהבייס (לא מהלקוח!)
- * כדי שלא ניתן יהיה לזייף מחיר בצד הדפדפן.
  */
 export async function createOrder(
   customer: CheckoutCustomer,
@@ -48,7 +89,6 @@ export async function createOrder(
 
   const productById = new Map(dbProducts.map((p) => [p.id, p]));
 
-  // בניית שורות ההזמנה לפי המחיר האמיתי בדאטהבייס
   const lines = items.map((item) => {
     const product = productById.get(item.id);
     if (!product) {
@@ -81,6 +121,11 @@ export async function createOrder(
   await db.insert(orderItems).values(
     lines.map((line) => ({ ...line, orderId: order.id }))
   );
+
+  await upsertCustomer(fullName, email, phone);
+
+  revalidatePath("/workspace/orders");
+  revalidatePath("/workspace");
 
   return { orderId: order.id };
 }

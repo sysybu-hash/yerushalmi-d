@@ -6,12 +6,14 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { siteSettings } from "@/db/schema";
 import { SETTING_KEYS, type SettingKey } from "@/lib/site-settings";
+import { requireAdmin } from "@/lib/auth";
 
 /**
  * שמירת הגדרות האתר: upsert לכל מפתח מוכר שנשלח בטופס.
  * ערך ריק נשמר כריק — האתר יחזור לברירת המחדל עבורו.
  */
 export async function saveSiteSettings(formData: FormData) {
+  await requireAdmin();
   const entries: { key: SettingKey; value: string }[] = [];
 
   for (const key of SETTING_KEYS) {

@@ -1,5 +1,6 @@
-import { Navbar } from "@/components/storefront/navbar";
 import { Footer } from "@/components/storefront/footer";
+import { Navbar } from "@/components/storefront/navbar";
+import { WhatsAppButton } from "@/components/storefront/whatsapp-button";
 import { getSiteSettings } from "@/lib/site-settings";
 
 // ה-layout קורא הגדרות מהדאטהבייס — נטען בזמן בקשה
@@ -13,14 +14,15 @@ export default async function StorefrontLayout({
   const settings = await getSiteSettings();
 
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground">
       <Navbar
         announcementText={settings.announcementText}
         contactPhone={settings.contactPhone}
       />
       {/* פיצוי על ה-header הקבוע; דף הבית מבטל אותו עם margin שלילי ל-Hero */}
-      <main className="flex-1 pt-[104px]">{children}</main>
+      <main className="pt-[104px]">{children}</main>
       <Footer settings={settings} />
+      <WhatsAppButton phone={settings.contactWhatsapp} />
     </div>
   );
 }

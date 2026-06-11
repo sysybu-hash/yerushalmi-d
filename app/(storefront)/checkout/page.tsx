@@ -41,12 +41,12 @@ export default function CheckoutPage() {
 
     startTransition(async () => {
       try {
-        await createOrder(
+        const { orderId } = await createOrder(
           customer,
           items.map((i) => ({ id: i.id, quantity: i.quantity }))
         );
         clearCart();
-        router.push("/checkout/success");
+        router.push(`/checkout/success?order=${orderId}`);
       } catch (e) {
         setError(
           e instanceof Error ? e.message : "אירעה שגיאה — נסו שוב בעוד רגע"
@@ -55,7 +55,15 @@ export default function CheckoutPage() {
     });
   }
 
-  if (!mounted) return null;
+  if (!mounted) {
+    return (
+      <section className="flex min-h-[60vh] items-center justify-center px-4">
+        <p className="text-sm font-light text-muted-foreground">
+          טוען את הסל...
+        </p>
+      </section>
+    );
+  }
 
   if (items.length === 0) {
     return (
@@ -133,7 +141,7 @@ export default function CheckoutPage() {
           <Separator className="bg-border/60" />
 
           <div className="mt-6 flex items-center justify-between">
-            <span className="text-sm font-light">סך הכל לתשלום</span>
+            <span className="text-sm font-light">סך הכל</span>
             <span className="font-serif text-3xl font-light tracking-wide">
               {priceFormatter.format(getTotalPrice())}
             </span>

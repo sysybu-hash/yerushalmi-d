@@ -1,7 +1,9 @@
+import { Suspense } from "react";
 import Image from "next/image";
 import { Gem, ImageOff } from "lucide-react";
 
 import { AddProductSheet } from "@/components/workspace/add-product-sheet";
+import { EditProductSheet } from "@/components/workspace/edit-product-sheet";
 import {
   PRODUCT_CATEGORIES,
   PRODUCT_TYPES,
@@ -53,7 +55,9 @@ export default async function ProductsPage() {
               : "ניהול קולקציית התכשיטים של החנות"}
           </p>
         </div>
-        <AddProductSheet />
+        <Suspense fallback={null}>
+          <AddProductSheet />
+        </Suspense>
       </div>
 
       {/* טבלת מוצרים */}
@@ -130,10 +134,13 @@ export default async function ProductsPage() {
                     {priceFormatter.format(Number(product.price))}
                   </TableCell>
                   <TableCell className="text-left">
-                    <DeleteProductButton
-                      id={product.id}
-                      title={product.title}
-                    />
+                    <div className="flex items-center justify-end gap-1">
+                      <EditProductSheet product={product} />
+                      <DeleteProductButton
+                        id={product.id}
+                        title={product.title}
+                      />
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

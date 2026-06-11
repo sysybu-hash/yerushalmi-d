@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { desc } from "drizzle-orm";
+import { and, desc, isNotNull, sql } from "drizzle-orm";
 import {
   ArrowLeft,
   BadgePercent,
@@ -15,7 +15,8 @@ import {
 
 import { db } from "@/db";
 import { products } from "@/db/schema";
-import { getSiteSettings, type SiteSettings } from "@/lib/site-settings";
+import { getSiteSettings } from "@/lib/site-settings";
+import { homepageCategories } from "@/lib/categories";
 import { Button } from "@/components/ui/button";
 import { ProductCard } from "@/components/storefront/product-card";
 
@@ -45,13 +46,8 @@ const TRUST_FEATURES = [
   },
 ];
 
-function categoriesFromSettings(s: SiteSettings) {
-  return [
-    { name: s.categoryRingsTitle, image: s.categoryRingsImage, href: "/collections/rings" },
-    { name: s.categoryBraceletsTitle, image: s.categoryBraceletsImage, href: "/collections/bracelets" },
-    { name: s.categoryNecklacesTitle, image: s.categoryNecklacesImage, href: "/collections/necklaces" },
-    { name: s.categoryCustomTitle, image: s.categoryCustomImage, href: "/collections/custom" },
-  ];
+function categoriesFromSettings(s: Awaited<ReturnType<typeof getSiteSettings>>) {
+  return homepageCategories(s);
 }
 
 /** כותרת סקציה אחידה: שורת פתיח, כותרת סריף, קו זהב קצר */
@@ -91,7 +87,17 @@ function SectionHeading({
 export default async function HomePage() {
   const [settings, featuredProducts] = await Promise.all([
     getSiteSettings(),
-    db.select().from(products).orderBy(desc(products.createdAt)).limit(12),
+    db
+      .select()
+      .from(products)
+      .where(
+        and(
+          isNotNull(products.originalPrice),
+          sql`${products.originalPrice}::numeric > ${products.price}::numeric`
+        )
+      )
+      .orderBy(desc(products.createdAt))
+      .limit(12),
   ]);
 
   const categories = categoriesFromSettings(settings);
@@ -99,27 +105,25 @@ export default async function HomePage() {
   return (
     <>
       {/* 1. Hero — מבטל את ה-padding של ה-layout ויושב מאחורי ה-header */}
-      <section className="relative -mt-[104px] flex min-h-screen flex-col items-center justify-center overflow-hidden bg-charcoal px-4 text-center">
-        {/* תמונת רקע */}
-        {settings.heroImage ? (
-          <Image
-            src={settings.heroImage}
-            alt=""
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover"
-          />
-        ) : (
-          <div
-            aria-hidden
-            className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(180,154,94,0.18),transparent_55%)]"
-          />
-        )}
-        {/* שכבת כהות לקריאות */}
-        <div aria-hidden className="absolute inset-0 bg-black/50" />
+      <section className="relative -mt-[104px] flex min-h-screen flex-col items-center justify-center bg-charcoal px-4 text-center">
+        {/* overflow-hidden רק על הרקע — לא על כל הסקציה, כדי לא לחסום גלילה במובייל */}
+        <div aria-hidden className="absolute inset-0 overflow-hidden">
+          {settings.heroImage ? (
+            <Image
+              src={settings.heroImage}
+              alt=""
+              fill
+              priority
+              sizes="100vw"
+              className="object-cover"
+            />
+          ) : (
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(180,154,94,0.18),transparent_55%)]" />
+          )}
+          <div className="absolute inset-0 bg-black/50" />
+        </div>
 
-        <div className="relative max-w-4xl">
+        <div className="relative z-10 max-w-4xl">
           <p className="text-xs font-light tracking-[0.35em] text-gold-light">
             {settings.heroBadge}
           </p>
@@ -136,8 +140,8 @@ export default async function HomePage() {
             asChild
             className="group mt-12 rounded-none border border-gold bg-transparent px-12 py-6 text-xs font-normal tracking-[0.25em] text-gold-light shadow-none transition-all duration-300 hover:bg-gold hover:text-charcoal"
           >
-            <Link href="/collections/rings">
-              לכל הקולקציות
+            <Link href="/collections/engagement-rings">
+              גלו את הקולקציות
               <ArrowLeft
                 className="mr-3 h-4 w-4 transition-transform duration-300 group-hover:-translate-x-1"
                 strokeWidth={1.5}
@@ -147,7 +151,7 @@ export default async function HomePage() {
         </div>
 
         {/* אינדיקטור גלילה */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
+        <div className="absolute bottom-8 left-1/2 z-10 -translate-x-1/2 animate-bounce">
           <ChevronDown className="h-5 w-5 text-gold/80" strokeWidth={1.25} />
         </div>
       </section>
@@ -167,7 +171,7 @@ export default async function HomePage() {
               strokeWidth={0.75}
             />
             <p className="text-sm font-light text-muted-foreground">
-              הקולקציה מתעדכנת בימים אלה — נשמח לראותכם בקרוב
+              אין כרגע מבצעים פעילים — נשמח לייעץ לכם בטלפון
             </p>
           </div>
         ) : (

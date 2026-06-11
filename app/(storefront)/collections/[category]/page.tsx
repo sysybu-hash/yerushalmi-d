@@ -1,50 +1,36 @@
 import Image from "next/image";
+import { notFound } from "next/navigation";
 import { desc, eq } from "drizzle-orm";
 import { Gem } from "lucide-react";
 
 import { db } from "@/db";
 import { products } from "@/db/schema";
-import { getSiteSettings, type SiteSettings } from "@/lib/site-settings";
+import { getSiteSettings } from "@/lib/site-settings";
+import {
+  collectionLabel,
+  getCategoryBannerImage,
+  isCollectionSlug,
+} from "@/lib/categories";
 import { ProductCard } from "@/components/storefront/product-card";
 
-// העמוד מציג מלאי והגדרות חיים מהדאטהבייס — נטען בזמן בקשה
 export const dynamic = "force-dynamic";
 
 type CategoryPageProps = {
   params: { category: string };
 };
 
-const CATEGORY_NAMES: Record<string, string> = {
-  rings: "טבעות",
-  "engagement-rings": "טבעות אירוסין",
-  bracelets: "צמידים",
-  necklaces: "תליונים ושרשראות",
-  earrings: "עגילים",
-  diamonds: "יהלומים",
-  custom: "עיצוב אישי",
-};
-
-/** תמונת הבאנר של הקטגוריה — מהגדרות האתר, אם קיימת */
-function categoryImage(slug: string, settings: SiteSettings): string {
-  const map: Record<string, string> = {
-    rings: settings.categoryRingsImage,
-    "engagement-rings": settings.categoryRingsImage,
-    bracelets: settings.categoryBraceletsImage,
-    necklaces: settings.categoryNecklacesImage,
-    custom: settings.categoryCustomImage,
-  };
-  return map[slug] ?? "";
-}
-
-function categoryName(slug: string) {
-  return CATEGORY_NAMES[slug] ?? decodeURIComponent(slug);
-}
-
 export function generateMetadata({ params }: CategoryPageProps) {
-  return { title: categoryName(params.category) };
+  if (!isCollectionSlug(params.category)) {
+    return { title: "קולקציה לא נמצאה" };
+  }
+  return { title: collectionLabel(params.category) };
 }
 
 export default async function CategoryPage({ params }: CategoryPageProps) {
+  if (!isCollectionSlug(params.category)) {
+    notFound();
+  }
+
   const [settings, categoryProducts] = await Promise.all([
     getSiteSettings(),
     db
@@ -54,11 +40,11 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
       .orderBy(desc(products.createdAt)),
   ]);
 
-  const image = categoryImage(params.category, settings);
+  const image = getCategoryBannerImage(params.category, settings);
+  const title = collectionLabel(params.category);
 
   return (
     <>
-      {/* Hero — באנר הקטגוריה */}
       <section className="relative -mt-[104px] flex min-h-[48vh] flex-col items-center justify-center overflow-hidden bg-charcoal px-4 pt-[104px] text-center">
         {image ? (
           <Image
@@ -82,13 +68,12 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
             הקולקציות שלנו
           </p>
           <h1 className="mt-4 font-serif text-4xl font-medium tracking-wide text-ivory sm:text-5xl">
-            {categoryName(params.category)}
+            {title}
           </h1>
           <span className="mx-auto mt-6 block h-px w-16 bg-gold" />
         </div>
       </section>
 
-      {/* רשת המוצרים */}
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-8">
         {categoryProducts.length === 0 ? (
           <div className="flex flex-col items-center gap-4 py-20 text-center">

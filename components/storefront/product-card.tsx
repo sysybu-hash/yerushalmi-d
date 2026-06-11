@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { Gem } from "lucide-react";
 
 import type { Product } from "@/db/schema";
@@ -27,8 +28,11 @@ export function ProductCard({ product }: { product: Product }) {
         </span>
       )}
 
-      {/* תמונת המוצר מ-Cloudinary, או fallback אלגנטי */}
-      <div className="relative flex aspect-square items-center justify-center overflow-hidden bg-gradient-to-br from-secondary to-muted">
+      {/* תמונת המוצר — לחיצה מובילה לדף המוצר */}
+      <Link
+        href={`/products/${product.id}`}
+        className="relative block aspect-square overflow-hidden bg-gradient-to-br from-secondary to-muted"
+      >
         {product.imageUrl ? (
           <Image
             src={product.imageUrl}
@@ -38,21 +42,25 @@ export function ProductCard({ product }: { product: Product }) {
             className="object-cover transition-transform duration-500 group-hover:scale-110"
           />
         ) : (
-          <Gem
-            aria-hidden
-            className="h-8 w-8 text-gold/50 transition-transform duration-500 group-hover:scale-110"
-            strokeWidth={0.75}
-          />
+          <div className="flex h-full items-center justify-center">
+            <Gem
+              aria-hidden
+              className="h-8 w-8 text-gold/50 transition-transform duration-500 group-hover:scale-110"
+              strokeWidth={0.75}
+            />
+          </div>
         )}
-      </div>
+      </Link>
 
       <CardContent className="space-y-2.5 p-4 text-center">
-        <h3
-          className="truncate text-sm font-normal text-foreground"
-          title={product.title}
-        >
-          {product.title}
-        </h3>
+        <Link href={`/products/${product.id}`}>
+          <h3
+            className="truncate text-sm font-normal text-foreground transition-colors hover:text-gold-dark"
+            title={product.title}
+          >
+            {product.title}
+          </h3>
+        </Link>
 
         <div className="flex items-center justify-center gap-2">
           {onSale && (

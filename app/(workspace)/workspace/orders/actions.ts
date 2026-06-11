@@ -9,9 +9,11 @@ import {
   ORDER_STATUSES,
   type OrderStatus,
 } from "@/components/workspace/order-constants";
+import { requireAdmin } from "@/lib/auth";
 
 /** שליפת כל ההזמנות כולל הפריטים שלהן, מהחדש לישן */
 export async function getOrders() {
+  await requireAdmin();
   return db.query.orders.findMany({
     with: { items: true },
     orderBy: desc(orders.createdAt),
@@ -23,6 +25,8 @@ export async function updateOrderStatus(
   orderId: number,
   newStatus: OrderStatus
 ) {
+  await requireAdmin();
+
   if (!Number.isInteger(orderId) || orderId <= 0) {
     throw new Error("מזהה הזמנה לא תקין");
   }
