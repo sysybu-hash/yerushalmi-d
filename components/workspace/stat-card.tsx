@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import Link from "next/link";
 
 import {
   Card,
@@ -14,11 +15,24 @@ type StatCardProps = {
   hint?: string;
   icon: LucideIcon;
   trend?: "up" | "down";
+  href?: string;
 };
 
-export function StatCard({ title, value, hint, icon: Icon, trend }: StatCardProps) {
-  return (
-    <Card className="rounded-none border-border/60 shadow-none transition-shadow hover:shadow-md">
+export function StatCard({
+  title,
+  value,
+  hint,
+  icon: Icon,
+  trend,
+  href,
+}: StatCardProps) {
+  const card = (
+    <Card
+      className={cn(
+        "rounded-none border-border/60 shadow-none transition-shadow hover:shadow-md",
+        href && "cursor-pointer"
+      )}
+    >
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-xs font-light tracking-[0.1em] text-muted-foreground">
           {title}
@@ -42,4 +56,14 @@ export function StatCard({ title, value, hint, icon: Icon, trend }: StatCardProp
       </CardContent>
     </Card>
   );
+
+  if (href) {
+    return (
+      <Link href={href} className="block">
+        {card}
+      </Link>
+    );
+  }
+
+  return card;
 }

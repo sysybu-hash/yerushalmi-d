@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useFormState, useFormStatus } from "react-dom";
-import { Gem, Loader2, XCircle } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Gem, Loader2, XCircle } from "lucide-react";
 
 import { login, type LoginState } from "./actions";
 import { Button } from "@/components/ui/button";
@@ -33,17 +34,16 @@ function SubmitButton() {
 
 export default function LoginPage() {
   const [state, formAction] = useFormState<LoginState, FormData>(login, null);
+  const [showPassword, setShowPassword] = React.useState(false);
 
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-b from-stone-950 via-stone-900 to-stone-800 px-4">
-      {/* הילת אור עדינה */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.1),transparent_55%)]"
       />
 
       <div className="relative w-full max-w-sm border border-stone-700/60 bg-stone-950/60 p-10 text-stone-50 backdrop-blur-sm">
-        {/* מיתוג */}
         <div className="text-center">
           <Gem
             aria-hidden
@@ -84,15 +84,29 @@ export default function LoginPage() {
             <Label htmlFor="password" className="font-light text-stone-300">
               סיסמה
             </Label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              required
-              autoComplete="current-password"
-              dir="ltr"
-              className="rounded-none border-stone-700 bg-stone-900/60 text-stone-100 placeholder:text-stone-500 focus-visible:ring-stone-400"
-            />
+            <div className="relative">
+              <Input
+                id="password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                required
+                autoComplete="current-password"
+                dir="ltr"
+                className="rounded-none border-stone-700 bg-stone-900/60 pl-10 text-stone-100 placeholder:text-stone-500 focus-visible:ring-stone-400"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "הסתרת סיסמה" : "הצגת סיסמה"}
+                className="absolute left-2 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-200"
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
           </div>
 
           {state?.error && (
@@ -105,7 +119,15 @@ export default function LoginPage() {
           <SubmitButton />
         </form>
 
-        <p className="mt-8 text-center text-[10px] font-light tracking-widest text-stone-500">
+        <Link
+          href="/"
+          className="mt-6 flex items-center justify-center gap-1.5 text-[11px] font-light tracking-[0.15em] text-stone-400 transition-colors hover:text-stone-200"
+        >
+          <ArrowRight className="h-3.5 w-3.5" />
+          חזרה לחנות
+        </Link>
+
+        <p className="mt-6 text-center text-[10px] font-light tracking-widest text-stone-500">
           הכניסה למנהלי החנות בלבד
         </p>
       </div>

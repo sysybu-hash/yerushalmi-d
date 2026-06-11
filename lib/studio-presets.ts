@@ -1,4 +1,5 @@
 import type { SettingKey } from "@/lib/site-settings";
+import { COLLECTION_SETTING_KEYS } from "@/lib/site-settings";
 
 export const STUDIO_STYLE_PRESETS = [
   {
@@ -70,30 +71,12 @@ export const STUDIO_PUBLISH_TARGETS: {
     description: "רקע גדול בראש דף הבית",
     previewPath: "/",
   },
-  {
-    key: "categoryRingsImage",
-    label: "באנר קולקציית טבעות",
-    description: "כרטיס / באנר בדף טבעות",
-    previewPath: "/collections/rings",
-  },
-  {
-    key: "categoryBraceletsImage",
-    label: "באנר קולקציית צמידים",
-    description: "כרטיס / באנר בדף צמידים",
-    previewPath: "/collections/bracelets",
-  },
-  {
-    key: "categoryNecklacesImage",
-    label: "באנר תליונים ושרשראות",
-    description: "כרטיס / באנר בדף שרשראות",
-    previewPath: "/collections/necklaces",
-  },
-  {
-    key: "categoryCustomImage",
-    label: "באנר עיצוב אישי",
-    description: "כרטיס / באנר בעיצוב אישי",
-    previewPath: "/collections/custom",
-  },
+  ...COLLECTION_SETTING_KEYS.map((c) => ({
+    key: c.imageKey,
+    label: `באנר — ${c.slug}`,
+    description: `תמונת באנר לעמוד ${c.href}`,
+    previewPath: c.href,
+  })),
   {
     key: "aboutImage",
     label: "תמונת \"הסיפור שלנו\"",

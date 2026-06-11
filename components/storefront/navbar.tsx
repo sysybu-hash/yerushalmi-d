@@ -15,12 +15,17 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { STORE_NAV_LINKS } from "@/lib/categories";
 import { cn } from "@/lib/utils";
+
+export type StoreNavLink = {
+  label: string;
+  href: string;
+};
 
 type NavbarProps = {
   announcementText: string;
   contactPhone: string;
+  navLinks: readonly StoreNavLink[];
 };
 
 function isNavActive(pathname: string, href: string) {
@@ -28,7 +33,7 @@ function isNavActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function Navbar({ announcementText, contactPhone }: NavbarProps) {
+export function Navbar({ announcementText, contactPhone, navLinks }: NavbarProps) {
   const [open, setOpen] = React.useState(false);
   const pathname = usePathname();
 
@@ -108,7 +113,7 @@ export function Navbar({ announcementText, contactPhone }: NavbarProps) {
 
               <nav className="flex-1 overflow-y-auto px-8 py-8">
                 <ul className="space-y-5">
-                  {STORE_NAV_LINKS.map((link, index) => {
+                  {navLinks.map((link, index) => {
                     const active = isNavActive(pathname, link.href);
                     return (
                       <li key={link.href}>

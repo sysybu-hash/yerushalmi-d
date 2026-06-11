@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { MapPin, MessageCircle, Phone } from "lucide-react";
 
+import { ContactForm } from "@/components/storefront/contact-form";
 import { Button } from "@/components/ui/button";
 import { getSiteSettings } from "@/lib/site-settings";
 
@@ -86,6 +87,8 @@ export default async function ContactPage() {
         <p className="mt-12 text-sm font-light leading-relaxed text-muted-foreground">
           {settings.contactNote}
         </p>
+
+        <ContactForm />
 
         <Button
           asChild

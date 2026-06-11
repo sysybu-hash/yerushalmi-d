@@ -18,7 +18,12 @@ export function SendCampaignButton({
   const [error, setError] = React.useState<string | null>(null);
 
   function handleSend() {
-    if (!window.confirm(`לשלוח את "${title}" לכל הלקוחות עכשיו?`)) return;
+    if (
+      !window.confirm(
+        `לסמן את "${title}" כנשלח? (סימולציה — לא נשלח בפועל עדיין)`
+      )
+    )
+      return;
 
     setError(null);
     startTransition(async () => {
@@ -57,7 +62,7 @@ export function SendCampaignButton({
         ) : (
           <>
             <Send className="ml-1.5 h-3.5 w-3.5" strokeWidth={1.5} />
-            שלח עכשיו לכולם
+            סימון כנשלח
           </>
         )}
       </Button>

@@ -7,29 +7,50 @@ import { siteSettings } from "@/db/schema";
  * אם הטבלה ריקה, האתר מציג בדיוק את הערכים האלה (אין רגרסיה).
  */
 export const SETTING_DEFAULTS = {
+  /* מטא-דאטה */
+  siteTitle: "ירושלמי יהלומים | YERUSHALMI DIAMONDS",
+  siteDescription:
+    "יהלומים נדירים ותכשיטי יוקרה בעבודת יד — אלגנטיות על-זמנית.",
+
   /* פס הכרזה */
   announcementText: "משלוח עד הבית · אחריות מלאה ותעודה גימולוגית",
 
   /* Hero */
   heroBadge: "למעלה מ־35 שנה של מצוינות",
-  heroTitle: "תכשיט יהלום — יצירה של רגע מרגש",
+  heroTitle: "ירושלמי\nכל מוצר - יצירה",
   heroSubtitle:
     "זיכרון נצחי וסיפור שיישאר בלב לתמיד. למעלה מ־35 שנה בהתמחות ביהלומים.",
-  heroImage: "",
+  heroImage: "/images/hero-background.jpg",
 
   /* מבצעים */
   featuredTitle: "מבצעים נבחרים",
   featuredSubtitle: "הזדמנויות מיוחדות",
 
-  /* קטגוריות (שם + תמונה) */
+  /* קולקציות (שם + תמונה) — 7 slugs */
   categoryRingsTitle: "טבעות",
   categoryRingsImage: "",
+  categoryEngagementRingsTitle: "טבעות אירוסין",
+  categoryEngagementRingsImage: "",
   categoryBraceletsTitle: "צמידים",
   categoryBraceletsImage: "",
-  categoryNecklacesTitle: "תליונים",
+  categoryNecklacesTitle: "תליונים ושרשראות",
   categoryNecklacesImage: "",
+  categoryEarringsTitle: "עגילים",
+  categoryEarringsImage: "",
+  categoryDiamondsTitle: "יהלומים",
+  categoryDiamondsImage: "",
   categoryCustomTitle: "עיצוב אישי",
   categoryCustomImage: "",
+
+  /* אמון ושירות (4 פריטים בדף הבית) */
+  trust1Title: "ללא מתווכים",
+  trust1Text: "ישירות מהיצרן לצרכן",
+  trust2Title: "אמינות ושקיפות",
+  trust2Text: "כולל אחריות מלאה ותעודה גימולוגית",
+  trust3Title: "שירות VIP",
+  trust3Text: "שירות אישי עד בית הלקוח",
+  trust4Title: "מחירים ללא תחרות",
+  trust4Text: "באיכות הגבוהה ביותר, כי אתם קונים מיד ראשונה",
 
   /* הסיפור / אודות */
   aboutTitle: "משפחת ירושלמי — דור שלישי ליהלומנים",
@@ -48,12 +69,66 @@ export const SETTING_DEFAULTS = {
   contactLocation1: 'בורסת היהלומים ר"ג: בניין מכבי',
   contactLocation2: "גבעת זאב: רח' שבט בנימין",
   contactNote: "שירות עד בית הלקוח · קונים זהב · כולל אחריות מלאה ותעודה גימולוגית",
+
+  /* פוטר */
+  footerCopyright: "© ירושלמי יהלומים. כל הזכויות שמורות.",
 } as const;
 
 export type SettingKey = keyof typeof SETTING_DEFAULTS;
 export type SiteSettings = Record<SettingKey, string>;
 
 export const SETTING_KEYS = Object.keys(SETTING_DEFAULTS) as SettingKey[];
+
+/** מפתחות תמונה לקולקציות — לשימוש בסטודיו ובהגדרות */
+export const COLLECTION_SETTING_KEYS: {
+  slug: string;
+  titleKey: SettingKey;
+  imageKey: SettingKey;
+  href: string;
+}[] = [
+  {
+    slug: "rings",
+    titleKey: "categoryRingsTitle",
+    imageKey: "categoryRingsImage",
+    href: "/collections/rings",
+  },
+  {
+    slug: "engagement-rings",
+    titleKey: "categoryEngagementRingsTitle",
+    imageKey: "categoryEngagementRingsImage",
+    href: "/collections/engagement-rings",
+  },
+  {
+    slug: "bracelets",
+    titleKey: "categoryBraceletsTitle",
+    imageKey: "categoryBraceletsImage",
+    href: "/collections/bracelets",
+  },
+  {
+    slug: "necklaces",
+    titleKey: "categoryNecklacesTitle",
+    imageKey: "categoryNecklacesImage",
+    href: "/collections/necklaces",
+  },
+  {
+    slug: "earrings",
+    titleKey: "categoryEarringsTitle",
+    imageKey: "categoryEarringsImage",
+    href: "/collections/earrings",
+  },
+  {
+    slug: "diamonds",
+    titleKey: "categoryDiamondsTitle",
+    imageKey: "categoryDiamondsImage",
+    href: "/collections/diamonds",
+  },
+  {
+    slug: "custom",
+    titleKey: "categoryCustomTitle",
+    imageKey: "categoryCustomImage",
+    href: "/collections/custom",
+  },
+];
 
 /**
  * שליפת הגדרות האתר: שאילתה אחת, מיזוג מעל ברירות המחדל.

@@ -41,7 +41,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
   ]);
 
   const image = getCategoryBannerImage(params.category, settings);
-  const title = collectionLabel(params.category);
+  const title = collectionLabel(params.category, settings);
 
   return (
     <>

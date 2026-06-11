@@ -1,14 +1,21 @@
 "use server";
 
-import { desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
 import { products } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth";
+import { parseOptionalProductImageUrl } from "@/lib/product-images";
 
 const PRODUCT_TYPES = ["natural", "lab"] as const;
 type ProductType = (typeof PRODUCT_TYPES)[number];
+
+export type ProductFilters = {
+  q?: string;
+  category?: string;
+  sort?: string;
+};
 
 function parseProductForm(formData: FormData) {
   const title = formData.get("title")?.toString().trim();
@@ -17,7 +24,14 @@ function parseProductForm(formData: FormData) {
   const originalPriceRaw = formData.get("original_price")?.toString().trim();
   const type = formData.get("type")?.toString() as ProductType;
   const category = formData.get("category")?.toString().trim();
-  const imageUrl = formData.get("image_url")?.toString().trim() || null;
+  const imageUrl = parseOptionalProductImageUrl(
+    formData.get("image_url"),
+    "תמונה ראשית"
+  );
+  const secondaryImageUrl = parseOptionalProductImageUrl(
+    formData.get("secondary_image_url"),
+    "תמונה שנייה"
+  );
 
   if (!title) {
     throw new Error("שם המוצר הוא שדה חובה");
@@ -44,18 +58,6 @@ function parseProductForm(formData: FormData) {
     throw new Error("יש לבחור קטגוריה");
   }
 
-  const ALLOWED_IMAGE_HOSTS = [
-    "https://res.cloudinary.com/",
-    "https://replicate.delivery/",
-  ];
-  if (
-    imageUrl &&
-    !ALLOWED_IMAGE_HOSTS.some((host) => imageUrl.startsWith(host)) &&
-    !/^https:\/\/[\w-]+\.replicate\.delivery\//.test(imageUrl)
-  ) {
-    throw new Error("כתובת התמונה אינה תקינה");
-  }
-
   return {
     title,
     description,
@@ -65,13 +67,49 @@ function parseProductForm(formData: FormData) {
     type,
     category,
     imageUrl,
+    secondaryImageUrl,
   };
 }
 
-/** שליפת כל המוצרים, מהחדש לישן */
-export async function getProducts() {
+/** שליפת מוצרים עם סינון, חיפוש ומיון */
+export async function getProducts(filters?: ProductFilters) {
   await requireAdmin();
-  return db.select().from(products).orderBy(desc(products.createdAt));
+
+  const conditions = [];
+
+  const q = filters?.q?.trim();
+  if (q) {
+    const pattern = `%${q}%`;
+    conditions.push(
+      or(
+        ilike(products.title, pattern),
+        ilike(products.description, pattern)
+      )
+    );
+  }
+
+  const category = filters?.category?.trim();
+  if (category) {
+    conditions.push(eq(products.category, category));
+  }
+
+  const baseQuery = db.select().from(products);
+  const filteredQuery =
+    conditions.length > 0
+      ? baseQuery.where(and(...conditions))
+      : baseQuery;
+
+  const sort = filters?.sort ?? "newest";
+  switch (sort) {
+    case "oldest":
+      return filteredQuery.orderBy(asc(products.createdAt));
+    case "price_asc":
+      return filteredQuery.orderBy(asc(products.price));
+    case "price_desc":
+      return filteredQuery.orderBy(desc(products.price));
+    default:
+      return filteredQuery.orderBy(desc(products.createdAt));
+  }
 }
 
 /** הוספת מוצר חדש מתוך טופס */
@@ -116,3 +154,34 @@ export async function deleteProduct(id: number) {
   revalidatePath("/", "layout");
 }
 
+/** שכפול מוצר קיים */
+export async function duplicateProduct(id: number) {
+  await requireAdmin();
+
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new Error("מזהה מוצר לא תקין");
+  }
+
+  const [product] = await db
+    .select()
+    .from(products)
+    .where(eq(products.id, id));
+
+  if (!product) {
+    throw new Error("המוצר לא נמצא");
+  }
+
+  await db.insert(products).values({
+    title: `${product.title} (עותק)`,
+    description: product.description,
+    price: product.price,
+    originalPrice: product.originalPrice,
+    type: product.type,
+    category: product.category,
+    imageUrl: product.imageUrl,
+    secondaryImageUrl: product.secondaryImageUrl,
+  });
+
+  revalidatePath("/workspace/products");
+  revalidatePath("/", "layout");
+}

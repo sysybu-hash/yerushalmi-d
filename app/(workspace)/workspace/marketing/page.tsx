@@ -9,13 +9,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { CampaignPreviewDialog } from "@/components/workspace/campaign-preview-dialog";
 import { CreateCampaignSheet } from "@/components/workspace/create-campaign-sheet";
+import { DeleteCampaignButton } from "@/components/workspace/delete-campaign-button";
+import { EditCampaignSheet } from "@/components/workspace/edit-campaign-sheet";
 import { SendCampaignButton } from "@/components/workspace/send-campaign-button";
 import { getCampaigns } from "./actions";
 
 export const metadata = { title: "שיווק ודיוור" };
 
-// העמוד קורא מהדאטהבייס — חייב להירנדר בכל בקשה
 export const dynamic = "force-dynamic";
 
 const dateFormatter = new Intl.DateTimeFormat("he-IL", {
@@ -31,7 +33,6 @@ export default async function MarketingPage() {
 
   return (
     <div className="space-y-8">
-      {/* כותרת ופעולות */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="font-serif text-3xl font-light tracking-wide">
@@ -50,7 +51,6 @@ export default async function MarketingPage() {
         <CreateCampaignSheet />
       </div>
 
-      {/* טבלת קמפיינים */}
       <div className="border border-border/60 bg-background">
         {campaigns.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
@@ -130,12 +130,22 @@ export default async function MarketingPage() {
                     {dateFormatter.format(campaign.createdAt)}
                   </TableCell>
                   <TableCell className="text-left">
-                    {campaign.status === "draft" && (
-                      <SendCampaignButton
-                        id={campaign.id}
-                        title={campaign.title}
-                      />
-                    )}
+                    <div className="flex items-center justify-end gap-1">
+                      <CampaignPreviewDialog campaign={campaign} />
+                      {campaign.status === "draft" && (
+                        <>
+                          <EditCampaignSheet campaign={campaign} />
+                          <DeleteCampaignButton
+                            id={campaign.id}
+                            title={campaign.title}
+                          />
+                          <SendCampaignButton
+                            id={campaign.id}
+                            title={campaign.title}
+                          />
+                        </>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

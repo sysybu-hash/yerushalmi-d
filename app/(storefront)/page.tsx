@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { and, desc, isNotNull, sql } from "drizzle-orm";
+import { and, desc, inArray, isNotNull, sql } from "drizzle-orm";
 import {
   ArrowLeft,
   BadgePercent,
@@ -16,35 +16,22 @@ import {
 import { db } from "@/db";
 import { products } from "@/db/schema";
 import { getSiteSettings } from "@/lib/site-settings";
-import { homepageCategories } from "@/lib/categories";
+import { homepageCategories, collectionLabel, STOREFRONT_CATALOG_SLUGS } from "@/lib/categories";
 import { Button } from "@/components/ui/button";
 import { ProductCard } from "@/components/storefront/product-card";
 
 // הדף מציג מלאי והגדרות חיים מהדאטהבייס — נטען בזמן בקשה
 export const dynamic = "force-dynamic";
 
-const TRUST_FEATURES = [
-  {
-    icon: Gem,
-    title: "ללא מתווכים",
-    text: "ישירות מהיצרן לצרכן",
-  },
-  {
-    icon: ShieldCheck,
-    title: "אמינות ושקיפות",
-    text: "כולל אחריות מלאה ותעודה גימולוגית",
-  },
-  {
-    icon: Truck,
-    title: "שירות VIP",
-    text: "שירות אישי עד בית הלקוח",
-  },
-  {
-    icon: BadgePercent,
-    title: "מחירים ללא תחרות",
-    text: "באיכות הגבוהה ביותר, כי אתם קונים מיד ראשונה",
-  },
-];
+const TRUST_ICONS = [Gem, ShieldCheck, Truck, BadgePercent] as const;
+
+function trustFeatures(settings: Awaited<ReturnType<typeof getSiteSettings>>) {
+  return ([1, 2, 3, 4] as const).map((n, i) => ({
+    icon: TRUST_ICONS[i] ?? Gem,
+    title: settings[`trust${n}Title` as keyof typeof settings],
+    text: settings[`trust${n}Text` as keyof typeof settings],
+  }));
+}
 
 function categoriesFromSettings(s: Awaited<ReturnType<typeof getSiteSettings>>) {
   return homepageCategories(s);
@@ -85,7 +72,7 @@ function SectionHeading({
 }
 
 export default async function HomePage() {
-  const [settings, featuredProducts] = await Promise.all([
+  const [settings, featuredProducts, catalogProducts] = await Promise.all([
     getSiteSettings(),
     db
       .select()
@@ -98,14 +85,27 @@ export default async function HomePage() {
       )
       .orderBy(desc(products.createdAt))
       .limit(12),
+    db
+      .select()
+      .from(products)
+      .where(inArray(products.category, [...STOREFRONT_CATALOG_SLUGS]))
+      .orderBy(desc(products.createdAt)),
   ]);
 
+  const catalogByCategory = STOREFRONT_CATALOG_SLUGS.map((slug) => ({
+    slug,
+    label: collectionLabel(slug, settings),
+    href: `/collections/${slug}`,
+    products: catalogProducts.filter((p) => p.category === slug).slice(0, 2),
+  })).filter((group) => group.products.length > 0);
+
   const categories = categoriesFromSettings(settings);
+  const features = trustFeatures(settings);
 
   return (
     <>
       {/* 1. Hero — מבטל את ה-padding של ה-layout ויושב מאחורי ה-header */}
-      <section className="relative -mt-[104px] flex min-h-screen flex-col items-center justify-center bg-charcoal px-4 text-center">
+      <section className="relative -mt-[104px] flex min-h-[100dvh] flex-col items-center justify-center bg-charcoal px-4 py-28 text-center sm:px-8">
         {/* overflow-hidden רק על הרקע — לא על כל הסקציה, כדי לא לחסום גלילה במובייל */}
         <div aria-hidden className="absolute inset-0 overflow-hidden">
           {settings.heroImage ? (
@@ -115,30 +115,42 @@ export default async function HomePage() {
               fill
               priority
               sizes="100vw"
-              className="object-cover"
+              className="object-cover object-center"
             />
           ) : (
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(180,154,94,0.18),transparent_55%)]" />
           )}
-          <div className="absolute inset-0 bg-black/50" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/20 to-black/45" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(0,0,0,0.12)_100%)]" />
         </div>
 
-        <div className="relative z-10 max-w-4xl">
-          <p className="text-xs font-light tracking-[0.35em] text-gold-light">
+        <div className="relative z-10 flex w-full max-w-6xl flex-col items-center justify-center px-2 sm:px-6">
+          <p className="text-[11px] font-light tracking-[0.4em] text-gold-light sm:text-xs md:text-sm">
             {settings.heroBadge}
           </p>
 
-          <h1 className="mt-8 font-serif text-4xl font-medium leading-[1.15] tracking-wide text-ivory sm:text-6xl lg:text-7xl">
-            {settings.heroTitle}
+          <h1 className="mt-6 max-w-5xl font-sans font-light leading-[1.1] text-ivory sm:mt-8">
+            {settings.heroTitle.split("\n").map((line, index) => (
+              <span
+                key={index}
+                className={
+                  index === 0
+                    ? "block text-[clamp(2.75rem,7.5vw,6.25rem)] font-normal tracking-[0.12em] drop-shadow-[0_2px_32px_rgba(0,0,0,0.65)]"
+                    : "mt-3 block text-[clamp(1.35rem,3.8vw,2.85rem)] font-light tracking-[0.18em] text-gold-light drop-shadow-[0_2px_24px_rgba(0,0,0,0.55)] sm:mt-4"
+                }
+              >
+                {line}
+              </span>
+            ))}
           </h1>
 
-          <p className="mx-auto mt-8 max-w-2xl text-sm font-light leading-relaxed text-ivory/85 sm:text-base">
+          <p className="mx-auto mt-6 max-w-3xl text-[clamp(0.95rem,2.2vw,1.35rem)] font-light leading-relaxed text-ivory drop-shadow-[0_1px_16px_rgba(0,0,0,0.55)] sm:mt-8">
             {settings.heroSubtitle}
           </p>
 
           <Button
             asChild
-            className="group mt-12 rounded-none border border-gold bg-transparent px-12 py-6 text-xs font-normal tracking-[0.25em] text-gold-light shadow-none transition-all duration-300 hover:bg-gold hover:text-charcoal"
+            className="group mt-10 rounded-none border border-gold bg-transparent px-14 py-7 text-xs font-normal tracking-[0.28em] text-gold-light shadow-none transition-all duration-300 hover:bg-gold hover:text-charcoal sm:mt-12 sm:px-16 sm:text-sm"
           >
             <Link href="/collections/engagement-rings">
               גלו את הקולקציות
@@ -188,6 +200,46 @@ export default async function HomePage() {
         )}
       </section>
 
+      {/* 2b. קטalog לפי קטegoria */}
+      {catalogByCategory.length > 0 ? (
+        <section className="border-t border-border/40 bg-secondary/30">
+          <div className="mx-auto max-w-7xl px-4 py-24 sm:px-8">
+            <SectionHeading
+              eyebrow="בחירה לפי סגנון"
+              title="גלו את התכשיטים"
+            />
+
+            <div className="fade-up mt-14 space-y-16">
+              {catalogByCategory.map((group) => (
+                <div key={group.slug}>
+                  <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+                    <h3 className="font-serif text-2xl font-medium tracking-wide text-foreground">
+                      {group.label}
+                    </h3>
+                    <Link
+                      href={group.href}
+                      className="text-xs font-light tracking-[0.2em] text-gold-dark transition-colors hover:text-gold"
+                    >
+                      לכל הקולקציה
+                      <ArrowLeft
+                        className="mr-2 inline h-3.5 w-3.5"
+                        strokeWidth={1.5}
+                      />
+                    </Link>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2 lg:max-w-3xl">
+                    {group.products.map((product) => (
+                      <ProductCard key={product.id} product={product} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       {/* 3. הקולקציות שלנו */}
       <section className="bg-secondary/50">
         <div className="mx-auto max-w-7xl px-4 py-24 sm:px-8">
@@ -231,7 +283,7 @@ export default async function HomePage() {
       <section className="bg-charcoal text-ivory">
         <div className="mx-auto max-w-7xl px-4 py-24 sm:px-8">
           <div className="fade-up grid gap-12 sm:grid-cols-2 lg:grid-cols-4">
-            {TRUST_FEATURES.map((feature) => (
+            {features.map((feature) => (
               <div key={feature.title} className="text-center">
                 <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-gold/40">
                   <feature.icon
@@ -253,7 +305,7 @@ export default async function HomePage() {
       </section>
 
       {/* 5. הסיפור שלנו */}
-      <section className="mx-auto max-w-7xl px-4 py-24 sm:px-8">
+      <section id="about" className="mx-auto max-w-7xl px-4 py-24 sm:px-8 scroll-mt-28">
         <div className="grid items-center gap-14 lg:grid-cols-2">
           {/* טקסט */}
           <div className="fade-up">

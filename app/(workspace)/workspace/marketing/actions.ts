@@ -40,6 +40,77 @@ export async function createCampaign(formData: FormData) {
   revalidatePath("/workspace/marketing");
 }
 
+/** עדכון קמפיין — רק טיוטות */
+export async function updateCampaign(id: number, formData: FormData) {
+  await requireAdmin();
+
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new Error("מזהה קמפיין לא תקין");
+  }
+
+  const [existing] = await db
+    .select()
+    .from(campaigns)
+    .where(eq(campaigns.id, id));
+
+  if (!existing) {
+    throw new Error("הקמפיין לא נמצא");
+  }
+
+  if (existing.status !== "draft") {
+    throw new Error("ניתן לערוך רק קמפיינים בטיוטה");
+  }
+
+  const title = formData.get("title")?.toString().trim();
+  const content = formData.get("content")?.toString().trim();
+  const type = formData.get("type")?.toString() as CampaignType;
+
+  if (!title) {
+    throw new Error("שם הקמפיין הוא שדה חובה");
+  }
+
+  if (!content) {
+    throw new Error("תוכן ההודעה הוא שדה חובה");
+  }
+
+  if (!CAMPAIGN_TYPES.includes(type)) {
+    throw new Error("יש לבחור ערוץ דיוור");
+  }
+
+  await db
+    .update(campaigns)
+    .set({ title, content, type })
+    .where(eq(campaigns.id, id));
+
+  revalidatePath("/workspace/marketing");
+}
+
+/** מחיקת קמפיין — רק טיוטות */
+export async function deleteCampaign(id: number) {
+  await requireAdmin();
+
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new Error("מזהה קמפיין לא תקין");
+  }
+
+  const [existing] = await db
+    .select({ status: campaigns.status })
+    .from(campaigns)
+    .where(eq(campaigns.id, id));
+
+  if (!existing) {
+    throw new Error("הקמפיין לא נמצא");
+  }
+
+  if (existing.status !== "draft") {
+    throw new Error("ניתן למחוק רק קמפיינים בטיוטה");
+  }
+
+  await db.delete(campaigns).where(eq(campaigns.id, id));
+
+  revalidatePath("/workspace/marketing");
+}
+
 /**
  * שליחת קמפיין לכל הלקוחות.
  * כרגע מדמה את השליחה (לוג של ה־payload) — מוכן לחיבור
@@ -64,7 +135,6 @@ export async function sendCampaign(campaignId: number) {
     throw new Error("הקמפיין כבר נשלח");
   }
 
-  // שליפת הנמענים הרלוונטיים לפי הערוץ
   const recipients =
     campaign.type === "email"
       ? await db
@@ -80,14 +150,13 @@ export async function sendCampaign(campaignId: number) {
     throw new Error("אין לקוחות עם פרטי קשר מתאימים לערוץ זה");
   }
 
-  // סימולציית שליחה — כאן יתחבר Resend / ספק ה־SMS
   console.log(
     `[שיווק] שולח קמפיין "${campaign.title}" בערוץ ${campaign.type} ל־${recipients.length} נמענים`,
     {
       campaignId: campaign.id,
       subject: campaign.title,
       body: campaign.content,
-      recipients: recipients.slice(0, 5), // דוגמה ראשונה ללוג
+      recipients: recipients.slice(0, 5),
     }
   );
 

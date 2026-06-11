@@ -15,7 +15,9 @@ export type CheckoutCustomer = {
   fullName: string;
   email: string;
   phone: string;
-  notes?: string;
+  deliveryMethod?: "delivery" | "pickup";
+  deliveryAddress?: string;
+  customerNotes?: string;
 };
 
 async function upsertCustomer(fullName: string, email: string | null, phone: string) {
@@ -68,6 +70,9 @@ export async function createOrder(
   const fullName = customer.fullName?.trim();
   const phone = customer.phone?.trim();
   const email = customer.email?.trim() || null;
+  const deliveryMethod = customer.deliveryMethod ?? "delivery";
+  const deliveryAddress = customer.deliveryAddress?.trim() || null;
+  const customerNotes = customer.customerNotes?.trim() || null;
 
   if (!fullName) {
     throw new Error("שם מלא הוא שדה חובה");
@@ -75,6 +80,14 @@ export async function createOrder(
 
   if (!phone) {
     throw new Error("טלפון הוא שדה חובה");
+  }
+
+  if (deliveryMethod !== "delivery" && deliveryMethod !== "pickup") {
+    throw new Error("שיטת משלוח לא תקינה");
+  }
+
+  if (deliveryMethod === "delivery" && !deliveryAddress) {
+    throw new Error("יש להזין כתובת למשלוח");
   }
 
   if (!Array.isArray(items) || items.length === 0) {
@@ -114,6 +127,10 @@ export async function createOrder(
       customerName: fullName,
       customerPhone: phone,
       customerEmail: email,
+      deliveryMethod,
+      deliveryAddress:
+        deliveryMethod === "delivery" ? deliveryAddress : null,
+      customerNotes,
       totalAmount: totalAmount.toFixed(2),
     })
     .returning({ id: orders.id });

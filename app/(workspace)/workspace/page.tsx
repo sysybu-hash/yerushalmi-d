@@ -14,6 +14,13 @@ export const dynamic = "force-dynamic";
 
 const STAT_ICONS = [TrendingUp, Users, Gem, ShoppingBag] as const;
 
+const STAT_HREFS = [
+  "/workspace/orders",
+  "/workspace/customers",
+  "/workspace/products",
+  "/workspace/orders?status=pending",
+] as const;
+
 export default async function WorkspaceDashboardPage() {
   const { stats, activity } = await getDashboardStats();
 
@@ -34,6 +41,7 @@ export default async function WorkspaceDashboardPage() {
             key={stat.title}
             {...stat}
             icon={STAT_ICONS[index] ?? TrendingUp}
+            href={STAT_HREFS[index]}
           />
         ))}
       </div>

@@ -1,6 +1,6 @@
 "use server";
 
-import { desc } from "drizzle-orm";
+import { desc, eq, ilike, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
@@ -13,10 +13,86 @@ export type ImportCustomerRow = {
   phone: string;
 };
 
-/** שליפת כל הלקוחות, מהחדש לישן */
-export async function getCustomers() {
+/** שליפת לקוחות עם חיפוש אופציונלי (שם / אימייל / טלפון) */
+export async function getCustomers(query?: string) {
   await requireAdmin();
+
+  const q = query?.trim();
+  if (q) {
+    const pattern = `%${q}%`;
+    return db
+      .select()
+      .from(customers)
+      .where(
+        or(
+          ilike(customers.fullName, pattern),
+          ilike(customers.email, pattern),
+          ilike(customers.phone, pattern)
+        )
+      )
+      .orderBy(desc(customers.createdAt));
+  }
+
   return db.select().from(customers).orderBy(desc(customers.createdAt));
+}
+
+/** יצירת לקוח חדש */
+export async function createCustomer(formData: FormData) {
+  await requireAdmin();
+
+  const fullName = formData.get("full_name")?.toString().trim();
+  const email = formData.get("email")?.toString().trim().toLowerCase() || null;
+  const phone = formData.get("phone")?.toString().trim() || null;
+
+  if (!fullName) {
+    throw new Error("שם מלא הוא שדה חובה");
+  }
+
+  await db.insert(customers).values({ fullName, email, phone });
+
+  revalidatePath("/workspace/customers");
+}
+
+/** עדכון לקוח קיים */
+export async function updateCustomer(id: number, formData: FormData) {
+  await requireAdmin();
+
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new Error("מזהה לקוח לא תקין");
+  }
+
+  const fullName = formData.get("full_name")?.toString().trim();
+  const email = formData.get("email")?.toString().trim().toLowerCase() || null;
+  const phone = formData.get("phone")?.toString().trim() || null;
+
+  if (!fullName) {
+    throw new Error("שם מלא הוא שדה חובה");
+  }
+
+  const [updated] = await db
+    .update(customers)
+    .set({ fullName, email, phone })
+    .where(eq(customers.id, id))
+    .returning({ id: customers.id });
+
+  if (!updated) {
+    throw new Error("הלקוח לא נמצא");
+  }
+
+  revalidatePath("/workspace/customers");
+}
+
+/** מחיקת לקוח */
+export async function deleteCustomer(id: number) {
+  await requireAdmin();
+
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new Error("מזהה לקוח לא תקין");
+  }
+
+  await db.delete(customers).where(eq(customers.id, id));
+
+  revalidatePath("/workspace/customers");
 }
 
 /**

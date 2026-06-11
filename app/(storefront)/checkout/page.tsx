@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 
 const priceFormatter = new Intl.NumberFormat("he-IL", {
   style: "currency",
@@ -25,6 +27,9 @@ export default function CheckoutPage() {
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
 
+  const [deliveryMethod, setDeliveryMethod] = React.useState<
+    "delivery" | "pickup"
+  >("delivery");
   const [isPending, startTransition] = React.useTransition();
   const [error, setError] = React.useState<string | null>(null);
 
@@ -37,6 +42,9 @@ export default function CheckoutPage() {
       fullName: formData.get("fullName")?.toString() ?? "",
       email: formData.get("email")?.toString() ?? "",
       phone: formData.get("phone")?.toString() ?? "",
+      deliveryMethod,
+      deliveryAddress: formData.get("deliveryAddress")?.toString() ?? "",
+      customerNotes: formData.get("customerNotes")?.toString() ?? "",
     };
 
     startTransition(async () => {
@@ -96,7 +104,6 @@ export default function CheckoutPage() {
       </div>
 
       <div className="mt-12 grid gap-10 lg:grid-cols-2">
-        {/* סיכום ההזמנה */}
         <div className="border border-border/60 bg-stone-50/50 p-6 sm:p-8">
           <h2 className="font-serif text-xl font-light tracking-wide">
             סיכום הזמנה
@@ -148,7 +155,6 @@ export default function CheckoutPage() {
           </div>
         </div>
 
-        {/* פרטי הלקוח */}
         <form onSubmit={handleSubmit} className="space-y-6">
           <h2 className="font-serif text-xl font-light tracking-wide">
             פרטים ליצירת קשר
@@ -193,6 +199,61 @@ export default function CheckoutPage() {
               autoComplete="email"
               dir="ltr"
               className="rounded-none text-right"
+            />
+          </div>
+
+          <div className="space-y-3">
+            <Label className="font-light">שיטת קבלה *</Label>
+            <div className="flex flex-wrap gap-3">
+              {(
+                [
+                  { value: "delivery", label: "משלוח עד הבית" },
+                  { value: "pickup", label: "איסוף עצמי" },
+                ] as const
+              ).map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setDeliveryMethod(option.value)}
+                  className={cn(
+                    "border px-4 py-2 text-xs font-light tracking-[0.1em] transition-colors",
+                    deliveryMethod === option.value
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-border/60 bg-background hover:border-foreground/40"
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {deliveryMethod === "delivery" && (
+            <div className="space-y-2">
+              <Label htmlFor="deliveryAddress" className="font-light">
+                כתובת למשלוח *
+              </Label>
+              <Textarea
+                id="deliveryAddress"
+                name="deliveryAddress"
+                required
+                rows={3}
+                placeholder="רחוב, מספר בית, עיר..."
+                className="rounded-none resize-none"
+              />
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="customerNotes" className="font-light">
+              הערות להזמנה
+            </Label>
+            <Textarea
+              id="customerNotes"
+              name="customerNotes"
+              rows={3}
+              placeholder="זמן מועדף למשלוח, בקשות מיוחדות..."
+              className="rounded-none resize-none"
             />
           </div>
 

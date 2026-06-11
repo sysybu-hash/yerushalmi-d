@@ -1,4 +1,5 @@
 import type { SiteSettings } from "@/lib/site-settings";
+import { COLLECTION_SETTING_KEYS } from "@/lib/site-settings";
 
 /** כל slug-ים תקינים של קולקציות בחנות */
 export const COLLECTION_SLUGS = [
@@ -13,6 +14,7 @@ export const COLLECTION_SLUGS = [
 
 export type CollectionSlug = (typeof COLLECTION_SLUGS)[number];
 
+/** ברירות מחדל — fallback אם אין settings */
 export const COLLECTION_LABELS: Record<CollectionSlug, string> = {
   rings: "טבעות",
   "engagement-rings": "טבעות אירוסין",
@@ -23,44 +25,35 @@ export const COLLECTION_LABELS: Record<CollectionSlug, string> = {
   custom: "עיצוב אישי",
 };
 
-export const STORE_NAV_LINKS = [
-  { label: "דף הבית", href: "/" },
-  { label: "טבעות אירוסין", href: "/collections/engagement-rings" },
-  { label: "טבעות", href: "/collections/rings" },
-  { label: "תליונים ושרשראות", href: "/collections/necklaces" },
-  { label: "עגילים", href: "/collections/earrings" },
-  { label: "צמידים", href: "/collections/bracelets" },
-  { label: "יהלומים", href: "/collections/diamonds" },
-  { label: "עיצוב אישי", href: "/collections/custom" },
-  { label: "צור קשר", href: "/contact" },
-] as const;
-
 export function isCollectionSlug(slug: string): slug is CollectionSlug {
   return (COLLECTION_SLUGS as readonly string[]).includes(slug);
 }
 
-export function collectionLabel(slug: string) {
+/** שם קולקציה — מהגדרות האתר עם fallback */
+export function collectionLabel(
+  slug: string,
+  settings?: SiteSettings
+): string {
+  if (settings) {
+    const entry = COLLECTION_SETTING_KEYS.find((c) => c.slug === slug);
+    if (entry) {
+      return settings[entry.titleKey] || COLLECTION_LABELS[slug as CollectionSlug];
+    }
+  }
   return COLLECTION_LABELS[slug as CollectionSlug] ?? slug;
 }
 
-/** תמונת באנר לעמוד קולקציה — ממופה מהגדרות האתר */
+/** תמונת באנר לעמוד קולקציה — מיפוי 1:1 מהגדרות */
 export function getCategoryBannerImage(
   slug: string,
   settings: SiteSettings
 ): string {
-  const map: Record<string, string> = {
-    rings: settings.categoryRingsImage,
-    "engagement-rings": settings.categoryRingsImage,
-    bracelets: settings.categoryBraceletsImage,
-    necklaces: settings.categoryNecklacesImage,
-    earrings: settings.categoryNecklacesImage,
-    diamonds: settings.categoryRingsImage,
-    custom: settings.categoryCustomImage,
-  };
-  return map[slug] ?? "";
+  const entry = COLLECTION_SETTING_KEYS.find((c) => c.slug === slug);
+  if (!entry) return "";
+  return settings[entry.imageKey] ?? "";
 }
 
-/** ארבע הקטגוריות המוצגות בדף הבית */
+/** ארבע הקטegוריות המוצגות בדף הבית (כרטיסים) */
 export function homepageCategories(settings: SiteSettings) {
   return [
     {
@@ -85,3 +78,44 @@ export function homepageCategories(settings: SiteSettings) {
     },
   ];
 }
+
+/** קטegוריות לקטalog בדף הבית — 2 מוצרים לכל קטegoria */
+export const STOREFRONT_CATALOG_SLUGS = [
+  "engagement-rings",
+  "rings",
+  "bracelets",
+  "necklaces",
+  "earrings",
+  "diamonds",
+] as const satisfies readonly CollectionSlug[];
+
+/** קישורי ניווט — שמות מהגדרות כשזמין */
+export function storeNavLinks(settings: SiteSettings) {
+  return [
+    { label: "דף הבית", href: "/" },
+    {
+      label: settings.categoryEngagementRingsTitle,
+      href: "/collections/engagement-rings",
+    },
+    { label: settings.categoryRingsTitle, href: "/collections/rings" },
+    { label: settings.categoryNecklacesTitle, href: "/collections/necklaces" },
+    { label: settings.categoryEarringsTitle, href: "/collections/earrings" },
+    { label: settings.categoryBraceletsTitle, href: "/collections/bracelets" },
+    { label: settings.categoryDiamondsTitle, href: "/collections/diamonds" },
+    { label: settings.categoryCustomTitle, href: "/collections/custom" },
+    { label: "צור קשר", href: "/contact" },
+  ] as const;
+}
+
+/** @deprecated השתמשו ב-storeNavLinks(settings) */
+export const STORE_NAV_LINKS = [
+  { label: "דף הבית", href: "/" },
+  { label: "טבעות אירוסין", href: "/collections/engagement-rings" },
+  { label: "טבעות", href: "/collections/rings" },
+  { label: "תליונים ושרשראות", href: "/collections/necklaces" },
+  { label: "עגילים", href: "/collections/earrings" },
+  { label: "צמידים", href: "/collections/bracelets" },
+  { label: "יהלומים", href: "/collections/diamonds" },
+  { label: "עיצוב אישי", href: "/collections/custom" },
+  { label: "צור קשר", href: "/contact" },
+] as const;

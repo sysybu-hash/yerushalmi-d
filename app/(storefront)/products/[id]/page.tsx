@@ -1,14 +1,17 @@
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { eq } from "drizzle-orm";
-import { ArrowRight, Gem, ShieldCheck } from "lucide-react";
+import { and, eq, ne } from "drizzle-orm";
+import { ChevronLeft, ShieldCheck } from "lucide-react";
 
 import { db } from "@/db";
 import { products } from "@/db/schema";
 import { AddToCartButton } from "@/components/storefront/add-to-cart-button";
+import { ProductImages } from "@/components/storefront/product-images";
+import { ProductCard } from "@/components/storefront/product-card";
 import { Button } from "@/components/ui/button";
-import { categoryLabel, TYPE_LABELS } from "@/lib/product-labels";
+import { collectionLabel } from "@/lib/categories";
+import { TYPE_LABELS } from "@/lib/product-labels";
+import { getSiteSettings } from "@/lib/site-settings";
 
 export const dynamic = "force-dynamic";
 
@@ -37,60 +40,68 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const id = Number(params.id);
   if (!Number.isInteger(id) || id <= 0) notFound();
 
-  const product = await db.query.products.findFirst({
-    where: eq(products.id, id),
-  });
+  const [product, settings] = await Promise.all([
+    db.query.products.findFirst({ where: eq(products.id, id) }),
+    getSiteSettings(),
+  ]);
 
   if (!product) notFound();
+
+  const similarProducts = await db
+    .select()
+    .from(products)
+    .where(
+      and(eq(products.category, product.category), ne(products.id, product.id))
+    )
+    .limit(4);
 
   const price = Number(product.price);
   const originalPrice = product.originalPrice
     ? Number(product.originalPrice)
     : null;
   const onSale = originalPrice !== null && originalPrice > price;
+  const catLabel = collectionLabel(product.category, settings);
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-12 sm:px-8 sm:py-16">
-      <Button
-        asChild
-        variant="ghost"
-        className="mb-8 rounded-none px-0 text-xs font-light tracking-[0.15em] text-muted-foreground hover:bg-transparent hover:text-foreground"
+      <nav
+        aria-label="ניווט"
+        className="mb-8 flex flex-wrap items-center gap-2 text-xs font-light text-muted-foreground"
       >
-        <Link href={`/collections/${product.category}`}>
-          <ArrowRight className="ml-2 h-4 w-4" strokeWidth={1.25} />
-          חזרה ל{categoryLabel(product.category)}
+        <Link href="/" className="transition-colors hover:text-foreground">
+          דף הבית
         </Link>
-      </Button>
+        <ChevronLeft className="h-3 w-3 rotate-180" aria-hidden />
+        <Link
+          href={`/collections/${product.category}`}
+          className="transition-colors hover:text-foreground"
+        >
+          {catLabel}
+        </Link>
+        <ChevronLeft className="h-3 w-3 rotate-180" aria-hidden />
+        <span className="text-foreground">{product.title}</span>
+      </nav>
 
       <div className="grid items-start gap-12 lg:grid-cols-2 lg:gap-16">
-        {/* תמונה */}
-        <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-secondary to-muted">
-          {product.imageUrl ? (
-            <Image
-              src={product.imageUrl}
-              alt={product.title}
-              fill
-              priority
-              sizes="(max-width: 1024px) 100vw, 50vw"
-              className="object-cover"
-            />
-          ) : (
-            <div className="flex h-full flex-col items-center justify-center gap-4 text-gold/50">
-              <Gem aria-hidden className="h-16 w-16" strokeWidth={0.5} />
-              <p className="text-[11px] tracking-[0.3em]">ירושלמי יהלומים</p>
-            </div>
-          )}
-          {onSale && (
-            <span className="absolute right-4 top-4 bg-gold px-3 py-1.5 text-[10px] font-medium tracking-[0.15em] text-charcoal">
+        <div className="relative">
+          <ProductImages
+            title={product.title}
+            imageUrl={product.imageUrl}
+            secondaryImageUrl={product.secondaryImageUrl}
+            sizes="(max-width: 1024px) 100vw, 50vw"
+            priority
+            variant="gallery"
+          />
+          {onSale ? (
+            <span className="absolute right-4 top-4 z-10 bg-gold px-3 py-1.5 text-[10px] font-medium tracking-[0.15em] text-charcoal">
               מבצע
             </span>
-          )}
+          ) : null}
         </div>
 
-        {/* פרטים */}
         <div className="fade-up">
           <p className="text-[11px] tracking-[0.3em] text-gold-dark">
-            {categoryLabel(product.category)}
+            {catLabel}
           </p>
 
           <h1 className="mt-4 font-serif text-3xl font-medium leading-snug tracking-wide sm:text-4xl">
@@ -132,8 +143,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
             </div>
           ) : (
             <p className="mt-8 text-sm font-light leading-relaxed text-muted-foreground">
-              תכשיט {categoryLabel(product.category)} באיכות גימולוגית מלאה —
-              לפרטים נוספים, צרו קשר ונשמח לייעץ.
+              תכשיט {catLabel} באיכות גימולוגית מלאה — לפרטים נוספים, צרו קשר
+              ונשמח לייעץ.
             </p>
           )}
 
@@ -151,6 +162,33 @@ export default async function ProductPage({ params }: ProductPageProps) {
           </p>
         </div>
       </div>
+
+      {similarProducts.length > 0 && (
+        <div className="mt-20 border-t border-border/60 pt-16">
+          <h2 className="font-serif text-2xl font-light tracking-wide">
+            תכשיטים דומים
+          </h2>
+          <p className="mt-2 text-sm font-light text-muted-foreground">
+            עוד מ{catLabel}
+          </p>
+          <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {similarProducts.map((item) => (
+              <ProductCard key={item.id} product={item} />
+            ))}
+          </div>
+          <div className="mt-8 text-center">
+            <Button
+              asChild
+              variant="outline"
+              className="rounded-none text-xs font-light tracking-[0.15em]"
+            >
+              <Link href={`/collections/${product.category}`}>
+                לכל {catLabel}
+              </Link>
+            </Button>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

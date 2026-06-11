@@ -1,8 +1,10 @@
 "use client";
 
-import { PackageOpen } from "lucide-react";
+import { PackageOpen, StickyNote, Truck } from "lucide-react";
 
-import type { OrderItem } from "@/db/schema";
+import type { Order, OrderItem } from "@/db/schema";
+import { OrderAdminNotesForm } from "@/components/workspace/order-admin-notes-form";
+import { DELIVERY_METHOD_LABELS } from "@/components/workspace/order-constants";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,10 +23,10 @@ const priceFormatter = new Intl.NumberFormat("he-IL", {
 });
 
 export function OrderItemsDialog({
-  orderId,
+  order,
   items,
 }: {
-  orderId: number;
+  order: Order;
   items: OrderItem[];
 }) {
   const total = items.reduce(
@@ -48,12 +50,38 @@ export function OrderItemsDialog({
       <DialogContent dir="rtl" className="max-w-md rounded-none">
         <DialogHeader className="text-right">
           <DialogTitle className="font-serif text-xl font-light tracking-wide">
-            הזמנה מס׳ {orderId}
+            הזמנה מס׳ {order.id}
           </DialogTitle>
           <DialogDescription className="font-light">
-            {items.length} פריטים בהזמנה
+            {items.length} פריטים · {order.customerName}
           </DialogDescription>
         </DialogHeader>
+
+        <div className="space-y-3 rounded-none border border-border/60 bg-muted/20 p-4 text-sm font-light">
+          <div className="flex items-start gap-2">
+            <Truck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <div>
+              <p className="font-medium">
+                {DELIVERY_METHOD_LABELS[order.deliveryMethod]}
+              </p>
+              {order.deliveryMethod === "delivery" && order.deliveryAddress && (
+                <p className="mt-1 text-muted-foreground">
+                  {order.deliveryAddress}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {order.customerNotes && (
+            <div className="flex items-start gap-2">
+              <StickyNote className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+              <div>
+                <p className="text-xs text-muted-foreground">הערות לקוח</p>
+                <p className="mt-0.5">{order.customerNotes}</p>
+              </div>
+            </div>
+          )}
+        </div>
 
         <ul className="divide-y divide-border/60">
           {items.map((item) => (
@@ -84,6 +112,13 @@ export function OrderItemsDialog({
             {priceFormatter.format(total)}
           </span>
         </div>
+
+        <Separator className="bg-border/60" />
+
+        <OrderAdminNotesForm
+          orderId={order.id}
+          defaultNotes={order.adminNotes}
+        />
       </DialogContent>
     </Dialog>
   );

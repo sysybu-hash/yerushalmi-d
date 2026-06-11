@@ -22,6 +22,7 @@ export const products = pgTable("products", {
   type: productTypeEnum("type").notNull().default("natural"),
   category: varchar("category", { length: 100 }).notNull(),
   imageUrl: text("image_url"),
+  secondaryImageUrl: text("secondary_image_url"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -58,13 +59,39 @@ export const orderStatusEnum = pgEnum("order_status", [
   "shipped",
 ]);
 
+export const deliveryMethodEnum = pgEnum("delivery_method", [
+  "delivery",
+  "pickup",
+]);
+
+export const inquiryStatusEnum = pgEnum("inquiry_status", [
+  "pending",
+  "resolved",
+]);
+
 export const orders = pgTable("orders", {
   id: serial("id").primaryKey(),
   customerName: text("customer_name").notNull(),
   customerPhone: text("customer_phone").notNull(),
   customerEmail: text("customer_email"),
+  deliveryMethod: deliveryMethodEnum("delivery_method")
+    .notNull()
+    .default("delivery"),
+  deliveryAddress: text("delivery_address"),
+  customerNotes: text("customer_notes"),
+  adminNotes: text("admin_notes"),
   totalAmount: numeric("total_amount", { precision: 12, scale: 2 }).notNull(),
   status: orderStatusEnum("status").notNull().default("pending"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const contactInquiries = pgTable("contact_inquiries", {
+  id: serial("id").primaryKey(),
+  fullName: text("full_name").notNull(),
+  phone: text("phone").notNull(),
+  subject: text("subject"),
+  message: text("message").notNull(),
+  status: inquiryStatusEnum("status").notNull().default("pending"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -108,3 +135,5 @@ export type Order = typeof orders.$inferSelect;
 export type NewOrder = typeof orders.$inferInsert;
 export type OrderItem = typeof orderItems.$inferSelect;
 export type NewOrderItem = typeof orderItems.$inferInsert;
+export type ContactInquiry = typeof contactInquiries.$inferSelect;
+export type NewContactInquiry = typeof contactInquiries.$inferInsert;

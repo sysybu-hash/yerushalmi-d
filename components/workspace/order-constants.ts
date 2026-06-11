@@ -6,3 +6,8 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   paid: "שולם",
   shipped: "נשלח",
 };
+
+export const DELIVERY_METHOD_LABELS = {
+  delivery: "משלוח עד הבית",
+  pickup: "איסוף עצמי",
+} as const;

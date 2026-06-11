@@ -1,5 +1,10 @@
+import { Suspense } from "react";
 import { Users } from "lucide-react";
 
+import { AddCustomerSheet } from "@/components/workspace/add-customer-sheet";
+import { CustomersSearch } from "@/components/workspace/customers-search";
+import { DeleteCustomerButton } from "@/components/workspace/delete-customer-button";
+import { EditCustomerSheet } from "@/components/workspace/edit-customer-sheet";
 import { ImportCustomersZone } from "@/components/workspace/import-customers-zone";
 import {
   Table,
@@ -13,7 +18,6 @@ import { getCustomers } from "./actions";
 
 export const metadata = { title: "ניהול לקוחות" };
 
-// העמוד קורא מהדאטהבייס — חייב להירנדר בכל בקשה
 export const dynamic = "force-dynamic";
 
 const dateFormatter = new Intl.DateTimeFormat("he-IL", {
@@ -22,12 +26,18 @@ const dateFormatter = new Intl.DateTimeFormat("he-IL", {
   year: "numeric",
 });
 
-export default async function CustomersPage() {
-  const customers = await getCustomers();
+type CustomersPageProps = {
+  searchParams: { q?: string };
+};
+
+export default async function CustomersPage({
+  searchParams,
+}: CustomersPageProps) {
+  const query = searchParams.q?.trim();
+  const customers = await getCustomers(query);
 
   return (
     <div className="space-y-8">
-      {/* כותרת ופעולות */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="font-serif text-3xl font-light tracking-wide">
@@ -35,14 +45,20 @@ export default async function CustomersPage() {
           </h1>
           <p className="mt-2 text-sm font-light text-muted-foreground">
             {customers.length > 0
-              ? `${customers.length} לקוחות רשומים`
+              ? `${customers.length} לקוחות${query ? ` (תוצאות חיפוש)` : " רשומים"}`
               : "ניהול קהל הלקוחות של החנות"}
           </p>
         </div>
-        <ImportCustomersZone />
+        <div className="flex flex-wrap items-center gap-2">
+          <AddCustomerSheet />
+          <ImportCustomersZone />
+        </div>
       </div>
 
-      {/* טבלת לקוחות */}
+      <Suspense fallback={null}>
+        <CustomersSearch />
+      </Suspense>
+
       <div className="border border-border/60 bg-background">
         {customers.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
@@ -52,10 +68,12 @@ export default async function CustomersPage() {
             />
             <div>
               <p className="font-serif text-xl font-light">
-                אין עדיין לקוחות
+                {query ? "לא נמצאו לקוחות" : "אין עדיין לקוחות"}
               </p>
               <p className="mt-1 text-sm font-light text-muted-foreground">
-                ייבאו את רשימת הלקוחות הראשונה שלכם מקובץ CSV
+                {query
+                  ? "נסו מונח חיפוש אחר"
+                  : "הוסיפו לקוח חדש או ייבאו מקובץ CSV"}
               </p>
             </div>
           </div>
@@ -71,6 +89,7 @@ export default async function CustomersPage() {
                 <TableHead className="text-right font-light">
                   תאריך הצטרפות
                 </TableHead>
+                <TableHead className="text-left font-light">פעולות</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -87,6 +106,15 @@ export default async function CustomersPage() {
                   </TableCell>
                   <TableCell className="font-light tabular-nums">
                     {dateFormatter.format(customer.createdAt)}
+                  </TableCell>
+                  <TableCell className="text-left">
+                    <div className="flex items-center justify-end gap-1">
+                      <EditCustomerSheet customer={customer} />
+                      <DeleteCustomerButton
+                        id={customer.id}
+                        name={customer.fullName}
+                      />
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

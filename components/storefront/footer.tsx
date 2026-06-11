@@ -1,11 +1,17 @@
 import Link from "next/link";
 import { Gem, MapPin, MessageCircle, Phone } from "lucide-react";
 
-import { STORE_NAV_LINKS } from "@/lib/categories";
+import type { StoreNavLink } from "@/components/storefront/navbar";
 import type { SiteSettings } from "@/lib/site-settings";
 
-export function Footer({ settings }: { settings: SiteSettings }) {
-  const collectionLinks = STORE_NAV_LINKS.filter((link) =>
+export function Footer({
+  settings,
+  navLinks,
+}: {
+  settings: SiteSettings;
+  navLinks: readonly StoreNavLink[];
+}) {
+  const collectionLinks = navLinks.filter((link) =>
     link.href.startsWith("/collections/")
   );
 
@@ -104,7 +110,7 @@ export function Footer({ settings }: { settings: SiteSettings }) {
 
         <div className="mt-14 border-t border-ivory/10 pt-8 text-center">
           <p className="text-[11px] font-light tracking-[0.15em] text-ivory/50">
-            © {new Date().getFullYear()} ירושלמי יהלומים · כל הזכויות שמורות
+            {settings.footerCopyright}
           </p>
         </div>
       </div>

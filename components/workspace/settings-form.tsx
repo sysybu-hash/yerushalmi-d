@@ -6,6 +6,7 @@ import { CheckCircle2, Loader2, Save } from "lucide-react";
 
 import { saveSiteSettings } from "@/app/(workspace)/workspace/settings/actions";
 import type { SiteSettings } from "@/lib/site-settings";
+import { COLLECTION_SETTING_KEYS } from "@/lib/site-settings";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -80,16 +81,21 @@ function TextField({
 }
 
 function SectionCard({
+  id,
   title,
   description,
   children,
 }: {
+  id?: string;
   title: string;
   description?: string;
   children: React.ReactNode;
 }) {
   return (
-    <Card className="rounded-none border-border/60 shadow-none">
+    <Card
+      id={id}
+      className="scroll-mt-28 rounded-none border-border/60 shadow-none"
+    >
       <CardHeader>
         <CardTitle className="font-serif text-xl font-medium tracking-wide">
           {title}
@@ -105,6 +111,28 @@ function SectionCard({
   );
 }
 
+const SECTION_NAV = [
+  { id: "meta", label: "מטא-דאטה" },
+  { id: "announcement", label: "הכרזה" },
+  { id: "hero", label: "Hero" },
+  { id: "featured", label: "מבצעים" },
+  { id: "collections", label: "קולקציות" },
+  { id: "trust", label: "אמון" },
+  { id: "about", label: "אודות" },
+  { id: "contact", label: "יצירת קשר" },
+  { id: "footer", label: "פוטר" },
+] as const;
+
+const COLLECTION_LABELS_HE: Record<string, string> = {
+  rings: "טבעות",
+  "engagement-rings": "טבעות אירוסין",
+  bracelets: "צמידים",
+  necklaces: "תליונים",
+  earrings: "עגילים",
+  diamonds: "יהלומים",
+  custom: "עיצוב אישי",
+};
+
 export function SettingsForm({ settings }: { settings: SiteSettings }) {
   const [saved, setSaved] = React.useState(false);
 
@@ -117,7 +145,38 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
 
   return (
     <form action={handleSubmit} className="space-y-6">
+      <nav className="sticky top-20 z-10 flex flex-wrap gap-2 border border-border/60 bg-background/95 p-3 backdrop-blur-sm">
+        {SECTION_NAV.map((s) => (
+          <a
+            key={s.id}
+            href={`#settings-${s.id}`}
+            className="rounded-none border border-border/40 px-3 py-1.5 text-[11px] font-light tracking-wide transition-colors hover:border-gold/50 hover:text-gold-dark"
+          >
+            {s.label}
+          </a>
+        ))}
+      </nav>
+
       <SectionCard
+        id="settings-meta"
+        title="מטא-דאטה (SEO)"
+        description="כותרת ותיאור האתר במנועי חיפוש"
+      >
+        <TextField
+          name="siteTitle"
+          label="כותרת האתר"
+          defaultValue={settings.siteTitle}
+        />
+        <TextField
+          name="siteDescription"
+          label="תיאור האתר"
+          defaultValue={settings.siteDescription}
+          textarea
+        />
+      </SectionCard>
+
+      <SectionCard
+        id="settings-announcement"
         title="פס הכרזה"
         description="הפס הדק בראש האתר — מעל התפריט"
       >
@@ -129,6 +188,7 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
       </SectionCard>
 
       <SectionCard
+        id="settings-hero"
         title="אזור פתיחה (Hero)"
         description="המסך הראשון שהלקוח רואה"
       >
@@ -139,8 +199,9 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
         />
         <TextField
           name="heroTitle"
-          label="כותרת ראשית"
+          label="כותרת ראשית (שורה לכל שורת טקסט)"
           defaultValue={settings.heroTitle}
+          textarea
         />
         <TextField
           name="heroSubtitle"
@@ -155,7 +216,7 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
         />
       </SectionCard>
 
-      <SectionCard title="מבצעים נבחרים">
+      <SectionCard id="settings-featured" title="מבצעים נבחרים">
         <TextField
           name="featuredSubtitle"
           label="שורת פתיח קטנה"
@@ -169,62 +230,60 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
       </SectionCard>
 
       <SectionCard
+        id="settings-collections"
         title="קולקציות"
-        description="ארבעת כרטיסי הקטגוריות בדף הבית"
+        description="שם ותמונת באנר לכל 7 הקולקציות + כרטיסי דף הבית (4 הראשונות)"
       >
         <div className="grid gap-8 sm:grid-cols-2">
-          <div className="space-y-4">
-            <TextField
-              name="categoryRingsTitle"
-              label="קטגוריה 1 — שם"
-              defaultValue={settings.categoryRingsTitle}
-            />
-            <SettingsImageField
-              name="categoryRingsImage"
-              label="קטגוריה 1 — תמונה"
-              defaultValue={settings.categoryRingsImage}
-            />
-          </div>
-          <div className="space-y-4">
-            <TextField
-              name="categoryBraceletsTitle"
-              label="קטגוריה 2 — שם"
-              defaultValue={settings.categoryBraceletsTitle}
-            />
-            <SettingsImageField
-              name="categoryBraceletsImage"
-              label="קטגוריה 2 — תמונה"
-              defaultValue={settings.categoryBraceletsImage}
-            />
-          </div>
-          <div className="space-y-4">
-            <TextField
-              name="categoryNecklacesTitle"
-              label="קטגוריה 3 — שם"
-              defaultValue={settings.categoryNecklacesTitle}
-            />
-            <SettingsImageField
-              name="categoryNecklacesImage"
-              label="קטגוריה 3 — תמונה"
-              defaultValue={settings.categoryNecklacesImage}
-            />
-          </div>
-          <div className="space-y-4">
-            <TextField
-              name="categoryCustomTitle"
-              label="קטגוריה 4 — שם"
-              defaultValue={settings.categoryCustomTitle}
-            />
-            <SettingsImageField
-              name="categoryCustomImage"
-              label="קטגוריה 4 — תמונה"
-              defaultValue={settings.categoryCustomImage}
-            />
-          </div>
+          {COLLECTION_SETTING_KEYS.map((c) => (
+            <div key={c.slug} className="space-y-4 rounded-none border border-border/40 p-4">
+              <p className="text-xs font-light tracking-wide text-muted-foreground">
+                {COLLECTION_LABELS_HE[c.slug] ?? c.slug}
+              </p>
+              <TextField
+                name={c.titleKey}
+                label="שם"
+                defaultValue={settings[c.titleKey]}
+              />
+              <SettingsImageField
+                name={c.imageKey}
+                label="תמונת באנר"
+                defaultValue={settings[c.imageKey]}
+              />
+            </div>
+          ))}
         </div>
       </SectionCard>
 
-      <SectionCard title="הסיפור שלנו (אודות)">
+      <SectionCard
+        id="settings-trust"
+        title="אמון ושירות"
+        description="4 פריטים בסקציה הכהה בדף הבית"
+      >
+        <div className="grid gap-6 sm:grid-cols-2">
+          {[1, 2, 3, 4].map((n) => (
+            <div key={n} className="space-y-3 border border-border/40 p-4">
+              <p className="text-xs text-muted-foreground">פריט {n}</p>
+              <TextField
+                name={`trust${n}Title` as keyof SiteSettings}
+                label="כותרת"
+                defaultValue={
+                  settings[`trust${n}Title` as keyof SiteSettings]
+                }
+              />
+              <TextField
+                name={`trust${n}Text` as keyof SiteSettings}
+                label="תיאור"
+                defaultValue={
+                  settings[`trust${n}Text` as keyof SiteSettings]
+                }
+              />
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+
+      <SectionCard id="settings-about" title="הסיפור שלנו (אודות)">
         <TextField
           name="aboutQuote"
           label="ציטוט פתיחה"
@@ -260,7 +319,7 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
         />
       </SectionCard>
 
-      <SectionCard title="יצירת קשר">
+      <SectionCard id="settings-contact" title="יצירת קשר">
         <div className="grid gap-5 sm:grid-cols-2">
           <TextField
             name="contactPhone"
@@ -287,6 +346,14 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
           name="contactNote"
           label="שורת שירות (מופיעה בתחתית ובפוטר)"
           defaultValue={settings.contactNote}
+        />
+      </SectionCard>
+
+      <SectionCard id="settings-footer" title="פוטר">
+        <TextField
+          name="footerCopyright"
+          label="שורת זכויות יוצרים"
+          defaultValue={settings.footerCopyright}
         />
       </SectionCard>
 

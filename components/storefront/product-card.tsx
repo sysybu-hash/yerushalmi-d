@@ -1,9 +1,8 @@
-import Image from "next/image";
 import Link from "next/link";
-import { Gem } from "lucide-react";
 
 import type { Product } from "@/db/schema";
 import { AddToCartButton } from "@/components/storefront/add-to-cart-button";
+import { ProductImages } from "@/components/storefront/product-images";
 import { Card, CardContent } from "@/components/ui/card";
 
 const priceFormatter = new Intl.NumberFormat("he-IL", {
@@ -33,23 +32,14 @@ export function ProductCard({ product }: { product: Product }) {
         href={`/products/${product.id}`}
         className="relative block aspect-square overflow-hidden bg-gradient-to-br from-secondary to-muted"
       >
-        {product.imageUrl ? (
-          <Image
-            src={product.imageUrl}
-            alt={product.title}
-            fill
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 17vw"
-            className="object-cover transition-transform duration-500 group-hover:scale-110"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center">
-            <Gem
-              aria-hidden
-              className="h-8 w-8 text-gold/50 transition-transform duration-500 group-hover:scale-110"
-              strokeWidth={0.75}
-            />
-          </div>
-        )}
+        <ProductImages
+          title={product.title}
+          imageUrl={product.imageUrl}
+          secondaryImageUrl={product.secondaryImageUrl}
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 17vw"
+          variant="card"
+          className="h-full"
+        />
       </Link>
 
       <CardContent className="space-y-2.5 p-4 text-center">

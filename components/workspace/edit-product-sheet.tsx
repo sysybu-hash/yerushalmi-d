@@ -1,13 +1,12 @@
 "use client";
 
 import * as React from "react";
-import Image from "next/image";
 import { useFormStatus } from "react-dom";
-import { CldUploadWidget } from "next-cloudinary";
-import { ImagePlus, Loader2, Pencil, X } from "lucide-react";
+import { Loader2, Pencil } from "lucide-react";
 
 import { updateProduct } from "@/app/(workspace)/workspace/products/actions";
 import type { products } from "@/db/schema";
+import { ProductImageField } from "@/components/workspace/product-image-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -57,9 +56,6 @@ function SubmitButton() {
 
 export function EditProductSheet({ product }: { product: Product }) {
   const [open, setOpen] = React.useState(false);
-  const [imageUrl, setImageUrl] = React.useState<string | null>(
-    product.imageUrl
-  );
   const [error, setError] = React.useState<string | null>(null);
 
   async function handleSubmit(formData: FormData) {
@@ -201,62 +197,21 @@ export function EditProductSheet({ product }: { product: Product }) {
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label className="font-light">תמונת מוצר</Label>
-            <input type="hidden" name="image_url" value={imageUrl ?? ""} />
+          <ProductImageField
+            key={`primary-${product.id}-${product.imageUrl ?? "none"}`}
+            name="image_url"
+            label="תמונה ראשית"
+            defaultValue={product.imageUrl}
+            uploadLabel="העלאת תמונה ראשית"
+          />
 
-            {imageUrl ? (
-              <div className="flex items-center gap-4">
-                <div className="relative h-20 w-20 shrink-0 overflow-hidden border border-border/60">
-                  <Image
-                    src={imageUrl}
-                    alt="תצוגה מקדימה"
-                    fill
-                    sizes="80px"
-                    className="object-cover"
-                  />
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setImageUrl(null)}
-                  className="text-xs font-light text-muted-foreground hover:text-destructive"
-                >
-                  <X className="ml-1 h-3.5 w-3.5" />
-                  הסרת תמונה
-                </Button>
-              </div>
-            ) : (
-              <CldUploadWidget
-                uploadPreset={
-                  process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
-                }
-                options={{ maxFiles: 1, multiple: false }}
-                onSuccess={(result) => {
-                  if (
-                    typeof result.info === "object" &&
-                    result.info &&
-                    "secure_url" in result.info
-                  ) {
-                    setImageUrl(result.info.secure_url as string);
-                  }
-                }}
-              >
-                {({ open: openWidget }) => (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => openWidget()}
-                    className="w-full rounded-none border-dashed text-xs font-light tracking-[0.1em]"
-                  >
-                    <ImagePlus className="ml-2 h-4 w-4" strokeWidth={1.5} />
-                    העלאת תמונה
-                  </Button>
-                )}
-              </CldUploadWidget>
-            )}
-          </div>
+          <ProductImageField
+            key={`secondary-${product.id}-${product.secondaryImageUrl ?? "none"}`}
+            name="secondary_image_url"
+            label="תמונה שנייה (אופציונלי)"
+            defaultValue={product.secondaryImageUrl}
+            uploadLabel="העלאת תמונה שנייה"
+          />
 
           {error && (
             <p className="text-sm font-light text-destructive">{error}</p>

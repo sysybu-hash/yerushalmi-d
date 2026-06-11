@@ -1,7 +1,9 @@
+import { Suspense } from "react";
 import { ClipboardList } from "lucide-react";
 
 import { OrderItemsDialog } from "@/components/workspace/order-items-dialog";
 import { OrderStatusSelect } from "@/components/workspace/order-status-select";
+import { OrdersToolbar } from "@/components/workspace/orders-toolbar";
 import {
   Table,
   TableBody,
@@ -14,7 +16,6 @@ import { getOrders } from "./actions";
 
 export const metadata = { title: "ניהול הזמנות" };
 
-// העמוד קורא מהדאטהבייס — חייב להירנדר בכל בקשה
 export const dynamic = "force-dynamic";
 
 const priceFormatter = new Intl.NumberFormat("he-IL", {
@@ -31,12 +32,18 @@ const dateFormatter = new Intl.DateTimeFormat("he-IL", {
   minute: "2-digit",
 });
 
-export default async function OrdersPage() {
-  const orders = await getOrders();
+type OrdersPageProps = {
+  searchParams: { q?: string; status?: string };
+};
+
+export default async function OrdersPage({ searchParams }: OrdersPageProps) {
+  const orders = await getOrders({
+    q: searchParams.q,
+    status: searchParams.status,
+  });
 
   return (
     <div className="space-y-8">
-      {/* כותרת */}
       <div>
         <h1 className="font-serif text-3xl font-light tracking-wide">
           ניהול הזמנות
@@ -48,7 +55,10 @@ export default async function OrdersPage() {
         </p>
       </div>
 
-      {/* טבלת הזמנות */}
+      <Suspense fallback={null}>
+        <OrdersToolbar />
+      </Suspense>
+
       <div className="border border-border/60 bg-background">
         {orders.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
@@ -58,7 +68,7 @@ export default async function OrdersPage() {
             />
             <div>
               <p className="font-serif text-xl font-light">
-                אין עדיין הזמנות
+                אין הזמנות להצגה
               </p>
               <p className="mt-1 text-sm font-light text-muted-foreground">
                 הזמנות שלקוחות יבצעו בחנות יופיעו כאן
@@ -117,7 +127,7 @@ export default async function OrdersPage() {
                     />
                   </TableCell>
                   <TableCell className="text-left">
-                    <OrderItemsDialog orderId={order.id} items={order.items} />
+                    <OrderItemsDialog order={order} items={order.items} />
                   </TableCell>
                 </TableRow>
               ))}

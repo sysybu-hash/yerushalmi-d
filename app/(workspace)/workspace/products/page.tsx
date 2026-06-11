@@ -3,7 +3,9 @@ import Image from "next/image";
 import { Gem, ImageOff } from "lucide-react";
 
 import { AddProductSheet } from "@/components/workspace/add-product-sheet";
+import { DuplicateProductButton } from "@/components/workspace/duplicate-product-button";
 import { EditProductSheet } from "@/components/workspace/edit-product-sheet";
+import { ProductsToolbar } from "@/components/workspace/products-toolbar";
 import {
   PRODUCT_CATEGORIES,
   PRODUCT_TYPES,
@@ -21,7 +23,6 @@ import { getProducts } from "./actions";
 
 export const metadata = { title: "ניהול מלאי" };
 
-// העמוד קורא מהדאטהבייס — חייב להירנדר בכל בקשה
 export const dynamic = "force-dynamic";
 
 const CATEGORY_LABELS = Object.fromEntries(
@@ -38,12 +39,19 @@ const priceFormatter = new Intl.NumberFormat("he-IL", {
   minimumFractionDigits: 0,
 });
 
-export default async function ProductsPage() {
-  const products = await getProducts();
+type ProductsPageProps = {
+  searchParams: { q?: string; category?: string; sort?: string };
+};
+
+export default async function ProductsPage({ searchParams }: ProductsPageProps) {
+  const products = await getProducts({
+    q: searchParams.q,
+    category: searchParams.category,
+    sort: searchParams.sort,
+  });
 
   return (
     <div className="space-y-8">
-      {/* כותרת ופעולות */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="font-serif text-3xl font-light tracking-wide">
@@ -60,7 +68,10 @@ export default async function ProductsPage() {
         </Suspense>
       </div>
 
-      {/* טבלת מוצרים */}
+      <Suspense fallback={null}>
+        <ProductsToolbar />
+      </Suspense>
+
       <div className="border border-border/60 bg-background">
         {products.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
@@ -135,6 +146,10 @@ export default async function ProductsPage() {
                   </TableCell>
                   <TableCell className="text-left">
                     <div className="flex items-center justify-end gap-1">
+                      <DuplicateProductButton
+                        id={product.id}
+                        title={product.title}
+                      />
                       <EditProductSheet product={product} />
                       <DeleteProductButton
                         id={product.id}

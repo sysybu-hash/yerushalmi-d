@@ -1,13 +1,12 @@
 "use client";
 
 import * as React from "react";
-import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { useFormStatus } from "react-dom";
-import { CldUploadWidget } from "next-cloudinary";
-import { ImagePlus, Loader2, Plus, X } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 
 import { addProduct } from "@/app/(workspace)/workspace/products/actions";
+import { ProductImageField } from "@/components/workspace/product-image-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -59,16 +58,12 @@ export function AddProductSheet() {
   const incomingImageUrl = searchParams.get("image_url");
 
   const [open, setOpen] = React.useState(Boolean(incomingImageUrl));
-  const [imageUrl, setImageUrl] = React.useState<string | null>(
-    incomingImageUrl
-  );
   const [error, setError] = React.useState<string | null>(null);
 
   async function handleSubmit(formData: FormData) {
     setError(null);
     try {
       await addProduct(formData);
-      setImageUrl(null);
       setOpen(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "ההוספה נכשלה");
@@ -184,65 +179,18 @@ export function AddProductSheet() {
             </Select>
           </div>
 
-          {/* תמונת מוצר — Cloudinary */}
-          <div className="space-y-2">
-            <Label className="font-light">תמונת מוצר</Label>
+          <ProductImageField
+            name="image_url"
+            label="תמונה ראשית"
+            defaultValue={incomingImageUrl}
+            uploadLabel="העלאת תמונה ראשית"
+          />
 
-            {/* הכתובת נשלחת עם הטופס דרך שדה נסתר */}
-            <input type="hidden" name="image_url" value={imageUrl ?? ""} />
-
-            {imageUrl ? (
-              <div className="flex items-center gap-4">
-                <div className="relative h-20 w-20 shrink-0 overflow-hidden border border-border/60">
-                  <Image
-                    src={imageUrl}
-                    alt="תצוגה מקדימה של תמונת המוצר"
-                    fill
-                    sizes="80px"
-                    className="object-cover"
-                  />
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setImageUrl(null)}
-                  className="text-xs font-light text-muted-foreground hover:text-destructive"
-                >
-                  <X className="ml-1 h-3.5 w-3.5" />
-                  הסרת תמונה
-                </Button>
-              </div>
-            ) : (
-              <CldUploadWidget
-                uploadPreset={
-                  process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
-                }
-                options={{ maxFiles: 1, multiple: false }}
-                onSuccess={(result) => {
-                  if (
-                    typeof result.info === "object" &&
-                    result.info &&
-                    "secure_url" in result.info
-                  ) {
-                    setImageUrl(result.info.secure_url as string);
-                  }
-                }}
-              >
-                {({ open: openWidget }) => (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => openWidget()}
-                    className="w-full rounded-none border-dashed text-xs font-light tracking-[0.1em]"
-                  >
-                    <ImagePlus className="ml-2 h-4 w-4" strokeWidth={1.5} />
-                    העלאת תמונת תכשיט
-                  </Button>
-                )}
-              </CldUploadWidget>
-            )}
-          </div>
+          <ProductImageField
+            name="secondary_image_url"
+            label="תמונה שנייה (אופציונלי)"
+            uploadLabel="העלאת תמונה שנייה"
+          />
 
           {error && (
             <p className="text-sm font-light text-destructive">{error}</p>
