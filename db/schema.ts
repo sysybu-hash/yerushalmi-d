@@ -106,6 +106,62 @@ export const orderItems = pgTable("order_items", {
   quantity: integer("quantity").notNull().default(1),
 });
 
+// סוג מסמך — חשבונית מס או חשבונית מס/קבלה
+export const invoiceTypeEnum = pgEnum("invoice_type", [
+  "invoice",
+  "receipt",
+]);
+
+// מצב החשבונית
+export const invoiceStatusEnum = pgEnum("invoice_status", [
+  "draft",
+  "sent",
+  "paid",
+  "cancelled",
+]);
+
+export const invoices = pgTable("invoices", {
+  id: serial("id").primaryKey(),
+  invoiceNumber: varchar("invoice_number", { length: 30 }).notNull().unique(),
+  type: invoiceTypeEnum("type").notNull().default("invoice"),
+  status: invoiceStatusEnum("status").notNull().default("draft"),
+  customerName: text("customer_name").notNull(),
+  customerPhone: text("customer_phone"),
+  customerEmail: text("customer_email"),
+  customerAddress: text("customer_address"),
+  customerTaxId: varchar("customer_tax_id", { length: 30 }),
+  issueDate: timestamp("issue_date").notNull().defaultNow(),
+  subtotal: numeric("subtotal", { precision: 12, scale: 2 }).notNull(),
+  vatRate: numeric("vat_rate", { precision: 5, scale: 2 }).notNull(),
+  vatAmount: numeric("vat_amount", { precision: 12, scale: 2 }).notNull(),
+  total: numeric("total", { precision: 12, scale: 2 }).notNull(),
+  notes: text("notes"),
+  orderId: integer("order_id"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const invoiceItems = pgTable("invoice_items", {
+  id: serial("id").primaryKey(),
+  invoiceId: integer("invoice_id")
+    .notNull()
+    .references(() => invoices.id),
+  description: text("description").notNull(),
+  quantity: integer("quantity").notNull().default(1),
+  unitPrice: numeric("unit_price", { precision: 12, scale: 2 }).notNull(),
+  lineTotal: numeric("line_total", { precision: 12, scale: 2 }).notNull(),
+});
+
+export const invoicesRelations = relations(invoices, ({ many }) => ({
+  items: many(invoiceItems),
+}));
+
+export const invoiceItemsRelations = relations(invoiceItems, ({ one }) => ({
+  invoice: one(invoices, {
+    fields: [invoiceItems.invoiceId],
+    references: [invoices.id],
+  }),
+}));
+
 // הגדרות האתר — key/value: טקסטים ותמונות הניתנים לעריכה מאזור הניהול
 export const siteSettings = pgTable("site_settings", {
   key: varchar("key", { length: 100 }).primaryKey(),
@@ -137,3 +193,7 @@ export type OrderItem = typeof orderItems.$inferSelect;
 export type NewOrderItem = typeof orderItems.$inferInsert;
 export type ContactInquiry = typeof contactInquiries.$inferSelect;
 export type NewContactInquiry = typeof contactInquiries.$inferInsert;
+export type Invoice = typeof invoices.$inferSelect;
+export type NewInvoice = typeof invoices.$inferInsert;
+export type InvoiceItem = typeof invoiceItems.$inferSelect;
+export type NewInvoiceItem = typeof invoiceItems.$inferInsert;

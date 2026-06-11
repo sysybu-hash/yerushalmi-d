@@ -5,6 +5,7 @@ import { CheckCircle2, Loader2, Send } from "lucide-react";
 
 import { sendCampaign } from "@/app/(workspace)/workspace/marketing/actions";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export function SendCampaignButton({
   id,
@@ -18,13 +19,6 @@ export function SendCampaignButton({
   const [error, setError] = React.useState<string | null>(null);
 
   function handleSend() {
-    if (
-      !window.confirm(
-        `לסמן את "${title}" כנשלח? (סימולציה — לא נשלח בפועל עדיין)`
-      )
-    )
-      return;
-
     setError(null);
     startTransition(async () => {
       try {
@@ -47,27 +41,34 @@ export function SendCampaignButton({
 
   return (
     <div className="flex flex-col items-end gap-1">
-      <Button
-        variant="outline"
-        size="sm"
-        disabled={isPending}
-        onClick={handleSend}
-        className="rounded-none border-foreground/30 text-[11px] font-light tracking-[0.1em] hover:bg-foreground hover:text-background"
-      >
-        {isPending ? (
-          <>
-            <Loader2 className="ml-1.5 h-3.5 w-3.5 animate-spin" />
-            שולח...
-          </>
-        ) : (
-          <>
-            <Send className="ml-1.5 h-3.5 w-3.5" strokeWidth={1.5} />
-            סימון כנשלח
-          </>
-        )}
-      </Button>
+      <ConfirmDialog
+        title="שליחת קמפיין"
+        description={`לסמן את "${title}" כנשלח? (סימולציה — דיוור בפועל יחובר בהמשך ל-Resend)`}
+        confirmLabel="סימון כנשלח"
+        onConfirm={handleSend}
+        trigger={
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={isPending}
+            className="rounded-none border-foreground/30 text-[11px] font-light tracking-[0.1em] hover:bg-foreground hover:text-background"
+          >
+            {isPending ? (
+              <>
+                <Loader2 aria-hidden className="ml-1.5 h-3.5 w-3.5 animate-spin" />
+                שולח...
+              </>
+            ) : (
+              <>
+                <Send aria-hidden className="ml-1.5 h-3.5 w-3.5" strokeWidth={1.5} />
+                סימון כנשלח
+              </>
+            )}
+          </Button>
+        }
+      />
       {error && (
-        <span className="text-[11px] font-light text-destructive">
+        <span role="alert" className="text-[11px] font-light text-destructive">
           {error}
         </span>
       )}

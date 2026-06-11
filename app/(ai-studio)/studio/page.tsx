@@ -32,6 +32,7 @@ import {
   type GenerateImageOptions,
   type GenerateVideoOptions,
 } from "./actions";
+import { StudioMediaEditor } from "@/components/studio/media-editor";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -111,6 +112,7 @@ export default function StudioPage() {
     React.useState<(typeof PRODUCT_CATEGORIES)[number]["value"]>("rings");
   const [busy, setBusy] = React.useState<string | null>(null);
   const [toast, setToast] = React.useState<string | null>(null);
+  const [mode, setMode] = React.useState<"create" | "edit">("create");
 
   const source = "source" in state ? state.source : null;
   const resultUrl =
@@ -320,10 +322,44 @@ export default function StudioPage() {
           סטודיו יצירת תוכן AI
         </h1>
         <p className="mt-3 text-sm font-light text-muted-foreground">
-          העלו צילום, כתבו הנחיות ל-AI, צרו, שמרו ופרסמו ישירות לאתר
+          צרו תמונות ווידאו מצילום גלם — או ערכו ומטבו חומר קיים שלכם
         </p>
       </div>
 
+      {/* בורר מצב עבודה */}
+      <div className="flex flex-wrap justify-center gap-2">
+        <button
+          type="button"
+          aria-pressed={mode === "create"}
+          onClick={() => setMode("create")}
+          className={`flex items-center gap-2 border px-5 py-2.5 text-xs font-light tracking-[0.1em] transition-colors ${
+            mode === "create"
+              ? "border-gold bg-gold/15 text-gold-dark"
+              : "border-border/60 text-muted-foreground hover:border-gold/50 hover:text-foreground"
+          }`}
+        >
+          <Wand2 aria-hidden className="h-4 w-4" strokeWidth={1.5} />
+          צילום ← תמונת יוקרה
+        </button>
+        <button
+          type="button"
+          aria-pressed={mode === "edit"}
+          onClick={() => setMode("edit")}
+          className={`flex items-center gap-2 border px-5 py-2.5 text-xs font-light tracking-[0.1em] transition-colors ${
+            mode === "edit"
+              ? "border-gold bg-gold/15 text-gold-dark"
+              : "border-border/60 text-muted-foreground hover:border-gold/50 hover:text-foreground"
+          }`}
+        >
+          <ImagePlus aria-hidden className="h-4 w-4" strokeWidth={1.5} />
+          עריכה ומיטוב חומר קיים
+        </button>
+      </div>
+
+      {mode === "edit" && <StudioMediaEditor showToast={showToast} />}
+
+      {mode === "create" && (
+        <>
       {/* הנחיות שימוש */}
       <Card className="rounded-none border-gold/30 bg-gold/5 shadow-none">
         <CardHeader className="pb-2">
@@ -1172,6 +1208,8 @@ export default function StudioPage() {
               </CardContent>
             </Card>
           )}
+        </>
+      )}
     </div>
   );
 }

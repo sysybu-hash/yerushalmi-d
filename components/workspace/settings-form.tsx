@@ -113,6 +113,7 @@ function SectionCard({
 
 const SECTION_NAV = [
   { id: "meta", label: "מטא-דאטה" },
+  { id: "logo", label: "לוגו" },
   { id: "announcement", label: "הכרזה" },
   { id: "hero", label: "Hero" },
   { id: "featured", label: "מבצעים" },
@@ -120,6 +121,7 @@ const SECTION_NAV = [
   { id: "trust", label: "אמון" },
   { id: "about", label: "אודות" },
   { id: "contact", label: "יצירת קשר" },
+  { id: "business", label: "עסק/חשבוניות" },
   { id: "footer", label: "פוטר" },
 ] as const;
 
@@ -172,6 +174,18 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
           label="תיאור האתר"
           defaultValue={settings.siteDescription}
           textarea
+        />
+      </SectionCard>
+
+      <SectionCard
+        id="settings-logo"
+        title="לוגו"
+        description="סמל היהלום שמופיע בתפריט העליון ובפוטר (מומלץ רקע שקוף, PNG/SVG)"
+      >
+        <SettingsImageField
+          name="logoImage"
+          label="קובץ הלוגו"
+          defaultValue={settings.logoImage}
         />
       </SectionCard>
 
@@ -346,6 +360,43 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
           name="contactNote"
           label="שורת שירות (מופיעה בתחתית ובפוטר)"
           defaultValue={settings.contactNote}
+        />
+      </SectionCard>
+
+      <SectionCard
+        id="settings-business"
+        title="פרטי עסק וחשבוניות"
+        description="מופיעים בכותרת החשבוניות שמופקות באזור הניהול"
+      >
+        <div className="grid gap-5 sm:grid-cols-2">
+          <TextField
+            name="businessName"
+            label="שם העסק"
+            defaultValue={settings.businessName}
+          />
+          <TextField
+            name="businessId"
+            label="ח.פ / עוסק מורשה"
+            defaultValue={settings.businessId}
+          />
+        </div>
+        <TextField
+          name="businessAddress"
+          label="כתובת העסק"
+          defaultValue={settings.businessAddress}
+        />
+        <div className="grid gap-5 sm:grid-cols-2">
+          <TextField
+            name="invoiceVatRate"
+            label="שיעור מע״מ (%)"
+            defaultValue={settings.invoiceVatRate}
+          />
+        </div>
+        <TextField
+          name="invoiceFooterNote"
+          label="הערת תחתית בחשבונית"
+          defaultValue={settings.invoiceFooterNote}
+          textarea
         />
       </SectionCard>
 

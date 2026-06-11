@@ -118,12 +118,12 @@ export function CartSheet() {
                         variant="outline"
                         size="icon"
                         aria-label="הפחתת כמות"
-                        className="h-7 w-7 rounded-none"
+                        className="h-10 w-10 rounded-none"
                         onClick={() =>
                           updateQuantity(item.id, item.quantity - 1)
                         }
                       >
-                        <Minus className="h-3 w-3" />
+                        <Minus aria-hidden className="h-3.5 w-3.5" />
                       </Button>
                       <span className="min-w-6 text-center text-xs tabular-nums">
                         {item.quantity}
@@ -133,12 +133,12 @@ export function CartSheet() {
                         variant="outline"
                         size="icon"
                         aria-label="הוספת כמות"
-                        className="h-7 w-7 rounded-none"
+                        className="h-10 w-10 rounded-none"
                         onClick={() =>
                           updateQuantity(item.id, item.quantity + 1)
                         }
                       >
-                        <Plus className="h-3 w-3" />
+                        <Plus aria-hidden className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   </div>
@@ -148,9 +148,9 @@ export function CartSheet() {
                     size="icon"
                     aria-label={`הסרת ${item.title} מהסל`}
                     onClick={() => removeItem(item.id)}
-                    className="shrink-0 text-muted-foreground hover:text-destructive"
+                    className="h-10 w-10 shrink-0 text-muted-foreground hover:text-destructive"
                   >
-                    <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+                    <Trash2 aria-hidden className="h-4 w-4" strokeWidth={1.5} />
                   </Button>
                 </li>
               ))}

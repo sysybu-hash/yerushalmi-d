@@ -49,7 +49,7 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
         {image ? (
           <Image
             src={image}
-            alt=""
+            alt={`קולקציית ${title} — ירושלמי יהלומים`}
             fill
             priority
             sizes="100vw"

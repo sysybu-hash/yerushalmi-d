@@ -12,6 +12,9 @@ export const SETTING_DEFAULTS = {
   siteDescription:
     "יהלומים נדירים ותכשיטי יוקרה בעבודת יד — אלגנטיות על-זמנית.",
 
+  /* לוגו — סמל היהלום (רקע שקוף), ניתן להחלפה מההגדרות */
+  logoImage: "/logo-mark.png",
+
   /* פס הכרזה */
   announcementText: "משלוח עד הבית · אחריות מלאה ותעודה גימולוגית",
 
@@ -72,6 +75,13 @@ export const SETTING_DEFAULTS = {
 
   /* פוטר */
   footerCopyright: "© ירושלמי יהלומים. כל הזכויות שמורות.",
+
+  /* פרטי עסק — לכותרת החשבוניות */
+  businessName: "ירושלמי יהלומים",
+  businessId: "",
+  businessAddress: 'בורסת היהלומים, רמת גן',
+  invoiceVatRate: "18",
+  invoiceFooterNote: "תודה שבחרתם בירושלמי יהלומים — כולל אחריות מלאה ותעודה גימולוגית.",
 } as const;
 
 export type SettingKey = keyof typeof SETTING_DEFAULTS;

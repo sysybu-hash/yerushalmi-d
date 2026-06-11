@@ -29,7 +29,7 @@ export function Topbar() {
   const [open, setOpen] = React.useState(false);
 
   return (
-    <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border/60 bg-background/80 px-4 backdrop-blur-md sm:px-6">
+    <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border/60 bg-background/80 px-4 backdrop-blur-md sm:px-6 print:hidden">
       {/* תפריט המבורגר — מובייל בלבד */}
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger asChild>
