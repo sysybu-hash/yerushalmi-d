@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, Phone, UserRound } from "lucide-react";
@@ -25,6 +26,7 @@ export type StoreNavLink = {
 type NavbarProps = {
   announcementText: string;
   contactPhone: string;
+  logoSrc: string;
   navLinks: readonly StoreNavLink[];
 };
 
@@ -33,7 +35,12 @@ function isNavActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function Navbar({ announcementText, contactPhone, navLinks }: NavbarProps) {
+export function Navbar({
+  announcementText,
+  contactPhone,
+  logoSrc,
+  navLinks,
+}: NavbarProps) {
   const [open, setOpen] = React.useState(false);
   const pathname = usePathname();
 
@@ -86,13 +93,13 @@ export function Navbar({ announcementText, contactPhone, navLinks }: NavbarProps
                 size="icon"
                 aria-label="פתיחת תפריט"
                 className={cn(
-                  "hover:bg-transparent",
+                  "h-11 w-11 border transition-colors",
                   transparent
-                    ? "text-ivory hover:text-gold-light"
-                    : "text-foreground hover:text-gold-dark"
+                    ? "border-ivory/40 bg-charcoal/35 text-ivory backdrop-blur-sm hover:border-gold-light hover:bg-charcoal/55 hover:text-gold-light"
+                    : "border-border/70 bg-background/60 text-foreground hover:border-gold-dark/60 hover:bg-secondary hover:text-gold-dark"
                 )}
               >
-                <Menu className="h-6 w-6" strokeWidth={1.25} />
+                <Menu className="h-6 w-6" strokeWidth={2} />
               </Button>
             </SheetTrigger>
 
@@ -111,7 +118,7 @@ export function Navbar({ announcementText, contactPhone, navLinks }: NavbarProps
 
               <Separator className="bg-ivory/10" />
 
-              <nav className="flex-1 overflow-y-auto px-8 py-8">
+              <nav aria-label="ניווט ראשי" className="flex-1 overflow-y-auto px-8 py-8">
                 <ul className="space-y-5">
                   {navLinks.map((link, index) => {
                     const active = isNavActive(pathname, link.href);
@@ -167,24 +174,36 @@ export function Navbar({ announcementText, contactPhone, navLinks }: NavbarProps
 
           <Link
             href="/"
-            className="group absolute left-1/2 -translate-x-1/2 text-center"
+            aria-label="ירושלמי יהלומים — דף הבית"
+            className="group absolute left-1/2 flex -translate-x-1/2 items-center gap-2.5 text-center"
           >
-            <span
-              className={cn(
-                "block font-serif text-2xl font-medium tracking-[0.14em] transition-colors duration-500",
-                transparent ? "text-ivory" : "text-foreground"
-              )}
-            >
-              ירושלמי
-            </span>
-            <span className="mx-auto mt-1 block h-px w-8 bg-gold transition-all duration-300 group-hover:w-full" />
-            <span
-              className={cn(
-                "mt-1 block text-[9px] uppercase tracking-[0.5em] transition-colors duration-500",
-                transparent ? "text-gold-light" : "text-gold-dark"
-              )}
-            >
-              יהלומים
+            {logoSrc ? (
+              <Image
+                src={logoSrc}
+                alt="ירושלמי יהלומים"
+                width={44}
+                height={44}
+                priority
+                className="h-9 w-9 shrink-0 object-contain sm:h-11 sm:w-11"
+              />
+            ) : null}
+            <span className="block">
+              <span
+                className={cn(
+                  "block font-serif text-xl font-medium leading-none tracking-[0.14em] transition-colors duration-500 sm:text-2xl",
+                  transparent ? "text-ivory" : "text-foreground"
+                )}
+              >
+                ירושלמי
+              </span>
+              <span
+                className={cn(
+                  "mt-1 block text-[9px] uppercase tracking-[0.5em] transition-colors duration-500",
+                  transparent ? "text-gold-light" : "text-gold-dark"
+                )}
+              >
+                יהלומים
+              </span>
             </span>
           </Link>
 

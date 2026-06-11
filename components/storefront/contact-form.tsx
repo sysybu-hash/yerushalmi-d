@@ -88,15 +88,21 @@ export function ContactForm() {
       </div>
 
       {error && (
-        <p className="flex items-center gap-1.5 text-xs font-light text-destructive">
-          <XCircle className="h-3.5 w-3.5 shrink-0" />
+        <p
+          role="alert"
+          className="flex items-center gap-1.5 text-xs font-light text-destructive"
+        >
+          <XCircle aria-hidden className="h-3.5 w-3.5 shrink-0" />
           {error}
         </p>
       )}
 
       {success && (
-        <p className="flex items-center gap-1.5 text-xs font-light text-emerald-600">
-          <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+        <p
+          role="status"
+          className="flex items-center gap-1.5 text-xs font-light text-emerald-700"
+        >
+          <CheckCircle2 aria-hidden className="h-3.5 w-3.5 shrink-0" />
           הפנייה נשלחה בהצלחה — נחזור אליכם בהקדם
         </p>
       )}

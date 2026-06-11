@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { collectionLabel } from "@/lib/categories";
 import { TYPE_LABELS } from "@/lib/product-labels";
 import { getSiteSettings } from "@/lib/site-settings";
+import { getSiteUrl } from "@/lib/site-url";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,22 @@ export async function generateMetadata({ params }: ProductPageProps) {
     where: eq(products.id, id),
   });
 
-  return { title: product?.title ?? "מוצר לא נמצא" };
+  if (!product) return { title: "מוצר לא נמצא" };
+
+  const description =
+    product.description?.slice(0, 160) ??
+    "תכשיט יוקרה בעבודת יד עם אחריות מלאה ותעודה גימולוגית.";
+
+  return {
+    title: product.title,
+    description,
+    openGraph: {
+      title: product.title,
+      description,
+      type: "website",
+      images: product.imageUrl ? [{ url: product.imageUrl }] : undefined,
+    },
+  };
 }
 
 export default async function ProductPage({ params }: ProductPageProps) {
@@ -62,8 +78,46 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const onSale = originalPrice !== null && originalPrice > price;
   const catLabel = collectionLabel(product.category, settings);
 
+  const siteUrl = getSiteUrl();
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.title,
+    description: product.description ?? undefined,
+    image: product.imageUrl ?? undefined,
+    category: catLabel,
+    offers: {
+      "@type": "Offer",
+      price: price,
+      priceCurrency: "ILS",
+      availability: "https://schema.org/InStock",
+      url: `${siteUrl}/products/${product.id}`,
+    },
+  };
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "דף הבית", item: siteUrl },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: catLabel,
+        item: `${siteUrl}/collections/${product.category}`,
+      },
+      { "@type": "ListItem", position: 3, name: product.title },
+    ],
+  };
+
   return (
     <section className="mx-auto max-w-7xl px-4 py-12 sm:px-8 sm:py-16">
+      <script
+        type="application/ld+json"
+        // eslint-disable-next-line react/no-danger
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify([jsonLd, breadcrumbLd]),
+        }}
+      />
       <nav
         aria-label="ניווט"
         className="mb-8 flex flex-wrap items-center gap-2 text-xs font-light text-muted-foreground"

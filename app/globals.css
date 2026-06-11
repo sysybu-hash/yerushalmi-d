@@ -98,3 +98,115 @@
     animation: none;
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* נגישות — קישור דילוג, פוקוס נראה, ומצבי בועת הנגישות               */
+/* ------------------------------------------------------------------ */
+
+/* קישור "דלג לתוכן" — מוסתר עד שמקבל פוקוס מהמקלדת */
+.skip-link {
+  position: fixed;
+  top: 0;
+  right: 1rem;
+  z-index: 100;
+  transform: translateY(-120%);
+  background-color: hsl(var(--foreground));
+  color: hsl(var(--background));
+  padding: 0.75rem 1.25rem;
+  font-size: 0.875rem;
+  letter-spacing: 0.05em;
+  transition: transform 0.2s ease;
+}
+.skip-link:focus {
+  transform: translateY(0);
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* פוקוס נראה אחיד לכל אלמנט אינטראקטיבי בניווט מקלדת */
+a:focus-visible,
+button:focus-visible,
+[role="button"]:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* --- מצבי בועת הנגישות (מוחלים על <html> דרך class) --- */
+
+/* הגדלת טקסט — 3 רמות */
+html.a11y-font-1 {
+  font-size: 112.5%;
+}
+html.a11y-font-2 {
+  font-size: 125%;
+}
+html.a11y-font-3 {
+  font-size: 137.5%;
+}
+
+/* ניגודיות גבוהה */
+html.a11y-contrast {
+  --background: 0 0% 100%;
+  --foreground: 0 0% 0%;
+  --muted-foreground: 0 0% 12%;
+  --border: 0 0% 0%;
+  --primary: 0 0% 0%;
+  --ring: 240 100% 40%;
+}
+html.a11y-contrast body {
+  background-color: #fff;
+  color: #000;
+}
+html.a11y-contrast a {
+  text-decoration: underline;
+}
+
+/* גווני אפור */
+html.a11y-grayscale {
+  filter: grayscale(100%);
+}
+
+/* היפוך צבעים */
+html.a11y-invert {
+  filter: invert(100%) hue-rotate(180deg);
+}
+html.a11y-grayscale.a11y-invert {
+  filter: grayscale(100%) invert(100%) hue-rotate(180deg);
+}
+
+/* הדגשת קישורים */
+html.a11y-links a {
+  text-decoration: underline !important;
+  text-underline-offset: 3px;
+  outline: 1px dashed hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* גופן קריא — ביטול letter-spacing יוקרתי וגופן sans פשוט */
+html.a11y-readable * {
+  font-family: Arial, "Segoe UI", Tahoma, sans-serif !important;
+  letter-spacing: normal !important;
+  word-spacing: 0.05em;
+  line-height: 1.7 !important;
+}
+
+/* סמן עכבר גדול */
+html.a11y-bigcursor,
+html.a11y-bigcursor * {
+  cursor:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 24 24' fill='black' stroke='white' stroke-width='1'%3E%3Cpath d='M4 2l7 18 2.5-7L20 11 4 2z'/%3E%3C/svg%3E"),
+    auto;
+}
+
+/* עצירת אנימציות — כפיית reduced motion */
+html.a11y-no-motion *,
+html.a11y-no-motion *::before,
+html.a11y-no-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}

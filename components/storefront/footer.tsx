@@ -1,5 +1,6 @@
+import Image from "next/image";
 import Link from "next/link";
-import { Gem, MapPin, MessageCircle, Phone } from "lucide-react";
+import { MapPin, MessageCircle, Phone } from "lucide-react";
 
 import type { StoreNavLink } from "@/components/storefront/navbar";
 import type { SiteSettings } from "@/lib/site-settings";
@@ -20,10 +21,12 @@ export function Footer({
       <div className="mx-auto max-w-7xl px-4 py-16 sm:px-8">
         <div className="grid gap-12 text-center sm:grid-cols-3 sm:text-right">
           <div>
-            <Gem
-              aria-hidden
-              className="mx-auto h-6 w-6 text-gold sm:mx-0"
-              strokeWidth={0.75}
+            <Image
+              src={settings.logoImage}
+              alt="ירושלמי יהלומים"
+              width={56}
+              height={56}
+              className="mx-auto h-12 w-12 object-contain sm:mx-0"
             />
             <p className="mt-4 font-serif text-xl font-medium tracking-[0.14em]">
               ירושלמי
@@ -109,7 +112,28 @@ export function Footer({
         </div>
 
         <div className="mt-14 border-t border-ivory/10 pt-8 text-center">
-          <p className="text-[11px] font-light tracking-[0.15em] text-ivory/50">
+          <nav aria-label="קישורים משפטיים">
+            <ul className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[11px] font-light tracking-[0.08em] text-ivory/60">
+              <li>
+                <Link href="/accessibility" className="transition-colors hover:text-gold-light">
+                  הצהרת נגישות
+                </Link>
+              </li>
+              <li aria-hidden className="text-ivory/25">·</li>
+              <li>
+                <Link href="/privacy" className="transition-colors hover:text-gold-light">
+                  מדיניות פרטיות
+                </Link>
+              </li>
+              <li aria-hidden className="text-ivory/25">·</li>
+              <li>
+                <Link href="/terms" className="transition-colors hover:text-gold-light">
+                  תקנון ותנאי שימוש
+                </Link>
+              </li>
+            </ul>
+          </nav>
+          <p className="mt-5 text-[11px] font-light tracking-[0.15em] text-ivory/50">
             {settings.footerCopyright}
           </p>
         </div>

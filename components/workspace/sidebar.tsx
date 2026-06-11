@@ -9,7 +9,7 @@ import { SidebarNav } from "@/components/workspace/sidebar-nav";
  */
 export function Sidebar() {
   return (
-    <aside className="hidden w-64 shrink-0 flex-col border-l border-border/60 bg-background lg:flex">
+    <aside className="hidden w-64 shrink-0 flex-col border-l border-border/60 bg-background lg:flex print:hidden">
       <div className="px-7 pb-6 pt-8">
         <Link href="/" className="block">
           <span className="block font-serif text-xl font-light tracking-[0.15em]">
