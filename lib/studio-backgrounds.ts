@@ -1,6 +1,7 @@
 import sharp from "sharp";
 
 import type { StudioStylePresetId } from "@/lib/studio-presets";
+import { STUDIO_CANVAS_SIZE } from "@/lib/studio-presets";
 
 type BackgroundOptions = {
   preset: StudioStylePresetId;
@@ -139,7 +140,7 @@ async function applyLightingHints(
 export async function generatePresetBackground(
   options: BackgroundOptions
 ): Promise<Buffer> {
-  const size = options.size ?? 1024;
+  const size = options.size ?? STUDIO_CANVAS_SIZE;
   const base = await presetBase(options.preset, size);
   const withHints = await applyLightingHints(
     base,

@@ -47,6 +47,7 @@ import {
   ASPECT_OPTIONS,
   DEFAULT_IMAGE_ADJUSTMENTS,
   DEFAULT_VIDEO_ADJUSTMENTS,
+  JEWELRY_CATALOG_IMAGE_ADJUSTMENTS,
   buildTransformedUrl,
   hasImageEdits,
   hasVideoEdits,
@@ -202,12 +203,18 @@ export function StudioMediaEditor({
   }
 
   async function handleSave() {
-    if (!previewUrl || !asset) return;
+    if (!asset) return;
     setBusy("save");
     try {
-      const { url } = await saveAssetToCloudinary(previewUrl, asset.type);
+      const saveUrl = buildTransformedUrl(
+        asset.url,
+        asset.type,
+        asset.type === "image" ? imageAdj : videoAdj,
+        { quality: "best" }
+      );
+      const { url } = await saveAssetToCloudinary(saveUrl, asset.type);
       setSavedUrl(url);
-      showToast("הנכס המעובד נשמר ב-Cloudinary");
+      showToast("הנכס המעובד נשמר ב-Cloudinary באיכות גבוהה");
     } catch (e) {
       showToast(e instanceof Error ? e.message : "השמירה נכשלה");
     } finally {
@@ -217,8 +224,14 @@ export function StudioMediaEditor({
 
   async function ensureSaved(): Promise<string | null> {
     if (savedUrl) return savedUrl;
-    if (!previewUrl || !asset) return null;
-    const { url } = await saveAssetToCloudinary(previewUrl, asset.type);
+    if (!asset) return null;
+    const saveUrl = buildTransformedUrl(
+      asset.url,
+      asset.type,
+      asset.type === "image" ? imageAdj : videoAdj,
+      { quality: "best" }
+    );
+    const { url } = await saveAssetToCloudinary(saveUrl, asset.type);
     setSavedUrl(url);
     return url;
   }
@@ -229,7 +242,7 @@ export function StudioMediaEditor({
       asset.url,
       asset.type,
       asset.type === "image" ? imageAdj : videoAdj,
-      { download: true }
+      { download: true, quality: "best" }
     );
     const anchor = document.createElement("a");
     anchor.href = url;
@@ -442,6 +455,23 @@ export function StudioMediaEditor({
 
                 {isImage && (
                   <>
+                    <div className="space-y-2">
+                      <Label className="font-light">פריסטים מהירים</Label>
+                      <div className="flex flex-wrap gap-2">
+                        <ToggleChip
+                          label="קטלוג יהלומים"
+                          active={
+                            imageAdj.aspect === "1:1" &&
+                            imageAdj.autoEnhance &&
+                            imageAdj.sharpen
+                          }
+                          onClick={() =>
+                            setImageAdj(JEWELRY_CATALOG_IMAGE_ADJUSTMENTS)
+                          }
+                        />
+                      </div>
+                    </div>
+
                     <div className="space-y-2">
                       <Label className="font-light">שיפורים אוטומטיים</Label>
                       <div className="flex flex-wrap gap-2">

@@ -16,8 +16,11 @@ import {
   uploadBufferToCloudinary,
 } from "@/lib/studio-replicate";
 import {
+  DEFAULT_VIDEO_NEGATIVE_PROMPT,
   DEFAULT_VIDEO_PROMPT,
   IMAGE_SETTING_KEYS,
+  STUDIO_CANVAS_SIZE,
+  STUDIO_PRESET_LIGHTING_HINTS,
   type StudioStylePresetId,
 } from "@/lib/studio-presets";
 import type { SettingKey } from "@/lib/site-settings";
@@ -61,10 +64,15 @@ function assertRemoteAssetUrl(url: string) {
   }
 }
 
-async function buildLightingHints(customPrompt?: string) {
+async function buildLightingHints(
+  customPrompt?: string,
+  stylePreset: StudioStylePresetId = "luxury-marble"
+) {
+  const presetHints = STUDIO_PRESET_LIGHTING_HINTS[stylePreset];
   const trimmed = customPrompt?.trim();
-  if (!trimmed) return "";
-  return translateToEnglish(trimmed);
+  if (!trimmed) return presetHints;
+  const translated = await translateToEnglish(trimmed);
+  return translated ? `${presetHints}, ${translated}` : presetHints;
 }
 
 /** שלב 1: הסרת רקע — שומר את התכשיט המקורי בדיוק */
@@ -73,7 +81,14 @@ export async function studioRemoveBackground(imageUrl: string) {
   assertCloudinaryUrl(imageUrl);
 
   const output = await replicate.run(MODELS.rembg, {
-    input: { image: imageUrl },
+    input: {
+      image: imageUrl,
+      model: "u2net",
+      alpha_matting: true,
+      alpha_matting_foreground_threshold: 240,
+      alpha_matting_background_threshold: 10,
+      alpha_matting_erode_size: 10,
+    },
   });
 
   return { url: extractUrl(output) };
@@ -85,10 +100,12 @@ export async function studioGenerateBackground(
 ) {
   await requireAdmin();
 
-  const lightingHints = await buildLightingHints(options.customPrompt);
+  const preset = options.stylePreset ?? "luxury-marble";
+  const lightingHints = await buildLightingHints(options.customPrompt, preset);
   const buffer = await generatePresetBackground({
-    preset: options.stylePreset ?? "luxury-marble",
+    preset,
     lightingHints,
+    size: STUDIO_CANVAS_SIZE,
   });
 
   const url = await uploadBufferToCloudinary(
@@ -108,13 +125,19 @@ export async function studioCompositeImage(
   await requireAdmin();
   assertRemoteAssetUrl(cutoutUrl);
 
-  const lightingHints = await buildLightingHints(options.customPrompt);
+  const preset = options.stylePreset ?? "luxury-marble";
+  const lightingHints = await buildLightingHints(options.customPrompt, preset);
   const backgroundBuffer = await generatePresetBackground({
-    preset: options.stylePreset ?? "luxury-marble",
+    preset,
     lightingHints,
+    size: STUDIO_CANVAS_SIZE,
   });
 
-  const buffer = await compositeProductImage(cutoutUrl, backgroundBuffer);
+  const buffer = await compositeProductImage(
+    cutoutUrl,
+    backgroundBuffer,
+    STUDIO_CANVAS_SIZE
+  );
   const url = await uploadBufferToCloudinary(
     buffer,
     `studio-composite-${Date.now()}.png`,
@@ -158,7 +181,7 @@ async function generateKlingVideo(
     : "";
 
   const prompt = englishCustom
-    ? `${englishCustom}, ${DEFAULT_VIDEO_PROMPT}`
+    ? `${DEFAULT_VIDEO_PROMPT}, ${englishCustom}`
     : DEFAULT_VIDEO_PROMPT;
 
   const output = await replicate.run(MODELS.kling, {
@@ -166,30 +189,15 @@ async function generateKlingVideo(
       start_image: imageUrl,
       prompt,
       negative_prompt:
-        options.negativePrompt?.trim() ||
-        "changing jewelry shape, different ring design, morphing product, blur, distortion, low quality, text, watermark",
+        options.negativePrompt?.trim() || DEFAULT_VIDEO_NEGATIVE_PROMPT,
       duration: options.duration ?? 5,
-      mode: options.mode ?? "standard",
+      mode: options.mode ?? "pro",
     },
   });
 
   return extractUrl(output);
 }
 
-async function generateSvdFallback(imageUrl: string) {
-  const output = await replicate.run(MODELS.svd, {
-    input: {
-      input_image: imageUrl,
-      video_length: "25_frames_with_svd_xt",
-      frames_per_second: 6,
-      sizing_strategy: "maintain_aspect_ratio",
-      motion_bucket_id: 80,
-      cond_aug: 0.01,
-    },
-  });
-
-  return extractUrl(output);
-}
 
 export async function generateJewelryVideo(
   imageUrl: string,
@@ -202,10 +210,12 @@ export async function generateJewelryVideo(
     const url = await generateKlingVideo(imageUrl, options);
     return { url, provider: "kling" as const };
   } catch (klingError) {
-    console.warn("Kling video failed, falling back to SVD:", klingError);
-
-    const url = await generateSvdFallback(imageUrl);
-    return { url, provider: "svd" as const };
+    console.error("Kling video failed:", klingError);
+    throw new Error(
+      klingError instanceof Error
+        ? klingError.message
+        : "יצירת הווידאו נכשלה. ודאו שיצרתם תמונת יוקרה תחילה ונסו שוב במצב Pro (1080p)."
+    );
   }
 }
 
