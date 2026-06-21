@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { ClipboardList } from "lucide-react";
 
 import { OrderItemsDialog } from "@/components/workspace/order-items-dialog";
@@ -113,6 +114,14 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                         {order.customerEmail}
                       </p>
                     )}
+                    {order.matchedCustomerId && (
+                      <Link
+                        href={`/workspace/customers?q=${encodeURIComponent(order.customerPhone)}`}
+                        className="mt-1 inline-block text-[11px] font-light text-gold-dark underline-offset-2 hover:underline"
+                      >
+                        צפייה בכרטיס לקוח
+                      </Link>
+                    )}
                   </TableCell>
                   <TableCell className="font-light tabular-nums">
                     {dateFormatter.format(order.createdAt)}
@@ -127,7 +136,11 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                     />
                   </TableCell>
                   <TableCell className="text-left">
-                    <OrderItemsDialog order={order} items={order.items} />
+                    <OrderItemsDialog
+                      order={order}
+                      items={order.items}
+                      matchedCustomerId={order.matchedCustomerId}
+                    />
                   </TableCell>
                 </TableRow>
               ))}

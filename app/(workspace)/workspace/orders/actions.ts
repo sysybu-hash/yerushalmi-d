@@ -4,7 +4,7 @@ import { and, desc, eq, ilike, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
-import { orders } from "@/db/schema";
+import { customers, orders } from "@/db/schema";
 import {
   ORDER_STATUSES,
   type OrderStatus,
@@ -16,7 +16,11 @@ export type OrderFilters = {
   q?: string;
 };
 
-/** שליפת הזמנות עם סינון וחיפוש */
+export type OrderWithMatch = Awaited<
+  ReturnType<typeof getOrders>
+>[number];
+
+/** שליפת הזמנות עם סינון, חיפוש וקישור ללקוח תואם (טלפון/אימייל) */
 export async function getOrders(filters?: OrderFilters) {
   await requireAdmin();
 
@@ -29,20 +33,61 @@ export async function getOrders(filters?: OrderFilters) {
 
   const q = filters?.q?.trim();
   if (q) {
-    const pattern = `%${q}%`;
-    conditions.push(
-      or(
-        ilike(orders.customerName, pattern),
-        ilike(orders.customerPhone, pattern),
-        ilike(orders.customerEmail, pattern)
-      )
-    );
+    const orderIdMatch = q.replace(/^#/, "");
+    if (/^\d+$/.test(orderIdMatch)) {
+      conditions.push(eq(orders.id, Number(orderIdMatch)));
+    } else {
+      const pattern = `%${q}%`;
+      conditions.push(
+        or(
+          ilike(orders.customerName, pattern),
+          ilike(orders.customerPhone, pattern),
+          ilike(orders.customerEmail, pattern)
+        )
+      );
+    }
   }
 
-  return db.query.orders.findMany({
-    with: { items: true },
-    where: conditions.length > 0 ? and(...conditions) : undefined,
-    orderBy: desc(orders.createdAt),
+  const [orderList, customerRows] = await Promise.all([
+    db.query.orders.findMany({
+      with: { items: true },
+      where: conditions.length > 0 ? and(...conditions) : undefined,
+      orderBy: desc(orders.createdAt),
+    }),
+    db
+      .select({
+        id: customers.id,
+        email: customers.email,
+        phone: customers.phone,
+      })
+      .from(customers),
+  ]);
+
+  const byEmail = new Map<string, number>();
+  const byPhone = new Map<string, number>();
+  for (const customer of customerRows) {
+    if (customer.email) {
+      byEmail.set(customer.email.toLowerCase(), customer.id);
+    }
+    if (customer.phone) {
+      byPhone.set(customer.phone, customer.id);
+    }
+  }
+
+  return orderList.map((order) => {
+    let matchedCustomerId: number | null = null;
+    if (order.customerEmail) {
+      matchedCustomerId =
+        byEmail.get(order.customerEmail.toLowerCase()) ?? null;
+    }
+    if (!matchedCustomerId && order.customerPhone) {
+      matchedCustomerId = byPhone.get(order.customerPhone) ?? null;
+    }
+
+    return {
+      ...order,
+      matchedCustomerId,
+    };
   });
 }
 

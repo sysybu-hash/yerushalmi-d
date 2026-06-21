@@ -1,7 +1,7 @@
 import { and, count, desc, eq, gte, inArray, lt, sum } from "drizzle-orm";
 
 import { db } from "@/db";
-import { customers, orders, products } from "@/db/schema";
+import { contactInquiries, customers, orders, products } from "@/db/schema";
 
 const priceFormatter = new Intl.NumberFormat("he-IL", {
   style: "currency",
@@ -54,6 +54,7 @@ export async function getDashboardStats() {
     pendingShipRow,
     recentOrders,
     recentCustomers,
+    recentInquiries,
   ] = await Promise.all([
     db.select({ count: count() }).from(products),
     db
@@ -98,6 +99,11 @@ export async function getDashboardStats() {
       .where(eq(orders.status, "paid")),
     db.select().from(orders).orderBy(desc(orders.createdAt)).limit(5),
     db.select().from(customers).orderBy(desc(customers.createdAt)).limit(3),
+    db
+      .select()
+      .from(contactInquiries)
+      .orderBy(desc(contactInquiries.createdAt))
+      .limit(3),
   ]);
 
   const revenueThisMonth = Number(revenueThisMonthRow[0]?.total ?? 0);
@@ -115,6 +121,11 @@ export async function getDashboardStats() {
       text: `לקוח/ה חדש/ה — ${customer.fullName}`,
       time: relativeTime(customer.createdAt),
       sortKey: customer.createdAt.getTime(),
+    })),
+    ...recentInquiries.map((inquiry) => ({
+      text: `פנייה${inquiry.status === "pending" ? " חדשה" : ""} — ${inquiry.fullName}${inquiry.subject ? `: ${inquiry.subject}` : ""}`,
+      time: relativeTime(inquiry.createdAt),
+      sortKey: inquiry.createdAt.getTime(),
     })),
   ]
     .sort((a, b) => b.sortKey - a.sortKey)

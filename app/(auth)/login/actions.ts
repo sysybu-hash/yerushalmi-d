@@ -25,25 +25,25 @@ export async function login(
   _prevState: LoginState,
   formData: FormData
 ): Promise<LoginState> {
-  const email = formData.get("email")?.toString().trim().toLowerCase();
+  const username = formData.get("username")?.toString().trim().toLowerCase();
   const password = formData.get("password")?.toString();
 
-  if (!email || !password) {
-    return { error: "יש למלא אימייל וסיסמה" };
+  if (!username || !password) {
+    return { error: "יש למלא שם משתמש וסיסמה" };
   }
 
-  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  const adminUsername = process.env.ADMIN_EMAIL?.trim().toLowerCase();
   const adminPassword = process.env.ADMIN_PASSWORD;
 
-  if (!adminEmail || !adminPassword) {
+  if (!adminUsername || !adminPassword) {
     return { error: "המערכת אינה מוגדרת — חסרים פרטי מנהל בשרת" };
   }
 
-  if (email !== adminEmail || password !== adminPassword) {
-    return { error: "אימייל או סיסמה שגויים" };
+  if (username !== adminUsername || password !== adminPassword) {
+    return { error: "שם משתמש או סיסמה שגויים" };
   }
 
-  const token = await new SignJWT({ role: "admin", email })
+  const token = await new SignJWT({ role: "admin", username })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(`${SESSION_DAYS}d`)

@@ -66,15 +66,15 @@ export default function LoginPage() {
 
         <form action={formAction} className="mt-8 space-y-5">
           <div className="space-y-2">
-            <Label htmlFor="email" className="font-light text-stone-300">
-              אימייל
+            <Label htmlFor="username" className="font-light text-stone-300">
+              שם משתמש
             </Label>
             <Input
-              id="email"
-              name="email"
-              type="email"
+              id="username"
+              name="username"
+              type="text"
               required
-              autoComplete="email"
+              autoComplete="username"
               dir="ltr"
               className="rounded-none border-stone-700 bg-stone-900/60 text-stone-100 placeholder:text-stone-500 focus-visible:ring-stone-400"
             />

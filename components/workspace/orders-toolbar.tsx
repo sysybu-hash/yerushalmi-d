@@ -73,7 +73,7 @@ export function OrdersToolbar() {
           <Input
             value={value}
             onChange={(e) => setValue(e.target.value)}
-            placeholder="חיפוש לפי שם, טלפון או אימייל..."
+            placeholder="חיפוש לפי שם, טלפון, אימייל או #מספר הזמנה..."
             className="rounded-none pr-10"
           />
         </div>
