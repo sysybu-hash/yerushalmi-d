@@ -11,6 +11,7 @@ import { compositeProductImage } from "@/lib/studio-composite";
 import {
   extractUrl,
   MODELS,
+  normalizeStudioError,
   replicate,
   translateToEnglish,
   uploadBufferToCloudinary,
@@ -80,18 +81,21 @@ export async function studioRemoveBackground(imageUrl: string) {
   await requireAdmin();
   assertCloudinaryUrl(imageUrl);
 
-  const output = await replicate.run(MODELS.rembg, {
-    input: {
-      image: imageUrl,
-      model: "u2net",
-      alpha_matting: true,
-      alpha_matting_foreground_threshold: 240,
-      alpha_matting_background_threshold: 10,
-      alpha_matting_erode_size: 10,
-    },
-  });
+  try {
+    // Replicate cjwbw/rembg accepts only `image` — extra fields cause API errors.
+    const output = await replicate.run(MODELS.rembg, {
+      input: { image: imageUrl },
+    });
 
-  return { url: extractUrl(output) };
+    return { url: extractUrl(output) };
+  } catch (error) {
+    throw new Error(
+      normalizeStudioError(
+        error,
+        "הסרת הרקע נכשלה — ודאו ש-REPLICATE_API_TOKEN מוגדר ונסו שוב."
+      )
+    );
+  }
 }
 
 /** שלב 2: רקע יוקרתי (Sharp — לא AI, בלי תכשיטים מומצאים) */
@@ -133,18 +137,24 @@ export async function studioCompositeImage(
     size: STUDIO_CANVAS_SIZE,
   });
 
-  const buffer = await compositeProductImage(
-    cutoutUrl,
-    backgroundBuffer,
-    STUDIO_CANVAS_SIZE
-  );
-  const url = await uploadBufferToCloudinary(
-    buffer,
-    `studio-composite-${Date.now()}.png`,
-    "image"
-  );
+  try {
+    const buffer = await compositeProductImage(
+      cutoutUrl,
+      backgroundBuffer,
+      STUDIO_CANVAS_SIZE
+    );
+    const url = await uploadBufferToCloudinary(
+      buffer,
+      `studio-composite-${Date.now()}.png`,
+      "image"
+    );
 
-  return { url };
+    return { url };
+  } catch (error) {
+    throw new Error(
+      normalizeStudioError(error, "הרכבת התמונה נכשלה — נסו צילום עם רקע אחיד.")
+    );
+  }
 }
 
 /**

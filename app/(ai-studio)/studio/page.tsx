@@ -146,6 +146,20 @@ export default function StudioPage() {
     window.setTimeout(() => setToast(null), 4000);
   }
 
+  function formatStudioError(error: unknown): string {
+    if (error instanceof Error) {
+      const message = error.message.trim();
+      if (
+        message.includes("Server Components render") ||
+        message.includes("digest")
+      ) {
+        return "היצירה נכשלה — ודאו ש-REPLICATE_API_TOKEN ו-Cloudinary מוגדרים ב-Vercel.";
+      }
+      if (message) return message;
+    }
+    return "היצירה נכשלה — נסו שוב בעוד רגע";
+  }
+
   function aiOptions(): GenerateImageOptions {
     return {
       customPrompt,
@@ -214,10 +228,7 @@ export default function StudioPage() {
       setState({
         status: "error",
         source,
-        message:
-          error instanceof Error
-            ? error.message
-            : "היצירה נכשלה — נסו שוב בעוד רגע",
+        message: formatStudioError(error),
       });
     }
   }

@@ -1,6 +1,6 @@
 import sharp from "sharp";
 
-import { STUDIO_CANVAS_SIZE, STUDIO_MIN_SOURCE_PX } from "@/lib/studio-presets";
+import { STUDIO_CANVAS_SIZE } from "@/lib/studio-presets";
 
 const MIN_OPAQUE_RATIO = 0.015;
 const MAX_OPAQUE_RATIO = 0.72;
@@ -35,19 +35,6 @@ export async function validateJewelryCutout(buffer: Buffer): Promise<void> {
   }
 }
 
-async function validateSourceResolution(buffer: Buffer): Promise<void> {
-  const meta = await sharp(buffer).metadata();
-  const width = meta.width ?? 0;
-  const height = meta.height ?? 0;
-  const minDim = Math.min(width, height);
-
-  if (minDim < STUDIO_MIN_SOURCE_PX) {
-    throw new Error(
-      `הצילום קטן מדי (${width}×${height}). לקטלוג איכותי העלו לפחות ${STUDIO_MIN_SOURCE_PX}×${STUDIO_MIN_SOURCE_PX} פיקסלים, חד וממוקד.`
-    );
-  }
-}
-
 async function createDropShadow(
   jewelryPng: Buffer,
   width: number,
@@ -77,7 +64,6 @@ export async function compositeProductImage(
   }
 
   const jewelryInput = Buffer.from(await jewelryRes.arrayBuffer());
-  await validateSourceResolution(jewelryInput);
   await validateJewelryCutout(jewelryInput);
 
   const jewelryMaxWidth = Math.round(canvasSize * JEWELRY_CANVAS_RATIO);
@@ -88,25 +74,19 @@ export async function compositeProductImage(
       width: jewelryMaxWidth,
       height: jewelryMaxWidth,
       fit: "inside",
-      withoutEnlargement: true,
+      withoutEnlargement: false,
     })
     .sharpen({ sigma: 0.6, m1: 0.5, m2: 0.35 })
     .png({ compressionLevel: 6 })
     .toBuffer();
-
-  const jMeta = await sharp(jewelryPng).metadata();
-  const jWidth = jMeta.width ?? 0;
-  if (jWidth < Math.round(canvasSize * 0.35)) {
-    throw new Error(
-      "התכשיט בצילום קטן מדי אחרי בידוד — העלו צילום קרוב יותר (macro) ברזולוציה גבוהה."
-    );
-  }
 
   const background = await sharp(backgroundBuffer)
     .resize(canvasSize, canvasSize, { fit: "cover", position: "centre" })
     .png({ compressionLevel: 6 })
     .toBuffer();
 
+  const jMeta = await sharp(jewelryPng).metadata();
+  const jWidth = jMeta.width ?? jewelryMaxWidth;
   const jHeight = jMeta.height ?? jewelryMaxWidth;
   const left = Math.max(0, Math.round((canvasSize - jWidth) / 2));
   const top = Math.max(0, Math.round((canvasSize - jHeight) / 2 - canvasSize * 0.02));

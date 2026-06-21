@@ -24,6 +24,27 @@ export const DEFAULT_NEGATIVE =
 export const BACKGROUND_NEGATIVE =
   "jewelry, ring, necklace, bracelet, earrings, diamond, product, hands, people, text, watermark, logo";
 
+/** הודעת שגיאה ברורה מ-Replicate / Server Actions */
+export function normalizeStudioError(error: unknown, fallback: string): string {
+  if (error instanceof Error) {
+    const message = error.message.trim();
+    if (
+      message &&
+      !message.includes("Server Components render") &&
+      !message.includes("digest")
+    ) {
+      return message;
+    }
+  }
+
+  if (typeof error === "object" && error !== null && "message" in error) {
+    const message = String((error as { message: unknown }).message).trim();
+    if (message) return message;
+  }
+
+  return fallback;
+}
+
 /** חילוץ URL מהפלט של Replicate */
 export function extractUrl(output: unknown): string {
   const first = Array.isArray(output) ? output[0] : output;
