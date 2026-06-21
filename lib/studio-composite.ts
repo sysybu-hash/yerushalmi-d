@@ -1,7 +1,10 @@
 import sharp from "sharp";
 
+import { STUDIO_CANVAS_SIZE, STUDIO_MIN_SOURCE_PX } from "@/lib/studio-presets";
+
 const MIN_OPAQUE_RATIO = 0.015;
 const MAX_OPAQUE_RATIO = 0.72;
+const JEWELRY_CANVAS_RATIO = 0.75;
 
 /** וידוא ש-rembg בידד תכשיט אמיתי ולא החזיר תמונה ריקה/מלאה */
 export async function validateJewelryCutout(buffer: Buffer): Promise<void> {
@@ -32,18 +35,31 @@ export async function validateJewelryCutout(buffer: Buffer): Promise<void> {
   }
 }
 
+async function validateSourceResolution(buffer: Buffer): Promise<void> {
+  const meta = await sharp(buffer).metadata();
+  const width = meta.width ?? 0;
+  const height = meta.height ?? 0;
+  const minDim = Math.min(width, height);
+
+  if (minDim < STUDIO_MIN_SOURCE_PX) {
+    throw new Error(
+      `הצילום קטן מדי (${width}×${height}). לקטלוג איכותי העלו לפחות ${STUDIO_MIN_SOURCE_PX}×${STUDIO_MIN_SOURCE_PX} פיקסלים, חד וממוקד.`
+    );
+  }
+}
+
 async function createDropShadow(
   jewelryPng: Buffer,
   width: number,
   height: number
 ): Promise<Buffer> {
-  const blur = Math.max(3, Math.round(width * 0.025));
+  const blur = Math.max(4, Math.round(width * 0.022));
 
   return sharp(jewelryPng)
     .ensureAlpha()
     .blur(blur)
     .modulate({ brightness: 0, saturation: 0 })
-    .linear(0.35, 0)
+    .linear(0.32, 0)
     .resize(width, height, { fit: "fill" })
     .png()
     .toBuffer();
@@ -53,7 +69,7 @@ async function createDropShadow(
 export async function compositeProductImage(
   jewelryPngUrl: string,
   backgroundBuffer: Buffer,
-  canvasSize = 1024
+  canvasSize = STUDIO_CANVAS_SIZE
 ): Promise<Buffer> {
   const jewelryRes = await fetch(jewelryPngUrl);
   if (!jewelryRes.ok) {
@@ -61,9 +77,10 @@ export async function compositeProductImage(
   }
 
   const jewelryInput = Buffer.from(await jewelryRes.arrayBuffer());
+  await validateSourceResolution(jewelryInput);
   await validateJewelryCutout(jewelryInput);
 
-  const jewelryMaxWidth = Math.round(canvasSize * 0.58);
+  const jewelryMaxWidth = Math.round(canvasSize * JEWELRY_CANVAS_RATIO);
 
   const jewelryPng = await sharp(jewelryInput)
     .trim({ threshold: 8 })
@@ -71,18 +88,25 @@ export async function compositeProductImage(
       width: jewelryMaxWidth,
       height: jewelryMaxWidth,
       fit: "inside",
-      withoutEnlargement: false,
+      withoutEnlargement: true,
     })
-    .png()
-    .toBuffer();
-
-  const background = await sharp(backgroundBuffer)
-    .resize(canvasSize, canvasSize, { fit: "cover", position: "centre" })
-    .png()
+    .sharpen({ sigma: 0.6, m1: 0.5, m2: 0.35 })
+    .png({ compressionLevel: 6 })
     .toBuffer();
 
   const jMeta = await sharp(jewelryPng).metadata();
-  const jWidth = jMeta.width ?? jewelryMaxWidth;
+  const jWidth = jMeta.width ?? 0;
+  if (jWidth < Math.round(canvasSize * 0.35)) {
+    throw new Error(
+      "התכשיט בצילום קטן מדי אחרי בידוד — העלו צילום קרוב יותר (macro) ברזולוציה גבוהה."
+    );
+  }
+
+  const background = await sharp(backgroundBuffer)
+    .resize(canvasSize, canvasSize, { fit: "cover", position: "centre" })
+    .png({ compressionLevel: 6 })
+    .toBuffer();
+
   const jHeight = jMeta.height ?? jewelryMaxWidth;
   const left = Math.max(0, Math.round((canvasSize - jWidth) / 2));
   const top = Math.max(0, Math.round((canvasSize - jHeight) / 2 - canvasSize * 0.02));
@@ -96,6 +120,6 @@ export async function compositeProductImage(
       { input: shadow, left: shadowLeft, top: shadowTop, blend: "multiply" },
       { input: jewelryPng, left, top },
     ])
-    .png()
+    .png({ compressionLevel: 6 })
     .toBuffer();
 }

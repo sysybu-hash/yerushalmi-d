@@ -40,13 +40,25 @@ export type VideoAdjustments = {
 };
 
 export const DEFAULT_IMAGE_ADJUSTMENTS: ImageAdjustments = {
-  autoEnhance: false,
-  autoColor: false,
-  sharpen: false,
+  autoEnhance: true,
+  autoColor: true,
+  sharpen: true,
   brightness: 0,
   saturation: 0,
-  contrast: 0,
+  contrast: 5,
   aspect: "original",
+  upscale: true,
+};
+
+/** פריסט מומלץ לקטלוג תכשיטים */
+export const JEWELRY_CATALOG_IMAGE_ADJUSTMENTS: ImageAdjustments = {
+  autoEnhance: true,
+  autoColor: true,
+  sharpen: true,
+  brightness: 5,
+  saturation: -5,
+  contrast: 8,
+  aspect: "1:1",
   upscale: false,
 };
 
@@ -69,14 +81,14 @@ function imageComponents(adj: ImageAdjustments): string[] {
   const parts: string[] = [];
   if (adj.autoEnhance) parts.push("e_improve");
   if (adj.autoColor) parts.push("e_auto_color");
-  if (adj.sharpen) parts.push("e_sharpen:200");
+  if (adj.sharpen) parts.push("e_sharpen:100");
   if (adj.brightness !== 0) parts.push(`e_brightness:${adj.brightness}`);
   if (adj.saturation !== 0) parts.push(`e_saturation:${adj.saturation}`);
   if (adj.contrast !== 0) parts.push(`e_contrast:${adj.contrast}`);
 
   const aspect = aspectComponent(adj.aspect);
   if (aspect) parts.push(aspect);
-  else if (adj.upscale) parts.push("c_limit,w_2000");
+  else if (adj.upscale) parts.push("c_limit,w_2500");
 
   return parts;
 }
@@ -132,12 +144,15 @@ export function buildTransformedUrl(
   secureUrl: string,
   type: MediaResourceType,
   adjustments: ImageAdjustments | VideoAdjustments,
-  options: { download?: boolean } = {}
+  options: { download?: boolean; quality?: "good" | "best" } = {}
 ): string {
   const components: string[] = [];
 
-  // איכות ופורמט אוטומטיים — שיפור מיידי בכל מקרה
-  components.push(type === "image" ? "f_auto,q_auto:good" : "f_auto,q_auto");
+  const imageQuality =
+    options.quality === "best" ? "q_auto:best" : "q_auto:good";
+  components.push(
+    type === "image" ? `f_auto,${imageQuality}` : "f_auto,q_auto:best"
+  );
 
   const effectParts =
     type === "image"

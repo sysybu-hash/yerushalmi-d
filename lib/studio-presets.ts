@@ -1,5 +1,13 @@
 import type { SettingKey } from "@/lib/site-settings";
 import { COLLECTION_SETTING_KEYS } from "@/lib/site-settings";
+import { PRODUCT_CATEGORIES } from "@/components/workspace/product-constants";
+
+function collectionLabel(slug: string) {
+  return (
+    PRODUCT_CATEGORIES.find((category) => category.value === slug)?.label ??
+    slug
+  );
+}
 
 export const STUDIO_STYLE_PRESETS = [
   {
@@ -36,11 +44,34 @@ export const STUDIO_STYLE_PRESETS = [
 
 export type StudioStylePresetId = (typeof STUDIO_STYLE_PRESETS)[number]["id"];
 
+/** רזולוציית פלט לקטלוג / סטודיו */
+export const STUDIO_CANVAS_SIZE = 2048;
+
+/** מינימום מומלץ לצילום מקור (פיקסלים בצד הקצר) */
+export const STUDIO_MIN_SOURCE_PX = 1200;
+
+/** רמזי תאורה לפי preset — משולבים עם הנחיות המשתמש */
+export const STUDIO_PRESET_LIGHTING_HINTS: Record<
+  StudioStylePresetId,
+  string
+> = {
+  "luxury-marble":
+    "dramatic rim lighting, deep shadows, champagne gold accents, polished surface",
+  "black-velvet":
+    "soft spotlight, sparkling diamond reflections, velvet display",
+  "white-studio":
+    "soft diffused catalog lighting, clean white seamless, bright",
+  "gold-bokeh":
+    "warm gold bokeh, moody cinematic atmosphere, subtle sparkle",
+  lifestyle:
+    "warm natural editorial light, soft, elegant lifestyle",
+};
+
 export const STUDIO_PROMPT_EXAMPLES = [
-  "תאורה דרמטית עם השתקפויות זהב",
-  "רקע כהה ודרמטי, תאורה קולנועית",
-  "צילום קטלוגי נקי — מתאים לחנות אונליין",
-  "הדגש ברק ונצנוץ (רק ברקע/תאורה)",
+  "תאורה דרמטית עם השתקפויות זהב — ללא שינוי צבע המתכת",
+  "רקע כהה, תאורת סטודיו רכה — מתאים לקטלוג",
+  "צילום קטלוגי נקי, בהירות מאוזנת",
+  "הדגש נצנוץ יהלומים בלבד, ללא שינוי צורת התכשיט",
 ] as const;
 
 export const STUDIO_WORKSPACE_UPLOAD_MODES = [
@@ -73,8 +104,8 @@ export const STUDIO_PUBLISH_TARGETS: {
   },
   ...COLLECTION_SETTING_KEYS.map((c) => ({
     key: c.imageKey,
-    label: `באנר — ${c.slug}`,
-    description: `תמונת באנר לעמוד ${c.href}`,
+    label: `באנר — ${collectionLabel(c.slug)}`,
+    description: `תמונת באנר לעמוד ${collectionLabel(c.slug)}`,
     previewPath: c.href,
   })),
   {
@@ -106,10 +137,13 @@ export type StudioPipelineStepId =
   (typeof STUDIO_PIPELINE_STEPS)[number]["id"];
 
 export const DEFAULT_VIDEO_PROMPT =
-  "cinematic slow orbit around luxury diamond jewelry, sparkling light reflections, professional jewelry commercial, shallow depth of field, elegant smooth motion, studio lighting";
+  "static luxury jewelry product shot, locked camera, no camera movement, subtle light sweep across diamond facets only, micro sparkle highlights, professional jewelry commercial, studio lighting, photorealistic, preserve exact product shape and stone count";
+
+export const DEFAULT_VIDEO_NEGATIVE_PROMPT =
+  "changing jewelry shape, different ring design, morphing product, extra prongs, missing stones, melted metal, plastic look, camera shake, zoom, orbit, pan, blur, distortion, oversaturated, jitter, low quality, text, watermark, hands, people";
 
 export const STUDIO_VIDEO_PROMPT_EXAMPLES = [
-  "סיבוב איטי סביב התכשיט, נצנוץ יהלומים",
-  "תאורה דרמטית עם השתקפויות זהב",
-  "קליפ פרסומת יוקרתי, תנועה עדינה",
+  "מצלמה קבועה, רק נצנוץ אור על היהלומים",
+  "תאורת סטודיו רכה, ללא תנועת מצלמה",
+  "ברק עדין על הפאות, התכשיט לא זז",
 ] as const;

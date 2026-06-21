@@ -13,7 +13,6 @@ import {
   Download,
   Globe,
   ImagePlus,
-  Lightbulb,
   Loader2,
   PackagePlus,
   RotateCcw,
@@ -33,6 +32,12 @@ import {
   type GenerateVideoOptions,
 } from "./actions";
 import { StudioMediaEditor } from "@/components/studio/media-editor";
+import { StylePresetGrid } from "@/components/studio/style-preset-grid";
+import { StudioTipsPanel } from "@/components/studio/studio-tips-panel";
+import {
+  StudioWorkflowStepper,
+  type StudioWorkflowStep,
+} from "@/components/studio/studio-workflow-stepper";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -95,9 +100,7 @@ export default function StudioPage() {
     React.useState<StudioStylePresetId>("luxury-marble");
   const [videoPrompt, setVideoPrompt] = React.useState("");
   const [videoDuration, setVideoDuration] = React.useState<5 | 10>(5);
-  const [videoMode, setVideoMode] = React.useState<"standard" | "pro">(
-    "standard"
-  );
+  const [videoMode, setVideoMode] = React.useState<"standard" | "pro">("pro");
   const [workspaceUploadMode, setWorkspaceUploadMode] =
     React.useState<StudioWorkspaceUploadModeId>("site-banner");
   const [publishTarget, setPublishTarget] =
@@ -113,12 +116,30 @@ export default function StudioPage() {
   const [busy, setBusy] = React.useState<string | null>(null);
   const [toast, setToast] = React.useState<string | null>(null);
   const [mode, setMode] = React.useState<"create" | "edit">("create");
+  const [workflowStep, setWorkflowStep] =
+    React.useState<StudioWorkflowStep>(1);
 
   const source = "source" in state ? state.source : null;
   const resultUrl =
     state.status === "done"
       ? state.savedUrl ?? state.result
       : null;
+
+  const canSelectWorkflowStep = React.useCallback(
+    (step: StudioWorkflowStep) => {
+      if (step === 1) return true;
+      if (!source) return false;
+      if (step === 4) return state.status === "done";
+      return true;
+    },
+    [source, state.status]
+  );
+
+  React.useEffect(() => {
+    if (!source) {
+      setWorkflowStep(1);
+    }
+  }, [source]);
 
   function showToast(message: string) {
     setToast(message);
@@ -155,17 +176,29 @@ export default function StudioPage() {
   async function generate(kind: "image" | "video") {
     if (!source) return;
 
-    setState({ status: "generating", source, kind });
+    setWorkflowStep(3);
 
     try {
       if (kind === "image") {
+        setState({ status: "generating", source, kind: "image" });
         const url = await generateImagePipeline(source);
         setState({ status: "done", source, kind: "image", result: url });
+        setWorkflowStep(4);
         return;
       }
 
+      let frameUrl: string;
+      if (state.status === "done" && state.kind === "image") {
+        frameUrl = state.result;
+      } else {
+        showToast("יוצרים תמונת יוקרה כבסיס לווידאו באיכות גבוהה...");
+        setState({ status: "generating", source, kind: "image", step: "cutout" });
+        frameUrl = await generateImagePipeline(source);
+      }
+
+      setState({ status: "generating", source, kind: "video" });
       const { url, provider } = await generateJewelryVideo(
-        source,
+        frameUrl,
         videoOptions()
       );
 
@@ -176,6 +209,7 @@ export default function StudioPage() {
         result: url,
         videoProvider: provider,
       });
+      setWorkflowStep(4);
     } catch (error) {
       setState({
         status: "error",
@@ -360,39 +394,140 @@ export default function StudioPage() {
 
       {mode === "create" && (
         <>
-      {/* הנחיות שימוש */}
-      <Card className="rounded-none border-gold/30 bg-gold/5 shadow-none">
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-sm font-light tracking-[0.1em] text-gold-dark">
-            <Lightbulb className="h-4 w-4" strokeWidth={1.5} />
-            הנחיות לעבודה עם ה-AI
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm font-light leading-relaxed text-foreground/80">
-          <p>
-            1. העלו צילום גולמי ברור — התכשיט במרכז, תאורה טובה.
-          </p>
-          <p>
-            2. בחרו סגנון רקע והנחיות תאורה — התכשיט נשאר זהה לצילום; רק
-            הרקע משתנה.
-          </p>
-          <p>
-            3. לחצו &quot;עצב בסגנון יוקרתי&quot;. המערכת לא מציירת תכשיט
-            מחדש.
-          </p>
-          <p>
-            4. בשלב 2 — הגדירו פרסום: באנר באתר (Hero / קולקציה) או מוצר
-            חדש במלאי.
-          </p>
-          <p>
-            5. שמרו ב-Cloudinary → פרסמו לפי ההגדרות בשלב 2.
-          </p>
-        </CardContent>
-      </Card>
+      <StudioTipsPanel />
 
-      <Separator className="bg-border/60" />
+      <StudioWorkflowStepper
+        current={workflowStep}
+        onSelect={setWorkflowStep}
+        canSelect={canSelectWorkflowStep}
+      />
 
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,420px)]">
+        {/* עמודת תצוגה — מקור + תוצאה */}
+        <div className="space-y-4 lg:sticky lg:top-4 lg:self-start">
+          <Card className="rounded-none border-border/60 shadow-none">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-light tracking-[0.1em] text-muted-foreground">
+                תצוגה מקדימה
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <p className="mb-2 text-[11px] font-light tracking-[0.1em] text-muted-foreground">
+                    מקור
+                  </p>
+                  <div className="relative aspect-square overflow-hidden border border-border/60 bg-stone-100">
+                    {source ? (
+                      <Image
+                        src={source}
+                        alt="הצילום המקורי"
+                        fill
+                        sizes="(max-width: 1024px) 50vw, 30vw"
+                        className="object-contain"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center px-4 text-center text-xs font-light text-muted-foreground">
+                        העלו צילום כדי להתחיל
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <p className="mb-2 text-[11px] font-light tracking-[0.1em] text-muted-foreground">
+                    תוצאה
+                  </p>
+                  <div className="relative flex aspect-square items-center justify-center overflow-hidden border border-border/60 bg-gradient-to-br from-stone-100 to-stone-200">
+                    {source && state.status === "generating" && (
+                      <div className="flex flex-col items-center gap-3 px-4 text-center">
+                        <Loader2 className="h-7 w-7 animate-spin text-foreground/60" />
+                        <p className="text-xs font-light text-muted-foreground">
+                          {LOADING_MESSAGES[state.kind]}
+                        </p>
+                      </div>
+                    )}
+                    {source && state.status === "done" && state.kind === "image" && (
+                      <Image
+                        src={state.result}
+                        alt="תוצאת AI"
+                        fill
+                        sizes="(max-width: 1024px) 50vw, 30vw"
+                        className="object-contain bg-stone-900/5"
+                      />
+                    )}
+                    {source && state.status === "done" && state.kind === "video" && (
+                      // eslint-disable-next-line jsx-a11y/media-has-caption
+                      <video
+                        src={state.result}
+                        controls
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        className="h-full w-full object-contain"
+                      />
+                    )}
+                    {source && state.status === "error" && (
+                      <p className="px-4 text-center text-xs font-light text-destructive">
+                        {state.message}
+                      </p>
+                    )}
+                    {(!source || state.status === "uploaded" || state.status === "empty") && (
+                      <p className="px-4 text-center text-xs font-light text-muted-foreground">
+                        {source
+                          ? "לחצו «עצב בסגנון יוקרתי» ליצירה"
+                          : "כאן תופיע התוצאה"}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+              {state.status === "generating" && state.kind === "image" && state.step && (
+                <ul className="space-y-1 text-[11px] font-light text-muted-foreground">
+                  {STUDIO_PIPELINE_STEPS.map((step, index) => {
+                    const activeIndex = STUDIO_PIPELINE_STEPS.findIndex(
+                      (s) => s.id === state.step
+                    );
+                    const isDone = index < activeIndex;
+                    const isActive = step.id === state.step;
+                    return (
+                      <li
+                        key={step.id}
+                        className={
+                          isActive
+                            ? "text-gold-dark"
+                            : isDone
+                              ? "text-emerald-700"
+                              : undefined
+                        }
+                      >
+                        {isDone ? "✓ " : isActive ? "▸ " : "· "}
+                        {step.label}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              {state.status === "done" && (
+                <p className="text-center text-[11px] font-light text-muted-foreground">
+                  {state.savedUrl
+                    ? "✓ נשמר ב-Cloudinary — מוכן לפרסום"
+                    : "שמרו ב-Cloudinary בשלב 4 לפני פרסום"}
+                  {state.kind === "video" && state.videoProvider === "kling" && (
+                    <span className="mt-1 block text-emerald-800">
+                      וידאו Kling Pro — מצלמה קבועה, תנועת אור עדינה
+                    </span>
+                  )}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* עמודת הגדרות — לפי שלב */}
+        <div className="space-y-4">
       {/* שלב 1 — העלאה */}
+      {(workflowStep === 1 || !source) && (
       <Card className="rounded-none border-border/60 shadow-none">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-light tracking-[0.1em] text-muted-foreground">
@@ -401,20 +536,19 @@ export default function StudioPage() {
         </CardHeader>
         <CardContent>
           {source ? (
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-              <div className="relative h-28 w-28 shrink-0 overflow-hidden border border-border/60 bg-stone-100">
-                <Image
-                  src={source}
-                  alt="הצילום שהועלה"
-                  fill
-                  sizes="112px"
-                  className="object-contain"
-                />
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm font-light text-emerald-800">
-                  ✓ צילום הועלה — אפשר להגדיר רקע וליצור
-                </p>
+            <div className="space-y-3">
+              <p className="text-sm font-light text-emerald-800">
+                ✓ צילום הועלה — המשיכו לשלב סגנון
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => setWorkflowStep(2)}
+                  className="rounded-none text-xs font-light"
+                >
+                  המשך לסגנון
+                </Button>
                 <CldUploadWidget
                   uploadPreset={
                     process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
@@ -434,6 +568,7 @@ export default function StudioPage() {
                         status: "uploaded",
                         source: result.info.secure_url as string,
                       });
+                      setWorkflowStep(2);
                       showToast("צילום חדש הועלה");
                     }
                   }}
@@ -471,7 +606,8 @@ export default function StudioPage() {
                     status: "uploaded",
                     source: result.info.secure_url as string,
                   });
-                  showToast("הצילום הועלה — הגדירו רקע ולחצו עיצוב");
+                  setWorkflowStep(2);
+                  showToast("הצילום הועלה — בחרו סגנון רקע");
                 }
               }}
             >
@@ -479,18 +615,18 @@ export default function StudioPage() {
                 <button
                   type="button"
                   onClick={() => open()}
-                  className="flex w-full flex-col items-center justify-center gap-4 border-2 border-dashed border-gold/40 bg-gold/5 py-16 transition-colors hover:border-gold/60 hover:bg-gold/10"
+                  className="flex w-full flex-col items-center justify-center gap-3 border-2 border-dashed border-gold/40 bg-gold/5 py-12 transition-colors hover:border-gold/60 hover:bg-gold/10"
                 >
                   <ImagePlus
                     aria-hidden
-                    className="h-12 w-12 text-gold-dark"
+                    className="h-10 w-10 text-gold-dark"
                     strokeWidth={0.75}
                   />
-                  <span className="font-serif text-xl font-light">
-                    לחצו כאן להעלאת צילום גולמי
+                  <span className="font-serif text-lg font-light">
+                    העלאת צילום גולמי
                   </span>
                   <span className="text-xs font-light tracking-[0.1em] text-muted-foreground">
-                    JPG / PNG · מומלץ 1000×1000 פיקסלים · רקע אחיד עוזר לבידוד
+                    JPG / PNG · מינימום 2000×2000 · רקע אחיד · חד (macro)
                   </span>
                 </button>
               )}
@@ -498,31 +634,40 @@ export default function StudioPage() {
           )}
         </CardContent>
       </Card>
+      )}
 
-      {/* שלב 2 — הגדרות (תמיד גלוי) */}
+      {workflowStep >= 2 && (
       <Card
         className={`rounded-none border-border/60 shadow-none ${!source ? "opacity-90" : ""}`}
       >
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-light tracking-[0.1em] text-muted-foreground">
-            שלב 2 · הגדרות יצירה, פרסום והעלאה
+            שלב 2 · סגנון רקע ותאורה
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
           {!source && (
             <p className="rounded-none border border-amber-200/80 bg-amber-50 px-3 py-2 text-[11px] font-light text-amber-900">
-              העלו צילום בשלב 1 כדי להפעיל את כפתורי העיצוב.
+              העלו צילום בשלב 1 כדי לבחור סגנון.
             </p>
           )}
 
           <div className="rounded-none border border-emerald-200/80 bg-emerald-50/50 px-3 py-2 text-[11px] font-light leading-relaxed text-emerald-900">
-            התכשיט שלכם מועתק פיקסל-אחר-פיקסל מהצילום. AI לא משנה את
-            הצורה, מספר האבנים או העיצוב.
+            התכשיט מועתק מהצילום המקורי — AI משנה רקע ותאורה, לא את התכשיט.
+          </div>
+
+          <div className="space-y-2">
+            <Label className="font-light">סגנון רקע</Label>
+            <StylePresetGrid
+              value={stylePreset}
+              onChange={setStylePreset}
+              disabled={!source || isGenerating}
+            />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="custom-prompt" className="font-light">
-              תאורה ואווירת רקע (לא משנה את התכשיט)
+              תאורה ואווירה (אופציונלי)
             </Label>
             <Textarea
               id="custom-prompt"
@@ -548,126 +693,16 @@ export default function StudioPage() {
             </div>
           </div>
 
-          <div className="grid gap-5 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label className="font-light">סגנון רקע</Label>
-              <Select
-                value={stylePreset}
-                onValueChange={(v) =>
-                  setStylePreset(v as StudioStylePresetId)
-                }
-                disabled={!source || isGenerating}
-                dir="rtl"
-              >
-                <SelectTrigger className="rounded-none">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {STUDIO_STYLE_PRESETS.map((preset) => (
-                    <SelectItem key={preset.id} value={preset.id}>
-                      {preset.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <Separator className="bg-border/40" />
-
-          <div className="space-y-3">
-            <Label className="font-light">הגדרות וידאו (Kling v2.1)</Label>
-            <div className="grid gap-5 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label className="text-xs font-light text-muted-foreground">
-                  אורך
-                </Label>
-                <Select
-                  value={String(videoDuration)}
-                  onValueChange={(v) =>
-                    setVideoDuration(Number(v) as 5 | 10)
-                  }
-                  disabled={!source || isGenerating}
-                  dir="rtl"
-                >
-                  <SelectTrigger className="rounded-none">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="5">5 שניות</SelectItem>
-                    <SelectItem value="10">10 שניות</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-light text-muted-foreground">
-                  איכות
-                </Label>
-                <Select
-                  value={videoMode}
-                  onValueChange={(v) =>
-                    setVideoMode(v as "standard" | "pro")
-                  }
-                  disabled={!source || isGenerating}
-                  dir="rtl"
-                >
-                  <SelectTrigger className="rounded-none">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="standard">Standard (720p)</SelectItem>
-                    <SelectItem value="pro">Pro (1080p)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <Textarea
-              value={videoPrompt}
-              onChange={(e) => setVideoPrompt(e.target.value)}
-              rows={2}
-              disabled={!source || isGenerating}
-              placeholder="תנועה לווידאו (אופציונלי): סיבוב איטי, נצנוץ יהלומים..."
-              className="rounded-none resize-none"
-            />
-            <div className="flex flex-wrap gap-2">
-              {STUDIO_VIDEO_PROMPT_EXAMPLES.map((example) => (
-                <button
-                  key={example}
-                  type="button"
-                  disabled={!source || isGenerating}
-                  onClick={() => setVideoPrompt(example)}
-                  className="border border-border/60 px-2 py-1 text-[11px] font-light text-muted-foreground transition-colors hover:border-gold/50 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {example}
-                </button>
-              ))}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="negative-prompt" className="text-xs font-light text-muted-foreground">
-                מה להימנע בווידאו (אופציונלי)
-              </Label>
-              <Textarea
-                id="negative-prompt"
-                value={negativePrompt}
-                onChange={(e) => setNegativePrompt(e.target.value)}
-                rows={2}
-                disabled={!source || isGenerating}
-                placeholder="לדוגמה: שינוי צורת התכשיט, טשטוש..."
-                className="rounded-none resize-none"
-              />
-            </div>
-          </div>
-
           <Separator className="bg-border/40" />
 
           <div className="space-y-4 rounded-none border border-gold/30 bg-gold/5 p-4">
             <div className="space-y-1">
               <Label className="font-light text-gold-dark">
-                פרסום והעלאה לאזור העבודה
+                יעד פרסום (לאחר יצירה)
               </Label>
               <p className="text-[11px] font-light leading-relaxed text-muted-foreground">
-                הגדירו מראש לאן התמונה תופיע אחרי יצירה ושמירה ב-Cloudinary —
-                באנר באתר או מוצר חדש במלאי.
+                הגדירו לאן התמונה תופיע אחרי שמירה ב-Cloudinary — באנר או מוצר
+                חדש.
               </p>
             </div>
 
@@ -707,7 +742,7 @@ export default function StudioPage() {
               <div className="space-y-3">
                 <div className="space-y-2">
                   <Label className="text-xs font-light text-muted-foreground">
-                    יעד פרסום באתר
+                    יעד באתר
                   </Label>
                   <Select
                     value={publishTarget}
@@ -863,11 +898,128 @@ export default function StudioPage() {
             )}
           </div>
 
-          <div className="flex flex-wrap gap-3 pt-2">
+          <Button
+            type="button"
+            disabled={!source || isGenerating}
+            onClick={() => setWorkflowStep(3)}
+            className="w-full rounded-none text-xs font-light tracking-[0.15em]"
+          >
+            המשך ליצירה
+          </Button>
+        </CardContent>
+      </Card>
+      )}
+
+      {workflowStep >= 3 && (
+      <Card className="rounded-none border-border/60 shadow-none">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-light tracking-[0.1em] text-muted-foreground">
+            שלב 3 · יצירת תמונה או וידאו
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <p className="text-[11px] font-light leading-relaxed text-muted-foreground">
+            סגנון:{" "}
+            <span className="text-foreground">
+              {STUDIO_STYLE_PRESETS.find((p) => p.id === stylePreset)?.label}
+            </span>
+          </p>
+
+          <details className="rounded-none border border-border/40 bg-muted/20 px-3 py-2">
+            <summary className="cursor-pointer text-xs font-light tracking-[0.08em] text-muted-foreground">
+              הגדרות וידאו Kling (ברירת מחדל: Pro 1080p)
+            </summary>
+            <div className="mt-4 space-y-4">
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label className="text-xs font-light text-muted-foreground">
+                    אורך
+                  </Label>
+                  <Select
+                    value={String(videoDuration)}
+                    onValueChange={(v) =>
+                      setVideoDuration(Number(v) as 5 | 10)
+                    }
+                    disabled={!source || isGenerating}
+                    dir="rtl"
+                  >
+                    <SelectTrigger className="rounded-none">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="5">5 שניות</SelectItem>
+                      <SelectItem value="10">10 שניות</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-light text-muted-foreground">
+                    איכות
+                  </Label>
+                  <Select
+                    value={videoMode}
+                    onValueChange={(v) =>
+                      setVideoMode(v as "standard" | "pro")
+                    }
+                    disabled={!source || isGenerating}
+                    dir="rtl"
+                  >
+                    <SelectTrigger className="rounded-none">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="standard">Standard (720p)</SelectItem>
+                      <SelectItem value="pro">Pro (1080p)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <Textarea
+                value={videoPrompt}
+                onChange={(e) => setVideoPrompt(e.target.value)}
+                rows={2}
+                disabled={!source || isGenerating}
+                placeholder="תנועה לווידאו (אופציונלי): סיבוב איטי, נצנוץ יהלומים..."
+                className="rounded-none resize-none"
+              />
+              <div className="flex flex-wrap gap-2">
+                {STUDIO_VIDEO_PROMPT_EXAMPLES.map((example) => (
+                  <button
+                    key={example}
+                    type="button"
+                    disabled={!source || isGenerating}
+                    onClick={() => setVideoPrompt(example)}
+                    className="border border-border/60 px-2 py-1 text-[11px] font-light text-muted-foreground transition-colors hover:border-gold/50 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {example}
+                  </button>
+                ))}
+              </div>
+              <div className="space-y-2">
+                <Label
+                  htmlFor="negative-prompt"
+                  className="text-xs font-light text-muted-foreground"
+                >
+                  מה להימנע בווידאו (אופציונלי)
+                </Label>
+                <Textarea
+                  id="negative-prompt"
+                  value={negativePrompt}
+                  onChange={(e) => setNegativePrompt(e.target.value)}
+                  rows={2}
+                  disabled={!source || isGenerating}
+                  placeholder="לדוגמה: שינוי צורת התכשיט, תנועת מצלמה, טשטוש..."
+                  className="rounded-none resize-none"
+                />
+              </div>
+            </div>
+          </details>
+
+          <div className="flex flex-col gap-3 pt-2">
             <Button
               disabled={!source || isGenerating}
               onClick={() => generate("image")}
-              className="rounded-none text-xs font-light tracking-[0.15em]"
+              className="w-full rounded-none text-xs font-light tracking-[0.15em]"
             >
               {isGenerating && state.status === "generating" && state.kind === "image" ? (
                 <Loader2 className="ml-2 h-4 w-4 animate-spin" />
@@ -880,7 +1032,7 @@ export default function StudioPage() {
               disabled={!source || isGenerating}
               onClick={() => generate("video")}
               variant="outline"
-              className="rounded-none text-xs font-light tracking-[0.15em]"
+              className="w-full rounded-none text-xs font-light tracking-[0.15em]"
             >
               {isGenerating && state.status === "generating" && state.kind === "video" ? (
                 <Loader2 className="ml-2 h-4 w-4 animate-spin" />
@@ -896,6 +1048,7 @@ export default function StudioPage() {
                 disabled={isGenerating}
                 onClick={() => {
                   setState({ status: "empty" });
+                  setWorkflowStep(1);
                   setCustomPrompt("");
                   setNegativePrompt("");
                   setVideoPrompt("");
@@ -913,146 +1066,14 @@ export default function StudioPage() {
           </div>
         </CardContent>
       </Card>
+      )}
 
-      {/* שלב 3 — תצוגה (תמיד גלוי) */}
-      <div className="grid gap-6 lg:grid-cols-2">
-            <Card className="rounded-none border-border/60 shadow-none">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-light tracking-[0.1em] text-muted-foreground">
-                שלב 3 · הצילום המקורי
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="relative aspect-square max-h-[420px] w-full overflow-hidden border border-border/60">
-                {source ? (
-                  <Image
-                    src={source}
-                    alt="הצילום המקורי"
-                    fill
-                    sizes="(max-width: 1024px) 100vw, 50vw"
-                    className="object-contain bg-stone-100"
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center px-6 text-center text-sm font-light text-muted-foreground">
-                    כאן יוצג הצילום לאחר העלאה
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-none border-border/60 shadow-none">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-light tracking-[0.1em] text-muted-foreground">
-                שלב 3 · התוצאה — אותו תכשיט, רקע חדש
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="relative flex aspect-square max-h-[420px] w-full items-center justify-center overflow-hidden border border-border/60 bg-gradient-to-br from-stone-100 to-stone-200">
-                {!source && (
-                  <p className="px-6 text-center text-sm font-light text-muted-foreground">
-                    כאן תופיע התוצאה לאחר העיצוב
-                  </p>
-                )}
-
-                {source && state.status === "generating" && (
-                    <div className="flex flex-col items-center gap-4 px-6 text-center">
-                      <Loader2 className="h-8 w-8 animate-spin text-foreground/60" />
-                      <p className="text-sm font-light leading-relaxed text-muted-foreground">
-                        {LOADING_MESSAGES[state.kind]}
-                      </p>
-                      {state.kind === "image" && state.step && (
-                          <ul className="space-y-1 text-[11px] font-light text-muted-foreground">
-                            {STUDIO_PIPELINE_STEPS.map((step, index) => {
-                              const activeIndex =
-                                STUDIO_PIPELINE_STEPS.findIndex(
-                                  (s) => s.id === state.step
-                                );
-                              const isDone = index < activeIndex;
-                              const isActive = step.id === state.step;
-
-                              return (
-                                <li
-                                  key={step.id}
-                                  className={
-                                    isActive
-                                      ? "text-gold-dark"
-                                      : isDone
-                                        ? "text-emerald-700"
-                                        : undefined
-                                  }
-                                >
-                                  {isDone ? "✓ " : isActive ? "▸ " : "· "}
-                                  {step.label}
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        )}
-                      <p className="text-[11px] font-light tracking-[0.1em] text-muted-foreground">
-                        התהליך אורך 1–3 דקות — אל תסגרו את החלון
-                      </p>
-                    </div>
-                  )}
-
-                  {source && state.status === "done" && state.kind === "image" && (
-                    <Image
-                      src={state.result}
-                      alt="תוצאת AI"
-                      fill
-                      sizes="(max-width: 1024px) 100vw, 50vw"
-                      className="object-contain bg-stone-900/5"
-                    />
-                  )}
-
-                  {source && state.status === "done" && state.kind === "video" && (
-                    // eslint-disable-next-line jsx-a11y/media-has-caption
-                    <video
-                      src={state.result}
-                      controls
-                      autoPlay
-                      loop
-                      muted
-                      playsInline
-                      className="h-full w-full object-contain"
-                    />
-                  )}
-
-                  {source && state.status === "error" && (
-                    <p className="px-6 text-center text-sm font-light text-destructive">
-                      {state.message}
-                    </p>
-                  )}
-
-                  {source && state.status === "uploaded" && (
-                    <p className="px-6 text-center text-sm font-light text-muted-foreground">
-                      הגדירו הנחיות ולחצו על &quot;עצב בסגנון יוקרתי&quot;
-                    </p>
-                  )}
-                </div>
-
-                {state.status === "done" && (
-                  <p className="text-center text-[11px] font-light text-muted-foreground">
-                    {state.savedUrl
-                      ? "✓ נשמר ב-Cloudinary — מוכן לפרסום באתר"
-                      : "שמרו ב-Cloudinary לפני פרסום באתר"}
-                    {state.kind === "video" && state.videoProvider === "svd" && (
-                      <span className="block mt-1 text-amber-700">
-                        נוצר ב-SVD (גיבוי) — Kling לא זמין כרגע
-                      </span>
-                    )}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-      </div>
-
-      {/* פעולות על התוצאה */}
-      {state.status === "done" && source && (
+      {/* שלב 4 — שמירה ופרסום */}
+      {workflowStep >= 4 && state.status === "done" && source && (
             <Card className="rounded-none border-border/60 shadow-none">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-light tracking-[0.1em] text-muted-foreground">
-                  שמירה, פרסום והעלאה
+                  שלב 4 · שמירה, פרסום והעלאה
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-5">
@@ -1208,6 +1229,9 @@ export default function StudioPage() {
               </CardContent>
             </Card>
           )}
+
+        </div>
+      </div>
         </>
       )}
     </div>
