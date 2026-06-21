@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { PackageOpen, StickyNote, Truck } from "lucide-react";
 
 import type { Order, OrderItem } from "@/db/schema";
@@ -25,9 +26,11 @@ const priceFormatter = new Intl.NumberFormat("he-IL", {
 export function OrderItemsDialog({
   order,
   items,
+  matchedCustomerId,
 }: {
   order: Order;
   items: OrderItem[];
+  matchedCustomerId?: number | null;
 }) {
   const total = items.reduce(
     (sum, item) => sum + Number(item.price) * item.quantity,
@@ -54,6 +57,17 @@ export function OrderItemsDialog({
           </DialogTitle>
           <DialogDescription className="font-light">
             {items.length} פריטים · {order.customerName}
+            {matchedCustomerId ? (
+              <>
+                {" · "}
+                <Link
+                  href={`/workspace/customers?q=${encodeURIComponent(order.customerPhone)}`}
+                  className="text-gold-dark underline-offset-2 hover:underline"
+                >
+                  כרטיס לקוח
+                </Link>
+              </>
+            ) : null}
           </DialogDescription>
         </DialogHeader>
 
