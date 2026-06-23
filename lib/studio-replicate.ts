@@ -61,11 +61,15 @@ export function normalizeStudioError(error: unknown, fallback: string): string {
 export function extractUrl(output: unknown): string {
   const first = Array.isArray(output) ? output[0] : output;
 
-  if (typeof first === "string") return first;
+  if (typeof first === "string" && first.startsWith("http")) return first;
 
-  if (first && typeof first === "object" && "url" in first) {
-    const url = (first as { url: () => URL | string }).url();
-    return url.toString();
+  if (first && typeof first === "object") {
+    if ("url" in first && typeof (first as { url: unknown }).url === "function") {
+      const url = (first as { url: () => URL | string }).url();
+      return url.toString();
+    }
+    const asString = String(first);
+    if (asString.startsWith("http")) return asString;
   }
 
   throw new Error("המודל לא החזיר תוצאה — נסו שוב");

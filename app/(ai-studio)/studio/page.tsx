@@ -22,15 +22,17 @@ import {
 } from "lucide-react";
 
 import {
-  generateJewelryVideo,
   publishImageToSite,
   publishProductToCatalog,
   saveAssetToCloudinary,
-  studioCompositeImage,
-  studioRemoveBackground,
-  type GenerateImageOptions,
-  type GenerateVideoOptions,
 } from "./actions";
+import {
+  humanizeStudioError,
+  studioApiCompositeImage,
+  studioApiGenerateVideo,
+  studioApiRemoveBackground,
+} from "@/lib/studio-api";
+import type { GenerateImageOptions, GenerateVideoOptions } from "@/lib/studio-types";
 import { StudioMediaEditor } from "@/components/studio/media-editor";
 import { StylePresetGrid } from "@/components/studio/style-preset-grid";
 import { StudioTipsPanel } from "@/components/studio/studio-tips-panel";
@@ -146,15 +148,12 @@ export default function StudioPage() {
     window.setTimeout(() => setToast(null), 4000);
   }
 
-  function formatStudioError(error: unknown): string {
-    if (error instanceof Error && error.message.trim()) {
-      return error.message.trim();
-    }
-    return "היצירה נכשלה — נסו שוב בעוד רגע";
-  }
-
   function failGeneration(sourceUrl: string, message: string) {
-    setState({ status: "error", source: sourceUrl, message });
+    setState({
+      status: "error",
+      source: sourceUrl,
+      message: humanizeStudioError(message),
+    });
   }
 
   function aiOptions(): GenerateImageOptions {
@@ -178,12 +177,12 @@ export default function StudioPage() {
     | { ok: false; error: string }
   > {
     setState({ status: "generating", source: sourceUrl, kind: "image", step: "cutout" });
-    const cutout = await studioRemoveBackground(sourceUrl);
+    const cutout = await studioApiRemoveBackground(sourceUrl);
     if (!cutout.ok) return cutout;
 
     setState({ status: "generating", source: sourceUrl, kind: "image", step: "background" });
     setState({ status: "generating", source: sourceUrl, kind: "image", step: "composite" });
-    const composite = await studioCompositeImage(cutout.data.url, aiOptions());
+    const composite = await studioApiCompositeImage(cutout.data.url, aiOptions());
     if (!composite.ok) return composite;
 
     return { ok: true, url: composite.data.url };
@@ -222,7 +221,7 @@ export default function StudioPage() {
       }
 
       setState({ status: "generating", source, kind: "video" });
-      const video = await generateJewelryVideo(frameUrl, videoOptions());
+      const video = await studioApiGenerateVideo(frameUrl, videoOptions());
       if (!video.ok) {
         failGeneration(source, video.error);
         return;
@@ -237,7 +236,10 @@ export default function StudioPage() {
       });
       setWorkflowStep(4);
     } catch (error) {
-      failGeneration(source, formatStudioError(error));
+      failGeneration(
+        source,
+        error instanceof Error ? error.message : "היצירה נכשלה"
+      );
     }
   }
 
