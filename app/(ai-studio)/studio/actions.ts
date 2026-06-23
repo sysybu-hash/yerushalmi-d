@@ -8,10 +8,11 @@ import { products, siteSettings } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth";
 import { generatePresetBackground } from "@/lib/studio-backgrounds";
 import { compositeProductImage } from "@/lib/studio-composite";
+import { assertStudioEnv } from "@/lib/studio-env";
+import { runStudioAction, type StudioActionResult } from "@/lib/studio-action";
 import {
   extractUrl,
   MODELS,
-  normalizeStudioError,
   replicate,
   translateToEnglish,
   uploadBufferToCloudinary,
@@ -77,25 +78,20 @@ async function buildLightingHints(
 }
 
 /** שלב 1: הסרת רקע — שומר את התכשיט המקורי בדיוק */
-export async function studioRemoveBackground(imageUrl: string) {
-  await requireAdmin();
-  assertCloudinaryUrl(imageUrl);
+export async function studioRemoveBackground(
+  imageUrl: string
+): Promise<StudioActionResult<{ url: string }>> {
+  return runStudioAction(async () => {
+    assertStudioEnv();
+    await requireAdmin();
+    assertCloudinaryUrl(imageUrl);
 
-  try {
-    // Replicate cjwbw/rembg accepts only `image` — extra fields cause API errors.
     const output = await replicate.run(MODELS.rembg, {
       input: { image: imageUrl },
     });
 
     return { url: extractUrl(output) };
-  } catch (error) {
-    throw new Error(
-      normalizeStudioError(
-        error,
-        "הסרת הרקע נכשלה — ודאו ש-REPLICATE_API_TOKEN מוגדר ונסו שוב."
-      )
-    );
-  }
+  }, "הסרת הרקע נכשלה — ודאו ש-REPLICATE_API_TOKEN מוגדר ב-Vercel ונסו שוב.");
 }
 
 /** שלב 2: רקע יוקרתי (Sharp — לא AI, בלי תכשיטים מומצאים) */
@@ -125,19 +121,20 @@ export async function studioGenerateBackground(
 export async function studioCompositeImage(
   cutoutUrl: string,
   options: GenerateImageOptions = {}
-) {
-  await requireAdmin();
-  assertRemoteAssetUrl(cutoutUrl);
+): Promise<StudioActionResult<{ url: string }>> {
+  return runStudioAction(async () => {
+    assertStudioEnv();
+    await requireAdmin();
+    assertRemoteAssetUrl(cutoutUrl);
 
-  const preset = options.stylePreset ?? "luxury-marble";
-  const lightingHints = await buildLightingHints(options.customPrompt, preset);
-  const backgroundBuffer = await generatePresetBackground({
-    preset,
-    lightingHints,
-    size: STUDIO_CANVAS_SIZE,
-  });
+    const preset = options.stylePreset ?? "luxury-marble";
+    const lightingHints = await buildLightingHints(options.customPrompt, preset);
+    const backgroundBuffer = await generatePresetBackground({
+      preset,
+      lightingHints,
+      size: STUDIO_CANVAS_SIZE,
+    });
 
-  try {
     const buffer = await compositeProductImage(
       cutoutUrl,
       backgroundBuffer,
@@ -150,11 +147,7 @@ export async function studioCompositeImage(
     );
 
     return { url };
-  } catch (error) {
-    throw new Error(
-      normalizeStudioError(error, "הרכבת התמונה נכשלה — נסו צילום עם רקע אחיד.")
-    );
-  }
+  }, "הרכבת התמונה נכשלה — נסו צילום עם רקע אחיד ותאורה טובה.");
 }
 
 /**
@@ -165,13 +158,13 @@ export async function generateLuxuryProductImage(
   imageUrl: string,
   options: GenerateImageOptions = {}
 ) {
-  await requireAdmin();
-  assertCloudinaryUrl(imageUrl);
+  const cutout = await studioRemoveBackground(imageUrl);
+  if (!cutout.ok) throw new Error(cutout.error);
 
-  const { url: cutoutUrl } = await studioRemoveBackground(imageUrl);
-  const { url } = await studioCompositeImage(cutoutUrl, options);
+  const composite = await studioCompositeImage(cutout.data.url, options);
+  if (!composite.ok) throw new Error(composite.error);
 
-  return { url, cutoutUrl };
+  return { url: composite.data.url, cutoutUrl: cutout.data.url };
 }
 
 /** @deprecated img2img ממציא תכשיטים — נשמר לתאימות, לא בשימוש ב-UI */
@@ -212,21 +205,26 @@ async function generateKlingVideo(
 export async function generateJewelryVideo(
   imageUrl: string,
   options: GenerateVideoOptions = {}
-) {
-  await requireAdmin();
-  assertCloudinaryUrl(imageUrl);
+): Promise<
+  StudioActionResult<{ url: string; provider: "kling" }>
+> {
+  return runStudioAction(async () => {
+    assertStudioEnv();
+    await requireAdmin();
+    assertCloudinaryUrl(imageUrl);
 
-  try {
-    const url = await generateKlingVideo(imageUrl, options);
-    return { url, provider: "kling" as const };
-  } catch (klingError) {
-    console.error("Kling video failed:", klingError);
-    throw new Error(
-      klingError instanceof Error
-        ? klingError.message
-        : "יצירת הווידאו נכשלה. ודאו שיצרתם תמונת יוקרה תחילה ונסו שוב במצב Pro (1080p)."
-    );
-  }
+    try {
+      const url = await generateKlingVideo(imageUrl, options);
+      return { url, provider: "kling" as const };
+    } catch (klingError) {
+      console.error("Kling video failed:", klingError);
+      throw new Error(
+        klingError instanceof Error
+          ? klingError.message
+          : "יצירת הווידאו נכשלה. ודאו שיצרתם תמונת יוקרה תחילה ונסו שוב במצב Pro (1080p)."
+      );
+    }
+  }, "יצירת הווידאו נכשלה — ודאו ש-REPLICATE_API_TOKEN מוגדר ב-Vercel.");
 }
 
 export async function saveAssetToCloudinary(

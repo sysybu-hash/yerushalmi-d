@@ -147,17 +147,14 @@ export default function StudioPage() {
   }
 
   function formatStudioError(error: unknown): string {
-    if (error instanceof Error) {
-      const message = error.message.trim();
-      if (
-        message.includes("Server Components render") ||
-        message.includes("digest")
-      ) {
-        return "היצירה נכשלה — ודאו ש-REPLICATE_API_TOKEN ו-Cloudinary מוגדרים ב-Vercel.";
-      }
-      if (message) return message;
+    if (error instanceof Error && error.message.trim()) {
+      return error.message.trim();
     }
     return "היצירה נכשלה — נסו שוב בעוד רגע";
+  }
+
+  function failGeneration(sourceUrl: string, message: string) {
+    setState({ status: "error", source: sourceUrl, message });
   }
 
   function aiOptions(): GenerateImageOptions {
@@ -176,15 +173,20 @@ export default function StudioPage() {
     };
   }
 
-  async function generateImagePipeline(sourceUrl: string) {
+  async function generateImagePipeline(sourceUrl: string): Promise<
+    | { ok: true; url: string }
+    | { ok: false; error: string }
+  > {
     setState({ status: "generating", source: sourceUrl, kind: "image", step: "cutout" });
-    const { url: cutoutUrl } = await studioRemoveBackground(sourceUrl);
+    const cutout = await studioRemoveBackground(sourceUrl);
+    if (!cutout.ok) return cutout;
 
     setState({ status: "generating", source: sourceUrl, kind: "image", step: "background" });
     setState({ status: "generating", source: sourceUrl, kind: "image", step: "composite" });
-    const { url } = await studioCompositeImage(cutoutUrl, aiOptions());
+    const composite = await studioCompositeImage(cutout.data.url, aiOptions());
+    if (!composite.ok) return composite;
 
-    return url;
+    return { ok: true, url: composite.data.url };
   }
 
   async function generate(kind: "image" | "video") {
@@ -195,8 +197,12 @@ export default function StudioPage() {
     try {
       if (kind === "image") {
         setState({ status: "generating", source, kind: "image" });
-        const url = await generateImagePipeline(source);
-        setState({ status: "done", source, kind: "image", result: url });
+        const pipeline = await generateImagePipeline(source);
+        if (!pipeline.ok) {
+          failGeneration(source, pipeline.error);
+          return;
+        }
+        setState({ status: "done", source, kind: "image", result: pipeline.url });
         setWorkflowStep(4);
         return;
       }
@@ -207,29 +213,31 @@ export default function StudioPage() {
       } else {
         showToast("יוצרים תמונת יוקרה כבסיס לווידאו באיכות גבוהה...");
         setState({ status: "generating", source, kind: "image", step: "cutout" });
-        frameUrl = await generateImagePipeline(source);
+        const pipeline = await generateImagePipeline(source);
+        if (!pipeline.ok) {
+          failGeneration(source, pipeline.error);
+          return;
+        }
+        frameUrl = pipeline.url;
       }
 
       setState({ status: "generating", source, kind: "video" });
-      const { url, provider } = await generateJewelryVideo(
-        frameUrl,
-        videoOptions()
-      );
+      const video = await generateJewelryVideo(frameUrl, videoOptions());
+      if (!video.ok) {
+        failGeneration(source, video.error);
+        return;
+      }
 
       setState({
         status: "done",
         source,
         kind: "video",
-        result: url,
-        videoProvider: provider,
+        result: video.data.url,
+        videoProvider: video.data.provider,
       });
       setWorkflowStep(4);
     } catch (error) {
-      setState({
-        status: "error",
-        source,
-        message: formatStudioError(error),
-      });
+      failGeneration(source, formatStudioError(error));
     }
   }
 

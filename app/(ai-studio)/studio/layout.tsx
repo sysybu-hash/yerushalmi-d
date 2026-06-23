@@ -7,6 +7,9 @@ export const metadata = { title: "סטודיו תוכן AI" };
 
 export const dynamic = "force-dynamic";
 
+/** rembg + composite + העלאה ל-Cloudinary — דורש יותר מ-10 שניות ב-Vercel */
+export const maxDuration = 60;
+
 export default function StudioLayout({
   children,
 }: Readonly<{

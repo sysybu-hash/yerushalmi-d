@@ -33,13 +33,25 @@ export function normalizeStudioError(error: unknown, fallback: string): string {
       !message.includes("Server Components render") &&
       !message.includes("digest")
     ) {
+      if (message.includes("401") || /unauthorized/i.test(message)) {
+        return "מפתח Replicate לא תקין — בדקו את REPLICATE_API_TOKEN ב-Vercel.";
+      }
+      if (message.includes("402") || /insufficient credit/i.test(message)) {
+        return "אין מספיק קרדיט ב-Replicate — הוסיפו אשראי בחשבון Replicate.";
+      }
       return message;
     }
   }
 
-  if (typeof error === "object" && error !== null && "message" in error) {
-    const message = String((error as { message: unknown }).message).trim();
-    if (message) return message;
+  if (typeof error === "object" && error !== null) {
+    if ("message" in error) {
+      const message = String((error as { message: unknown }).message).trim();
+      if (message) return message;
+    }
+    if ("detail" in error) {
+      const detail = String((error as { detail: unknown }).detail).trim();
+      if (detail) return detail;
+    }
   }
 
   return fallback;

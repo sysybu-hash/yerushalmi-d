@@ -2,8 +2,7 @@ import sharp from "sharp";
 
 import { STUDIO_CANVAS_SIZE } from "@/lib/studio-presets";
 
-const MIN_OPAQUE_RATIO = 0.015;
-const MAX_OPAQUE_RATIO = 0.72;
+const MIN_OPAQUE_RATIO = 0.008;
 const JEWELRY_CANVAS_RATIO = 0.75;
 
 /** וידוא ש-rembg בידד תכשיט אמיתי ולא החזיר תמונה ריקה/מלאה */
@@ -25,12 +24,6 @@ export async function validateJewelryCutout(buffer: Buffer): Promise<void> {
   if (ratio < MIN_OPAQUE_RATIO) {
     throw new Error(
       "לא הצלחנו לבודד את התכשיט מהרקע. נסו צילום עם רקע אחיד (לבן/אפור) והתכשיט במרכז."
-    );
-  }
-
-  if (ratio > MAX_OPAQUE_RATIO) {
-    throw new Error(
-      "הרקע לא הוסר כראוי. נסו צילום עם ניגודיות גבוהה יותר בין התכשיט לרקע."
     );
   }
 }
