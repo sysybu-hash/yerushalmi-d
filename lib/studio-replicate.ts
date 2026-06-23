@@ -2,6 +2,8 @@ import Replicate from "replicate";
 
 export const replicate = new Replicate({
   auth: process.env.REPLICATE_API_TOKEN,
+  // URL strings are easier to serialize and pass to Cloudinary/rembg downstream.
+  useFileOutput: false,
 });
 
 export const MODELS = {
@@ -67,6 +69,10 @@ export function extractUrl(output: unknown): string {
     if ("url" in first && typeof (first as { url: unknown }).url === "function") {
       const url = (first as { url: () => URL | string }).url();
       return url.toString();
+    }
+    if (typeof (first as { toString?: () => string }).toString === "function") {
+      const asString = (first as { toString: () => string }).toString();
+      if (asString.startsWith("http")) return asString;
     }
     const asString = String(first);
     if (asString.startsWith("http")) return asString;

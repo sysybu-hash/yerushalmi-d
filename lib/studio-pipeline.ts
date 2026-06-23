@@ -1,6 +1,4 @@
 import { rembgSourceUrl } from "@/lib/cloudinary-url";
-import { generatePresetBackground } from "@/lib/studio-backgrounds";
-import { compositeProductImage } from "@/lib/studio-composite";
 import { assertStudioEnv } from "@/lib/studio-env";
 import {
   DEFAULT_VIDEO_NEGATIVE_PROMPT,
@@ -69,6 +67,12 @@ export async function pipelineCompositeImage(
 ) {
   assertStudioEnv();
   assertRemoteAssetUrl(cutoutUrl);
+
+  const [{ generatePresetBackground }, { compositeProductImage }] =
+    await Promise.all([
+      import("@/lib/studio-backgrounds"),
+      import("@/lib/studio-composite"),
+    ]);
 
   const preset = options.stylePreset ?? "luxury-marble";
   const lightingHints = await buildLightingHints(options.customPrompt, preset);

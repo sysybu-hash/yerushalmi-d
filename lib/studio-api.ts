@@ -27,11 +27,24 @@ export function humanizeStudioError(message: string): string {
 async function parseStudioResponse<T>(
   response: Response
 ): Promise<StudioActionResult<T>> {
+  const raw = await response.text();
   let body: { ok?: boolean; data?: T; error?: string } = {};
 
   try {
-    body = (await response.json()) as typeof body;
+    body = raw ? (JSON.parse(raw) as typeof body) : {};
   } catch {
+    const snippet = raw.trim().slice(0, 80).toLowerCase();
+    if (snippet.startsWith("<!doctype") || snippet.startsWith("<html")) {
+      return {
+        ok: false,
+        error: humanizeStudioError(
+          response.status === 401
+            ? "פג תוקף ההתחברות — התחברו מחדש דרך /login"
+            : "השרת החזיר תשובה לא תקינה — נסו להתחבר מחדש"
+        ),
+      };
+    }
+
     return {
       ok: false,
       error: humanizeStudioError(
@@ -60,6 +73,7 @@ export async function studioApiRemoveBackground(
   try {
     const response = await fetch("/api/studio/remove-background", {
       method: "POST",
+      credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ imageUrl }),
     });
@@ -81,6 +95,7 @@ export async function studioApiCompositeImage(
   try {
     const response = await fetch("/api/studio/composite", {
       method: "POST",
+      credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ cutoutUrl, ...options }),
     });
@@ -102,6 +117,7 @@ export async function studioApiGenerateVideo(
   try {
     const response = await fetch("/api/studio/video", {
       method: "POST",
+      credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ imageUrl, ...options }),
     });

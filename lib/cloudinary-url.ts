@@ -19,6 +19,6 @@ export function withCloudinaryTransform(
 export function rembgSourceUrl(cloudinaryUrl: string): string {
   return withCloudinaryTransform(
     cloudinaryUrl,
-    "w_1200,h_1200,c_limit,q_auto:good,f_jpg"
+    "w_800,h_800,c_limit,q_auto:good,f_jpg"
   );
 }

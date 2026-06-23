@@ -7,7 +7,21 @@ export async function studioRouteGuard() {
   try {
     await requireAdmin();
     return null;
-  } catch {
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message.trim() : "Unauthorized";
+
+    if (message === "JWT_SECRET is not set") {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "JWT_SECRET חסר ב-Vercel — הוסיפו משתנה סביבה לסביבת Production.",
+        },
+        { status: 500 }
+      );
+    }
+
     return NextResponse.json(
       { ok: false, error: "פג תוקף ההתחברות — התחברו מחדש דרך /login" },
       { status: 401 }
@@ -20,8 +34,8 @@ export function studioJsonOk<T>(data: T) {
 }
 
 export function studioJsonError(error: unknown, fallback: string, status = 500) {
-  return NextResponse.json(
-    { ok: false, error: normalizeStudioError(error, fallback) },
-    { status }
-  );
+  const message = normalizeStudioError(error, fallback);
+  console.error("[studio-api]", message, error);
+
+  return NextResponse.json({ ok: false, error: message }, { status });
 }
