@@ -8,7 +8,9 @@ import {
   numeric,
   timestamp,
   varchar,
+  jsonb,
 } from "drizzle-orm/pg-core";
+import type { StudioProjectSnapshot } from "@/lib/studio-project-snapshot";
 
 // סוג היהלום — טבעי או מעבדה
 export const productTypeEnum = pgEnum("product_type", ["natural", "lab"]);
@@ -169,6 +171,27 @@ export const siteSettings = pgTable("site_settings", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export const studioProjectStatusEnum = pgEnum("studio_project_status", [
+  "draft",
+  "in_progress",
+  "ready",
+  "published",
+]);
+
+/** תיק עבודות בסטודיו AI — שמירת מצב מלא עד לפרסום */
+export const studioProjects = pgTable("studio_projects", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull().default("עבודה חדשה"),
+  status: studioProjectStatusEnum("status").notNull().default("draft"),
+  thumbnailUrl: text("thumbnail_url"),
+  snapshot: jsonb("snapshot").$type<StudioProjectSnapshot>().notNull(),
+  publishedProductId: integer("published_product_id").references(() => products.id),
+  publishedSettingKey: varchar("published_setting_key", { length: 100 }),
+  publishedAt: timestamp("published_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // יחסים — מאפשרים שליפת הזמנה עם פריטיה בשאילתה אחת (db.query)
 export const ordersRelations = relations(orders, ({ many }) => ({
   items: many(orderItems),
@@ -197,3 +220,5 @@ export type Invoice = typeof invoices.$inferSelect;
 export type NewInvoice = typeof invoices.$inferInsert;
 export type InvoiceItem = typeof invoiceItems.$inferSelect;
 export type NewInvoiceItem = typeof invoiceItems.$inferInsert;
+export type StudioProject = typeof studioProjects.$inferSelect;
+export type NewStudioProject = typeof studioProjects.$inferInsert;

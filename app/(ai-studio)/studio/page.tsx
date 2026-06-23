@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { CldUploadWidget } from "next-cloudinary";
@@ -34,8 +35,15 @@ import {
 } from "@/lib/studio-api";
 import type { GenerateImageOptions, GenerateVideoOptions } from "@/lib/studio-types";
 import { StudioMediaEditor } from "@/components/studio/media-editor";
+import { StudioPortfolioPanel } from "@/components/studio/studio-portfolio-panel";
 import { StylePresetGrid } from "@/components/studio/style-preset-grid";
 import { StudioTipsPanel } from "@/components/studio/studio-tips-panel";
+import {
+  emptyStudioForm,
+  useStudioProjectPersistence,
+  type StudioFormState,
+} from "@/components/studio/use-studio-project-persistence";
+import type { StudioClientState } from "@/lib/studio-project-snapshot";
 import {
   StudioWorkflowStepper,
   type StudioWorkflowStep,
@@ -64,38 +72,18 @@ import {
   STUDIO_STYLE_PRESETS,
   STUDIO_VIDEO_PROMPT_EXAMPLES,
   STUDIO_WORKSPACE_UPLOAD_MODES,
-  type StudioPipelineStepId,
   type StudioStylePresetId,
   type StudioWorkspaceUploadModeId,
 } from "@/lib/studio-presets";
 import type { SettingKey } from "@/lib/site-settings";
-
-type StudioState =
-  | { status: "empty" }
-  | { status: "uploaded"; source: string }
-  | {
-      status: "generating";
-      source: string;
-      kind: "image" | "video";
-      step?: StudioPipelineStepId;
-    }
-  | {
-      status: "done";
-      source: string;
-      kind: "image" | "video";
-      result: string;
-      savedUrl?: string;
-      videoProvider?: "kling" | "svd";
-    }
-  | { status: "error"; source: string; message: string };
 
 const LOADING_MESSAGES: Record<"image" | "video", string> = {
   image: "שומר על התכשיט המקורי — מחליף רק את הרקע והתאורה",
   video: "יוצר קליפ וידאו קולנועי — עד 10 שניות",
 };
 
-export default function StudioPage() {
-  const [state, setState] = React.useState<StudioState>({ status: "empty" });
+function StudioPageContent() {
+  const [state, setState] = React.useState<StudioClientState>({ status: "empty" });
   const [customPrompt, setCustomPrompt] = React.useState("");
   const [negativePrompt, setNegativePrompt] = React.useState("");
   const [stylePreset, setStylePreset] =
@@ -121,6 +109,74 @@ export default function StudioPage() {
   const [workflowStep, setWorkflowStep] =
     React.useState<StudioWorkflowStep>(1);
 
+  const applyForm = React.useCallback((next: StudioFormState) => {
+    setState(next.state);
+    setMode(next.mode);
+    setWorkflowStep(next.workflowStep);
+    setCustomPrompt(next.customPrompt);
+    setNegativePrompt(next.negativePrompt);
+    setStylePreset(next.stylePreset);
+    setVideoPrompt(next.videoPrompt);
+    setVideoDuration(next.videoDuration);
+    setVideoMode(next.videoMode);
+    setWorkspaceUploadMode(next.workspaceUploadMode);
+    setPublishTarget(next.publishTarget);
+    setProductTitle(next.productTitle);
+    setProductDescription(next.productDescription);
+    setProductPrice(next.productPrice);
+    setProductOriginalPrice(next.productOriginalPrice);
+    setProductType(next.productType);
+    setProductCategory(
+      next.productCategory as (typeof PRODUCT_CATEGORIES)[number]["value"]
+    );
+  }, []);
+
+  const showToastRef = React.useRef<(message: string) => void>(() => {});
+
+  function showToast(message: string) {
+    setToast(message);
+    window.setTimeout(() => setToast(null), 4000);
+  }
+
+  showToastRef.current = showToast;
+
+  const stableShowToast = React.useCallback((message: string) => {
+    showToastRef.current(message);
+  }, []);
+
+  const {
+    projects,
+    loadingProjects,
+    activeProjectId,
+    saving,
+    refreshProjects,
+    openProject,
+    startNewProject,
+    markPublished,
+  } = useStudioProjectPersistence({
+    form: {
+      state,
+      mode,
+      workflowStep,
+      customPrompt,
+      negativePrompt,
+      stylePreset,
+      videoPrompt,
+      videoDuration,
+      videoMode,
+      workspaceUploadMode,
+      publishTarget,
+      productTitle,
+      productDescription,
+      productPrice,
+      productOriginalPrice,
+      productType,
+      productCategory,
+    },
+    applyForm,
+    showToast: stableShowToast,
+  });
+
   const source = "source" in state ? state.source : null;
   const resultUrl =
     state.status === "done"
@@ -142,11 +198,6 @@ export default function StudioPage() {
       setWorkflowStep(1);
     }
   }, [source]);
-
-  function showToast(message: string) {
-    setToast(message);
-    window.setTimeout(() => setToast(null), 4000);
-  }
 
   function failGeneration(sourceUrl: string, message: string) {
     setState({
@@ -273,6 +324,7 @@ export default function StudioPage() {
     setBusy("publish");
     try {
       await publishImageToSite(publishTarget, imageUrl);
+      await markPublished({ kind: "site", settingKey: publishTarget });
       const label =
         STUDIO_PUBLISH_TARGETS.find((t) => t.key === publishTarget)
           ?.label ?? "האתר";
@@ -318,6 +370,7 @@ export default function StudioPage() {
         category: productCategory,
         imageUrl,
       });
+      await markPublished({ kind: "catalog", productId });
       showToast(`המוצר נוסף למלאי (#${productId})`);
     } catch (e) {
       showToast(e instanceof Error ? e.message : "ההוספה למלאי נכשלה");
@@ -379,8 +432,32 @@ export default function StudioPage() {
         <p className="mt-3 text-sm font-light text-muted-foreground">
           צרו תמונות ווידאו מצילום גלם — או ערכו ומטבו חומר קיים שלכם
         </p>
+        {saving && (
+          <p className="mt-2 text-[11px] font-light text-muted-foreground">
+            שומר עבודה...
+          </p>
+        )}
+        {activeProjectId && !saving && (
+          <p className="mt-2 text-[11px] font-light text-emerald-800">
+            עבודה #{activeProjectId} נשמרה בתיק העבודות
+          </p>
+        )}
       </div>
 
+      <div className="grid gap-6 lg:grid-cols-[minmax(280px,320px)_minmax(0,1fr)]">
+        <StudioPortfolioPanel
+          projects={projects}
+          activeProjectId={activeProjectId}
+          loading={loadingProjects}
+          onRefresh={async () => {
+            await refreshProjects();
+          }}
+          onSelect={openProject}
+          onNewProject={startNewProject}
+          showToast={showToast}
+        />
+
+        <div className="space-y-8">
       {/* בורר מצב עבודה */}
       <div className="flex flex-wrap justify-center gap-2">
         <button
@@ -1068,15 +1145,8 @@ export default function StudioPage() {
                 size="sm"
                 disabled={isGenerating}
                 onClick={() => {
-                  setState({ status: "empty" });
-                  setWorkflowStep(1);
-                  setCustomPrompt("");
-                  setNegativePrompt("");
-                  setVideoPrompt("");
-                  setProductTitle("");
-                  setProductDescription("");
-                  setProductPrice("");
-                  setProductOriginalPrice("");
+                  applyForm(emptyStudioForm());
+                  startNewProject();
                 }}
                 className="text-xs font-light text-muted-foreground"
               >
@@ -1255,6 +1325,22 @@ export default function StudioPage() {
       </div>
         </>
       )}
+        </div>
+      </div>
     </div>
+  );
+}
+
+export default function StudioPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-6xl py-16 text-center text-sm font-light text-muted-foreground">
+          טוען סטודיו...
+        </div>
+      }
+    >
+      <StudioPageContent />
+    </Suspense>
   );
 }
