@@ -47,8 +47,8 @@ export type StudioStylePresetId = (typeof STUDIO_STYLE_PRESETS)[number]["id"];
 /** רזולוציית פלט לקטלוג / סטודיו */
 export const STUDIO_CANVAS_SIZE = 2048;
 
-/** רזולוציית קלט ל-rembg — תואם ~72% מהקנבס כדי למנוע upscale מטושטש */
-export const REMBG_MAX_PX = 1536;
+/** רזולוציית קלט ל-Bria RMBG — מקסימום לפני cutout, תואם קנבס 2048 */
+export const REMBG_MAX_PX = 2048;
 
 /** מינימום מומלץ לצילום מקור (פיקסלים בצד הקצר) */
 export const STUDIO_MIN_SOURCE_PX = 1200;

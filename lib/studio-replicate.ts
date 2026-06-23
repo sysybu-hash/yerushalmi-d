@@ -7,8 +7,9 @@ export const replicate = new Replicate({
 });
 
 export const MODELS = {
+  /** Bria RMBG 2.0 — 256-level alpha matte, far sharper on fine jewelry detail than cjwbw/rembg */
   rembg:
-    "cjwbw/rembg:fb8af171cfa1616ddcf1242c093f9c46bcada5ad4cf6f2fbe8b81b330ec5c003",
+    "bria/remove-background:5ecc270b34e9d8e1f007d9dbd3c724f0badf638f05ffaa0c5e0634ed64d3d378",
   fluxSchnell: "black-forest-labs/flux-schnell",
   sdxl:
     "stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
@@ -91,7 +92,7 @@ export function hasHebrew(text: string) {
   return /[\u0590-\u05FF]/.test(text);
 }
 
-/** תרגום הנחיות עבריות לאנגלית לפרומпт AI */
+/** תרגום הנחיות עבריות לאנגלית לפרומפט AI */
 export async function translateToEnglish(text: string): Promise<string> {
   const trimmed = text.trim();
   if (!trimmed || !hasHebrew(trimmed)) return trimmed;

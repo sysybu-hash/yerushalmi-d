@@ -18,7 +18,11 @@ export async function pipelineRemoveBackground(imageUrl: string) {
 
   const optimizedUrl = rembgSourceUrl(imageUrl);
   const output = await replicate.run(MODELS.rembg, {
-    input: { image: optimizedUrl },
+    input: {
+      image: optimizedUrl,
+      preserve_alpha: true,
+      preserve_partial_alpha: true,
+    },
   });
 
   return { url: extractUrl(output) };

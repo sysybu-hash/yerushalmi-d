@@ -17,10 +17,10 @@ export function withCloudinaryTransform(
   return url;
 }
 
-/** גרסה מותאמת ל-rembg — איכות גבוהה מספיק לפלט 2048px, PNG לשמירת קצוות */
+/** גרסה מותאמת ל-Bria RMBG — PNG מלא לשמירת נצנוץ יהלומים וקצוות אלפא */
 export function rembgSourceUrl(cloudinaryUrl: string): string {
   return withCloudinaryTransform(
     cloudinaryUrl,
-    `w_${REMBG_MAX_PX},h_${REMBG_MAX_PX},c_limit,q_95,f_png`
+    `w_${REMBG_MAX_PX},h_${REMBG_MAX_PX},c_limit,q_100,f_png`
   );
 }
