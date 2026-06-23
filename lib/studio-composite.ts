@@ -1,5 +1,4 @@
-import sharp from "sharp";
-
+import { loadSharp } from "@/lib/sharp-loader";
 import { STUDIO_CANVAS_SIZE } from "@/lib/studio-presets";
 
 const MIN_OPAQUE_RATIO = 0.008;
@@ -7,6 +6,7 @@ const JEWELRY_CANVAS_RATIO = 0.75;
 
 /** וידוא ש-rembg בידד תכשיט אמיתי ולא החזיר תמונה ריקה/מלאה */
 export async function validateJewelryCutout(buffer: Buffer): Promise<void> {
+  const sharp = await loadSharp();
   const { data, info } = await sharp(buffer)
     .ensureAlpha()
     .raw()
@@ -33,6 +33,7 @@ async function createDropShadow(
   width: number,
   height: number
 ): Promise<Buffer> {
+  const sharp = await loadSharp();
   const blur = Math.max(4, Math.round(width * 0.022));
 
   return sharp(jewelryPng)
@@ -51,6 +52,8 @@ export async function compositeProductImage(
   backgroundBuffer: Buffer,
   canvasSize = STUDIO_CANVAS_SIZE
 ): Promise<Buffer> {
+  const sharp = await loadSharp();
+
   const jewelryRes = await fetch(jewelryPngUrl);
   if (!jewelryRes.ok) {
     throw new Error("לא ניתן להוריד את תמונת התכשיט");

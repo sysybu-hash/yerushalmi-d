@@ -1,4 +1,4 @@
-import { pipelineRemoveBackground } from "@/lib/studio-pipeline";
+import { pipelineRemoveBackground } from "@/lib/studio-pipeline-remove-bg";
 import {
   studioJsonError,
   studioJsonOk,

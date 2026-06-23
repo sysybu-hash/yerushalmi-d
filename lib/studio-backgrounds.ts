@@ -1,7 +1,7 @@
-import sharp from "sharp";
-
+import { loadSharp } from "@/lib/sharp-loader";
 import type { StudioStylePresetId } from "@/lib/studio-presets";
 import { STUDIO_CANVAS_SIZE } from "@/lib/studio-presets";
+import type { Sharp } from "sharp";
 
 type BackgroundOptions = {
   preset: StudioStylePresetId;
@@ -25,7 +25,8 @@ async function radialSpotlight(
   centerLuminance: number,
   edgeLuminance: number,
   tint?: { r: number; g: number; b: number }
-) {
+): Promise<Sharp> {
+  const sharp = await loadSharp();
   const cx = size / 2;
   const cy = size / 2;
   const maxDist = Math.sqrt(cx * cx + cy * cy);
@@ -61,6 +62,7 @@ async function presetBase(preset: StudioStylePresetId, size: number) {
     case "white-studio":
       return radialSpotlight(size, 252, 228);
     case "gold-bokeh": {
+      const sharp = await loadSharp();
       const darkImg = await radialSpotlight(size, 22, 4);
       const dark = await darkImg.png().toBuffer();
       const orbs = Buffer.from(
@@ -88,7 +90,7 @@ async function presetBase(preset: StudioStylePresetId, size: number) {
 }
 
 async function applyLightingHints(
-  image: Awaited<ReturnType<typeof radialSpotlight>>,
+  image: Sharp,
   hints: string,
   size: number
 ) {

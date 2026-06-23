@@ -1,4 +1,3 @@
-import { rembgSourceUrl } from "@/lib/cloudinary-url";
 import { assertStudioEnv } from "@/lib/studio-env";
 import {
   DEFAULT_VIDEO_NEGATIVE_PROMPT,
@@ -7,6 +6,7 @@ import {
   STUDIO_PRESET_LIGHTING_HINTS,
   type StudioStylePresetId,
 } from "@/lib/studio-presets";
+export { pipelineRemoveBackground } from "@/lib/studio-pipeline-remove-bg";
 import {
   extractUrl,
   MODELS,
@@ -47,18 +47,6 @@ async function buildLightingHints(
   if (!trimmed) return presetHints;
   const translated = await translateToEnglish(trimmed);
   return translated ? `${presetHints}, ${translated}` : presetHints;
-}
-
-export async function pipelineRemoveBackground(imageUrl: string) {
-  assertStudioEnv();
-  assertCloudinaryUrl(imageUrl);
-
-  const optimizedUrl = rembgSourceUrl(imageUrl);
-  const output = await replicate.run(MODELS.rembg, {
-    input: { image: optimizedUrl },
-  });
-
-  return { url: extractUrl(output) };
 }
 
 export async function pipelineCompositeImage(

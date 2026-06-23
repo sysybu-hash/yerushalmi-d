@@ -6,6 +6,7 @@ declare module "sharp" {
     options?: SharpOptions
   ): Sharp;
 
+  export type { Sharp, SharpOptions };
   export = sharp;
   export default sharp;
 }
