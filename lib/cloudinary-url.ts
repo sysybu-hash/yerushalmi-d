@@ -1,3 +1,5 @@
+import { REMBG_MAX_PX } from "@/lib/studio-presets";
+
 /** הוספת טרנספורמציית Cloudinary ל-URL קיים (אחרי /upload/) */
 export function withCloudinaryTransform(
   url: string,
@@ -15,10 +17,10 @@ export function withCloudinaryTransform(
   return url;
 }
 
-/** גרסה מוקטנת ל-rembg — מהיר יותר, נכנס במגבלת 10 שניות של Vercel */
+/** גרסה מותאמת ל-rembg — איכות גבוהה מספיק לפלט 2048px, PNG לשמירת קצוות */
 export function rembgSourceUrl(cloudinaryUrl: string): string {
   return withCloudinaryTransform(
     cloudinaryUrl,
-    "w_800,h_800,c_limit,q_auto:good,f_jpg"
+    `w_${REMBG_MAX_PX},h_${REMBG_MAX_PX},c_limit,q_95,f_png`
   );
 }

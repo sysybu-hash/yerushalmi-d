@@ -35,7 +35,7 @@ async function radialSpotlight(
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       const dist = Math.sqrt((x - cx) ** 2 + (y - cy) ** 2) / maxDist;
-      const t = Math.min(1, dist ** 1.4);
+      const t = Math.min(1, dist ** 1.35);
       const v = centerLuminance + (edgeLuminance - centerLuminance) * t;
       const i = (y * size + x) * 3;
       pixels[i] = Math.min(255, Math.round(v * (tint?.r ?? 1)));
@@ -47,30 +47,107 @@ async function radialSpotlight(
   return sharp(pixels, { raw: { width: size, height: size, channels: 3 } });
 }
 
+function marbleVeinOverlay(size: number): Buffer {
+  return Buffer.from(
+    `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <filter id="n" x="0" y="0" width="100%" height="100%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.008 0.02" numOctaves="4" seed="12" />
+          <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.35 0" />
+        </filter>
+        <linearGradient id="v" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="rgba(255,255,255,0.18)" />
+          <stop offset="45%" stop-color="rgba(200,195,188,0.08)" />
+          <stop offset="100%" stop-color="rgba(80,75,70,0.22)" />
+        </linearGradient>
+      </defs>
+      <rect width="100%" height="100%" filter="url(#n)" opacity="0.45" />
+      <path d="M ${size * 0.05} ${size * 0.35} Q ${size * 0.4} ${size * 0.28} ${size * 0.95} ${size * 0.42}" stroke="url(#v)" stroke-width="${size * 0.012}" fill="none" opacity="0.7" />
+      <path d="M ${size * 0.1} ${size * 0.62} Q ${size * 0.55} ${size * 0.58} ${size * 0.9} ${size * 0.7}" stroke="rgba(255,255,255,0.12)" stroke-width="${size * 0.008}" fill="none" />
+      <path d="M ${size * 0.15} ${size * 0.78} Q ${size * 0.5} ${size * 0.72} ${size * 0.85} ${size * 0.82}" stroke="rgba(180,175,168,0.15)" stroke-width="${size * 0.006}" fill="none" />
+    </svg>`
+  );
+}
+
+function goldRimLight(size: number): Buffer {
+  return Buffer.from(
+    `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="rim" cx="50%" cy="42%" r="58%">
+          <stop offset="0%" stop-color="rgba(212,175,90,0)" />
+          <stop offset="72%" stop-color="rgba(212,175,90,0)" />
+          <stop offset="88%" stop-color="rgba(212,175,90,0.22)" />
+          <stop offset="100%" stop-color="rgba(180,140,70,0.35)" />
+        </radialGradient>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#rim)" />
+    </svg>`
+  );
+}
+
+function velvetTexture(size: number): Buffer {
+  return Buffer.from(
+    `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <filter id="velvet">
+          <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" seed="7" />
+          <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.12 0" />
+        </filter>
+      </defs>
+      <rect width="100%" height="100%" filter="url(#velvet)" />
+    </svg>`
+  );
+}
+
 async function presetBase(preset: StudioStylePresetId, size: number) {
+  const sharp = await loadSharp();
+
   switch (preset) {
     case "luxury-marble": {
-      const img = await radialSpotlight(size, 78, 14, {
-        r: 1,
-        g: 0.98,
-        b: 0.95,
+      const img = await radialSpotlight(size, 52, 6, {
+        r: 0.96,
+        g: 0.94,
+        b: 0.9,
       });
-      return img.linear(1.1, -6).modulate({ brightness: 0.9, saturation: 0.4 });
+      const base = await img
+        .linear(1.18, -10)
+        .modulate({ brightness: 0.82, saturation: 0.55 })
+        .png()
+        .toBuffer();
+
+      return sharp(base).composite([
+        { input: marbleVeinOverlay(size), blend: "soft-light" },
+        { input: goldRimLight(size), blend: "screen" },
+      ]);
     }
-    case "black-velvet":
-      return radialSpotlight(size, 28, 6);
+    case "black-velvet": {
+      const img = await radialSpotlight(size, 22, 3);
+      const base = await img.linear(1.1, -4).png().toBuffer();
+      return sharp(base).composite([
+        { input: velvetTexture(size), blend: "overlay" },
+        { input: goldRimLight(size), blend: "screen" },
+      ]);
+    }
     case "white-studio":
       return radialSpotlight(size, 252, 228);
     case "gold-bokeh": {
-      const sharp = await loadSharp();
-      const darkImg = await radialSpotlight(size, 22, 4);
-      const dark = await darkImg.png().toBuffer();
+      const darkImg = await radialSpotlight(size, 18, 2, {
+        r: 0.92,
+        g: 0.88,
+        b: 0.82,
+      });
+      const dark = await darkImg.linear(1.05, -2).png().toBuffer();
       const orbs = Buffer.from(
         `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="${size * 0.22}" cy="${size * 0.28}" r="${size * 0.09}" fill="rgba(212,175,90,0.55)" />
-          <circle cx="${size * 0.78}" cy="${size * 0.35}" r="${size * 0.07}" fill="rgba(230,190,110,0.45)" />
-          <circle cx="${size * 0.62}" cy="${size * 0.72}" r="${size * 0.11}" fill="rgba(198,160,80,0.35)" />
-          <circle cx="${size * 0.35}" cy="${size * 0.68}" r="${size * 0.05}" fill="rgba(240,210,130,0.4)" />
+          <defs>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="${size * 0.018}" />
+            </filter>
+          </defs>
+          <circle cx="${size * 0.22}" cy="${size * 0.28}" r="${size * 0.09}" fill="rgba(212,175,90,0.6)" filter="url(#glow)" />
+          <circle cx="${size * 0.78}" cy="${size * 0.35}" r="${size * 0.07}" fill="rgba(230,190,110,0.5)" filter="url(#glow)" />
+          <circle cx="${size * 0.62}" cy="${size * 0.72}" r="${size * 0.11}" fill="rgba(198,160,80,0.4)" filter="url(#glow)" />
+          <circle cx="${size * 0.35}" cy="${size * 0.68}" r="${size * 0.05}" fill="rgba(240,210,130,0.45)" filter="url(#glow)" />
         </svg>`
       );
 
