@@ -15,7 +15,7 @@ import {
   renameStudioProject,
   type StudioProjectListItem,
 } from "@/app/(ai-studio)/studio/project-actions";
-import { snapshotStatusLabel } from "@/lib/studio-project-snapshot";
+import { snapshotModeLabel, snapshotStatusLabel } from "@/lib/studio-project-snapshot";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -179,6 +179,10 @@ export function StudioPortfolioPanel({
                       )}
 
                       <div className="flex flex-wrap items-center gap-2 text-[10px] font-light text-muted-foreground">
+                        <span className="text-foreground/70">
+                          {snapshotModeLabel(project.mode)}
+                        </span>
+                        <span>·</span>
                         <span
                           className={
                             project.status === "published"

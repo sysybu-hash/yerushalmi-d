@@ -13,7 +13,9 @@ import {
 } from "@/app/(ai-studio)/studio/project-actions";
 import {
   EMPTY_STUDIO_SNAPSHOT,
+  normalizeSnapshot,
   type StudioClientState,
+  type StudioEditSnapshot,
   type StudioProjectSnapshot,
 } from "@/lib/studio-project-snapshot";
 import type { StudioWorkflowStep } from "@/components/studio/studio-workflow-stepper";
@@ -38,10 +40,18 @@ export type StudioFormState = {
   productOriginalPrice: string;
   productType: "natural" | "lab";
   productCategory: string;
+  edit: StudioEditSnapshot;
 };
 
+function shouldPersistProject(form: StudioFormState): boolean {
+  if (form.mode === "edit") {
+    return form.edit.asset !== null;
+  }
+  return form.state.status !== "empty";
+}
+
 export function formToSnapshot(form: StudioFormState): StudioProjectSnapshot {
-  return {
+  return normalizeSnapshot({
     version: 1,
     mode: form.mode,
     workflowStep: form.workflowStep,
@@ -60,28 +70,31 @@ export function formToSnapshot(form: StudioFormState): StudioProjectSnapshot {
     productOriginalPrice: form.productOriginalPrice,
     productType: form.productType,
     productCategory: form.productCategory,
-  };
+    edit: form.edit,
+  });
 }
 
 export function snapshotToForm(snapshot: StudioProjectSnapshot): StudioFormState {
+  const normalized = normalizeSnapshot(snapshot);
   return {
-    mode: snapshot.mode,
-    workflowStep: snapshot.workflowStep,
-    state: snapshot.state,
-    customPrompt: snapshot.customPrompt,
-    negativePrompt: snapshot.negativePrompt,
-    stylePreset: snapshot.stylePreset,
-    videoPrompt: snapshot.videoPrompt,
-    videoDuration: snapshot.videoDuration,
-    videoMode: snapshot.videoMode,
-    workspaceUploadMode: snapshot.workspaceUploadMode,
-    publishTarget: snapshot.publishTarget,
-    productTitle: snapshot.productTitle,
-    productDescription: snapshot.productDescription,
-    productPrice: snapshot.productPrice,
-    productOriginalPrice: snapshot.productOriginalPrice,
-    productType: snapshot.productType,
-    productCategory: snapshot.productCategory,
+    mode: normalized.mode,
+    workflowStep: normalized.workflowStep,
+    state: normalized.state,
+    customPrompt: normalized.customPrompt,
+    negativePrompt: normalized.negativePrompt,
+    stylePreset: normalized.stylePreset,
+    videoPrompt: normalized.videoPrompt,
+    videoDuration: normalized.videoDuration,
+    videoMode: normalized.videoMode,
+    workspaceUploadMode: normalized.workspaceUploadMode,
+    publishTarget: normalized.publishTarget,
+    productTitle: normalized.productTitle,
+    productDescription: normalized.productDescription,
+    productPrice: normalized.productPrice,
+    productOriginalPrice: normalized.productOriginalPrice,
+    productType: normalized.productType,
+    productCategory: normalized.productCategory,
+    edit: normalized.edit,
   };
 }
 
@@ -203,7 +216,7 @@ export function useStudioProjectPersistence({
       skipNextSave.current = false;
       return;
     }
-    if (form.state.status === "generating") return;
+    if (form.mode === "create" && form.state.status === "generating") return;
 
     const timer = window.setTimeout(async () => {
       try {
@@ -211,7 +224,7 @@ export function useStudioProjectPersistence({
         const snapshot = formToSnapshot(form);
         const id =
           activeProjectId ??
-          (form.state.status !== "empty"
+          (shouldPersistProject(form)
             ? (await createStudioProject(snapshot)).id
             : null);
 

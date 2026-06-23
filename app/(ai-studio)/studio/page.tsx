@@ -43,7 +43,11 @@ import {
   useStudioProjectPersistence,
   type StudioFormState,
 } from "@/components/studio/use-studio-project-persistence";
-import type { StudioClientState } from "@/lib/studio-project-snapshot";
+import {
+  EMPTY_EDIT_SNAPSHOT,
+  type StudioClientState,
+  type StudioEditSnapshot,
+} from "@/lib/studio-project-snapshot";
 import {
   StudioWorkflowStepper,
   type StudioWorkflowStep,
@@ -108,6 +112,7 @@ function StudioPageContent() {
   const [mode, setMode] = React.useState<"create" | "edit">("create");
   const [workflowStep, setWorkflowStep] =
     React.useState<StudioWorkflowStep>(1);
+  const [edit, setEdit] = React.useState<StudioEditSnapshot>(EMPTY_EDIT_SNAPSHOT);
 
   const applyForm = React.useCallback((next: StudioFormState) => {
     setState(next.state);
@@ -129,6 +134,7 @@ function StudioPageContent() {
     setProductCategory(
       next.productCategory as (typeof PRODUCT_CATEGORIES)[number]["value"]
     );
+    setEdit(next.edit);
   }, []);
 
   const showToastRef = React.useRef<(message: string) => void>(() => {});
@@ -172,6 +178,7 @@ function StudioPageContent() {
       productOriginalPrice,
       productType,
       productCategory,
+      edit,
     },
     applyForm,
     showToast: stableShowToast,
@@ -488,7 +495,14 @@ function StudioPageContent() {
         </button>
       </div>
 
-      {mode === "edit" && <StudioMediaEditor showToast={showToast} />}
+      {mode === "edit" && (
+        <StudioMediaEditor
+          showToast={showToast}
+          edit={edit}
+          onEditChange={setEdit}
+          onPublished={markPublished}
+        />
+      )}
 
       {mode === "create" && (
         <>

@@ -8,6 +8,7 @@ import { studioProjects } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth";
 import {
   EMPTY_STUDIO_SNAPSHOT,
+  normalizeSnapshot,
   snapshotThumbnailUrl,
   type StudioProjectSnapshot,
 } from "@/lib/studio-project-snapshot";
@@ -15,6 +16,7 @@ import {
 export type StudioProjectListItem = {
   id: number;
   title: string;
+  mode: "create" | "edit";
   status: "draft" | "in_progress" | "ready" | "published";
   thumbnailUrl: string | null;
   updatedAt: Date;
@@ -26,18 +28,37 @@ function deriveStatus(
   publishedAt: Date | null
 ): StudioProjectListItem["status"] {
   if (publishedAt) return "published";
-  const { state } = snapshot;
+  const normalized = normalizeSnapshot(snapshot);
+
+  if (normalized.mode === "edit") {
+    if (!normalized.edit.asset) return "draft";
+    if (normalized.edit.savedUrl) return "ready";
+    return "in_progress";
+  }
+
+  const { state } = normalized;
   if (state.status === "empty") return "draft";
   if (state.status === "done" && state.savedUrl) return "ready";
   return "in_progress";
 }
 
 function defaultTitle(snapshot: StudioProjectSnapshot): string {
-  if (snapshot.productTitle.trim()) return snapshot.productTitle.trim();
-  if (snapshot.state.status === "done" && snapshot.state.kind === "video") {
+  const normalized = normalizeSnapshot(snapshot);
+
+  if (normalized.mode === "edit") {
+    if (normalized.edit.productTitle.trim()) {
+      return normalized.edit.productTitle.trim();
+    }
+    if (normalized.edit.asset?.type === "video") return "עריכת וידאו";
+    if (normalized.edit.asset) return "עריכת תמונה";
+    return "עריכה חדשה";
+  }
+
+  if (normalized.productTitle.trim()) return normalized.productTitle.trim();
+  if (normalized.state.status === "done" && normalized.state.kind === "video") {
     return "וידאו תכשיט";
   }
-  if ("source" in snapshot.state && snapshot.state.source) {
+  if ("source" in normalized.state && normalized.state.source) {
     return "עבודת סטודיו";
   }
   return "עבודה חדשה";
@@ -51,14 +72,18 @@ export async function listStudioProjects(): Promise<StudioProjectListItem[]> {
     .from(studioProjects)
     .orderBy(desc(studioProjects.updatedAt));
 
-  return rows.map((row) => ({
-    id: row.id,
-    title: row.title,
-    status: deriveStatus(row.snapshot, row.publishedAt),
-    thumbnailUrl: row.thumbnailUrl,
-    updatedAt: row.updatedAt,
-    publishedAt: row.publishedAt,
-  }));
+  return rows.map((row) => {
+    const snapshot = normalizeSnapshot(row.snapshot);
+    return {
+      id: row.id,
+      title: row.title,
+      mode: snapshot.mode,
+      status: deriveStatus(snapshot, row.publishedAt),
+      thumbnailUrl: row.thumbnailUrl,
+      updatedAt: row.updatedAt,
+      publishedAt: row.publishedAt,
+    };
+  });
 }
 
 export async function getStudioProject(id: number) {
@@ -74,7 +99,7 @@ export async function getStudioProject(id: number) {
     throw new Error("העבודה לא נמצאה");
   }
 
-  return row;
+  return { ...row, snapshot: normalizeSnapshot(row.snapshot) };
 }
 
 export async function createStudioProject(
@@ -83,13 +108,15 @@ export async function createStudioProject(
 ) {
   await requireAdmin();
 
+  const normalized = normalizeSnapshot(snapshot);
+
   const [created] = await db
     .insert(studioProjects)
     .values({
-      title: title?.trim() || defaultTitle(snapshot),
-      status: deriveStatus(snapshot, null),
-      thumbnailUrl: snapshotThumbnailUrl(snapshot),
-      snapshot,
+      title: title?.trim() || defaultTitle(normalized),
+      status: deriveStatus(normalized, null),
+      thumbnailUrl: snapshotThumbnailUrl(normalized),
+      snapshot: normalized,
     })
     .returning();
 
@@ -114,14 +141,15 @@ export async function saveStudioProject(
     throw new Error("העבודה לא נמצאה");
   }
 
+  const normalized = normalizeSnapshot(snapshot);
   const nextTitle = title?.trim();
   const [updated] = await db
     .update(studioProjects)
     .set({
       ...(nextTitle ? { title: nextTitle } : {}),
-      status: deriveStatus(snapshot, existing.publishedAt),
-      thumbnailUrl: snapshotThumbnailUrl(snapshot),
-      snapshot,
+      status: deriveStatus(normalized, existing.publishedAt),
+      thumbnailUrl: snapshotThumbnailUrl(normalized),
+      snapshot: normalized,
       updatedAt: new Date(),
     })
     .where(eq(studioProjects.id, id))

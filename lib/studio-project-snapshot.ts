@@ -1,7 +1,48 @@
 import type { StudioPipelineStepId, StudioStylePresetId, StudioWorkspaceUploadModeId } from "@/lib/studio-presets";
 import type { SettingKey } from "@/lib/site-settings";
+import {
+  DEFAULT_IMAGE_ADJUSTMENTS,
+  DEFAULT_VIDEO_ADJUSTMENTS,
+  type ImageAdjustments,
+  type MediaResourceType,
+  type VideoAdjustments,
+} from "@/lib/studio-transform";
 
 export type StudioWorkflowStepNumber = 1 | 2 | 3 | 4;
+
+export type StudioEditAsset = {
+  url: string;
+  type: MediaResourceType;
+  duration: number | null;
+};
+
+export type StudioEditSnapshot = {
+  asset: StudioEditAsset | null;
+  imageAdj: ImageAdjustments;
+  videoAdj: VideoAdjustments;
+  savedUrl: string | null;
+  publishTarget: SettingKey;
+  productTitle: string;
+  productDescription: string;
+  productPrice: string;
+  productOriginalPrice: string;
+  productType: "natural" | "lab";
+  productCategory: string;
+};
+
+export const EMPTY_EDIT_SNAPSHOT: StudioEditSnapshot = {
+  asset: null,
+  imageAdj: DEFAULT_IMAGE_ADJUSTMENTS,
+  videoAdj: DEFAULT_VIDEO_ADJUSTMENTS,
+  savedUrl: null,
+  publishTarget: "heroImage",
+  productTitle: "",
+  productDescription: "",
+  productPrice: "",
+  productOriginalPrice: "",
+  productType: "natural",
+  productCategory: "rings",
+};
 
 export type StudioClientState =
   | { status: "empty" }
@@ -41,7 +82,29 @@ export type StudioProjectSnapshot = {
   productOriginalPrice: string;
   productType: "natural" | "lab";
   productCategory: string;
+  edit: StudioEditSnapshot;
 };
+
+export function normalizeSnapshot(
+  raw: StudioProjectSnapshot
+): StudioProjectSnapshot {
+  return {
+    ...EMPTY_STUDIO_SNAPSHOT,
+    ...raw,
+    edit: {
+      ...EMPTY_EDIT_SNAPSHOT,
+      ...raw.edit,
+      imageAdj: {
+        ...DEFAULT_IMAGE_ADJUSTMENTS,
+        ...raw.edit?.imageAdj,
+      },
+      videoAdj: {
+        ...DEFAULT_VIDEO_ADJUSTMENTS,
+        ...raw.edit?.videoAdj,
+      },
+    },
+  };
+}
 
 export const EMPTY_STUDIO_SNAPSHOT: StudioProjectSnapshot = {
   version: 1,
@@ -62,10 +125,21 @@ export const EMPTY_STUDIO_SNAPSHOT: StudioProjectSnapshot = {
   productOriginalPrice: "",
   productType: "natural",
   productCategory: "rings",
+  edit: EMPTY_EDIT_SNAPSHOT,
 };
 
 export function snapshotThumbnailUrl(snapshot: StudioProjectSnapshot): string | null {
-  const { state } = snapshot;
+  const normalized = normalizeSnapshot(snapshot);
+
+  if (normalized.mode === "edit") {
+    return (
+      normalized.edit.savedUrl ??
+      normalized.edit.asset?.url ??
+      null
+    );
+  }
+
+  const { state } = normalized;
   if (state.status === "done") {
     return state.savedUrl ?? state.result ?? state.source;
   }
@@ -73,6 +147,10 @@ export function snapshotThumbnailUrl(snapshot: StudioProjectSnapshot): string | 
     return state.source;
   }
   return null;
+}
+
+export function snapshotModeLabel(mode: "create" | "edit"): string {
+  return mode === "edit" ? "עריכה" : "יצירה AI";
 }
 
 export function snapshotStatusLabel(

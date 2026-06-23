@@ -42,6 +42,7 @@ import {
   PRODUCT_TYPES,
 } from "@/components/workspace/product-constants";
 import { STUDIO_PUBLISH_TARGETS } from "@/lib/studio-presets";
+import type { StudioEditSnapshot } from "@/lib/studio-project-snapshot";
 import type { SettingKey } from "@/lib/site-settings";
 import {
   ASPECT_OPTIONS,
@@ -52,16 +53,8 @@ import {
   hasImageEdits,
   hasVideoEdits,
   type AspectId,
-  type ImageAdjustments,
   type MediaResourceType,
-  type VideoAdjustments,
 } from "@/lib/studio-transform";
-
-type LoadedAsset = {
-  url: string;
-  type: MediaResourceType;
-  duration: number | null;
-};
 
 /** סליידר נגיש פשוט עם תווית ערך */
 function AdjustSlider({
@@ -129,30 +122,38 @@ function ToggleChip({
 
 export function StudioMediaEditor({
   showToast,
+  edit,
+  onEditChange,
+  onPublished,
 }: {
   showToast: (message: string) => void;
+  edit: StudioEditSnapshot;
+  onEditChange: (next: StudioEditSnapshot) => void;
+  onPublished?: (
+    outcome:
+      | { kind: "site"; settingKey: string }
+      | { kind: "catalog"; productId: number }
+  ) => void | Promise<void>;
 }) {
-  const [asset, setAsset] = React.useState<LoadedAsset | null>(null);
-  const [imageAdj, setImageAdj] = React.useState<ImageAdjustments>(
-    DEFAULT_IMAGE_ADJUSTMENTS
-  );
-  const [videoAdj, setVideoAdj] = React.useState<VideoAdjustments>(
-    DEFAULT_VIDEO_ADJUSTMENTS
-  );
   const [busy, setBusy] = React.useState<string | null>(null);
-  const [savedUrl, setSavedUrl] = React.useState<string | null>(null);
 
-  // פרסום תמונות
-  const [publishTarget, setPublishTarget] =
-    React.useState<SettingKey>("heroImage");
-  const [productTitle, setProductTitle] = React.useState("");
-  const [productDescription, setProductDescription] = React.useState("");
-  const [productPrice, setProductPrice] = React.useState("");
-  const [productOriginalPrice, setProductOriginalPrice] = React.useState("");
-  const [productType, setProductType] =
-    React.useState<(typeof PRODUCT_TYPES)[number]["value"]>("natural");
-  const [productCategory, setProductCategory] =
-    React.useState<(typeof PRODUCT_CATEGORIES)[number]["value"]>("rings");
+  const {
+    asset,
+    imageAdj,
+    videoAdj,
+    savedUrl,
+    publishTarget,
+    productTitle,
+    productDescription,
+    productPrice,
+    productOriginalPrice,
+    productType,
+    productCategory,
+  } = edit;
+
+  function patchEdit(partial: Partial<StudioEditSnapshot>) {
+    onEditChange({ ...edit, ...partial });
+  }
 
   const isImage = asset?.type === "image";
   const isVideo = asset?.type === "video";
@@ -173,9 +174,11 @@ export function StudioMediaEditor({
     : false;
 
   function resetAdjustments() {
-    setImageAdj(DEFAULT_IMAGE_ADJUSTMENTS);
-    setVideoAdj(DEFAULT_VIDEO_ADJUSTMENTS);
-    setSavedUrl(null);
+    patchEdit({
+      imageAdj: DEFAULT_IMAGE_ADJUSTMENTS,
+      videoAdj: DEFAULT_VIDEO_ADJUSTMENTS,
+      savedUrl: null,
+    });
   }
 
   function handleUploadResult(info: unknown) {
@@ -193,12 +196,16 @@ export function StudioMediaEditor({
     };
     const type: MediaResourceType =
       data.resource_type === "video" ? "video" : "image";
-    setAsset({
-      url: data.secure_url,
-      type,
-      duration: typeof data.duration === "number" ? data.duration : null,
+    patchEdit({
+      asset: {
+        url: data.secure_url,
+        type,
+        duration: typeof data.duration === "number" ? data.duration : null,
+      },
+      imageAdj: DEFAULT_IMAGE_ADJUSTMENTS,
+      videoAdj: DEFAULT_VIDEO_ADJUSTMENTS,
+      savedUrl: null,
     });
-    resetAdjustments();
     showToast(type === "video" ? "וידאו נטען לעריכה" : "תמונה נטענה לעריכה");
   }
 
@@ -213,7 +220,7 @@ export function StudioMediaEditor({
         { quality: "best" }
       );
       const { url } = await saveAssetToCloudinary(saveUrl, asset.type);
-      setSavedUrl(url);
+      patchEdit({ savedUrl: url });
       showToast("הנכס המעובד נשמר ב-Cloudinary באיכות גבוהה");
     } catch (e) {
       showToast(e instanceof Error ? e.message : "השמירה נכשלה");
@@ -232,7 +239,7 @@ export function StudioMediaEditor({
       { quality: "best" }
     );
     const { url } = await saveAssetToCloudinary(saveUrl, asset.type);
-    setSavedUrl(url);
+    patchEdit({ savedUrl: url });
     return url;
   }
 
@@ -271,6 +278,7 @@ export function StudioMediaEditor({
         STUDIO_PUBLISH_TARGETS.find((t) => t.key === publishTarget)?.label ??
         "האתר";
       showToast(`פורסם בהצלחה: ${label}`);
+      await onPublished?.({ kind: "site", settingKey: publishTarget });
     } catch (e) {
       showToast(e instanceof Error ? e.message : "הפרסום נכשל");
     } finally {
@@ -304,6 +312,7 @@ export function StudioMediaEditor({
         imageUrl: url,
       });
       showToast(`המוצר נוסף למלאי (#${productId})`);
+      await onPublished?.({ kind: "catalog", productId });
     } catch (e) {
       showToast(e instanceof Error ? e.message : "ההוספה למלאי נכשלה");
     } finally {
@@ -431,8 +440,12 @@ export function StudioMediaEditor({
                     value={isImage ? imageAdj.aspect : videoAdj.aspect}
                     onValueChange={(v) =>
                       isImage
-                        ? setImageAdj((a) => ({ ...a, aspect: v as AspectId }))
-                        : setVideoAdj((a) => ({ ...a, aspect: v as AspectId }))
+                        ? patchEdit({
+                            imageAdj: { ...imageAdj, aspect: v as AspectId },
+                          })
+                        : patchEdit({
+                            videoAdj: { ...videoAdj, aspect: v as AspectId },
+                          })
                     }
                   >
                     <SelectTrigger className="rounded-none">
@@ -466,7 +479,9 @@ export function StudioMediaEditor({
                             imageAdj.sharpen
                           }
                           onClick={() =>
-                            setImageAdj(JEWELRY_CATALOG_IMAGE_ADJUSTMENTS)
+                            patchEdit({
+                              imageAdj: JEWELRY_CATALOG_IMAGE_ADJUSTMENTS,
+                            })
                           }
                         />
                       </div>
@@ -479,27 +494,36 @@ export function StudioMediaEditor({
                           label="שיפור אוטומטי"
                           active={imageAdj.autoEnhance}
                           onClick={() =>
-                            setImageAdj((a) => ({
-                              ...a,
-                              autoEnhance: !a.autoEnhance,
-                            }))
+                            patchEdit({
+                              imageAdj: {
+                                ...imageAdj,
+                                autoEnhance: !imageAdj.autoEnhance,
+                              },
+                            })
                           }
                         />
                         <ToggleChip
                           label="איזון צבע"
                           active={imageAdj.autoColor}
                           onClick={() =>
-                            setImageAdj((a) => ({
-                              ...a,
-                              autoColor: !a.autoColor,
-                            }))
+                            patchEdit({
+                              imageAdj: {
+                                ...imageAdj,
+                                autoColor: !imageAdj.autoColor,
+                              },
+                            })
                           }
                         />
                         <ToggleChip
                           label="חידוד"
                           active={imageAdj.sharpen}
                           onClick={() =>
-                            setImageAdj((a) => ({ ...a, sharpen: !a.sharpen }))
+                            patchEdit({
+                              imageAdj: {
+                                ...imageAdj,
+                                sharpen: !imageAdj.sharpen,
+                              },
+                            })
                           }
                         />
                         <ToggleChip
@@ -507,7 +531,12 @@ export function StudioMediaEditor({
                           active={imageAdj.upscale}
                           disabled={imageAdj.aspect !== "original"}
                           onClick={() =>
-                            setImageAdj((a) => ({ ...a, upscale: !a.upscale }))
+                            patchEdit({
+                              imageAdj: {
+                                ...imageAdj,
+                                upscale: !imageAdj.upscale,
+                              },
+                            })
                           }
                         />
                       </div>
@@ -518,21 +547,27 @@ export function StudioMediaEditor({
                         label="בהירות"
                         value={imageAdj.brightness}
                         onChange={(v) =>
-                          setImageAdj((a) => ({ ...a, brightness: v }))
+                          patchEdit({
+                            imageAdj: { ...imageAdj, brightness: v },
+                          })
                         }
                       />
                       <AdjustSlider
                         label="רוויה"
                         value={imageAdj.saturation}
                         onChange={(v) =>
-                          setImageAdj((a) => ({ ...a, saturation: v }))
+                          patchEdit({
+                            imageAdj: { ...imageAdj, saturation: v },
+                          })
                         }
                       />
                       <AdjustSlider
                         label="ניגודיות"
                         value={imageAdj.contrast}
                         onChange={(v) =>
-                          setImageAdj((a) => ({ ...a, contrast: v }))
+                          patchEdit({
+                            imageAdj: { ...imageAdj, contrast: v },
+                          })
                         }
                       />
                     </div>
@@ -552,12 +587,14 @@ export function StudioMediaEditor({
                           step="0.5"
                           value={videoAdj.trimStart ?? ""}
                           onChange={(e) =>
-                            setVideoAdj((a) => ({
-                              ...a,
-                              trimStart: e.target.value
-                                ? Number(e.target.value)
-                                : null,
-                            }))
+                            patchEdit({
+                              videoAdj: {
+                                ...videoAdj,
+                                trimStart: e.target.value
+                                  ? Number(e.target.value)
+                                  : null,
+                              },
+                            })
                           }
                           placeholder="0"
                           className="rounded-none"
@@ -573,12 +610,14 @@ export function StudioMediaEditor({
                           step="0.5"
                           value={videoAdj.trimEnd ?? ""}
                           onChange={(e) =>
-                            setVideoAdj((a) => ({
-                              ...a,
-                              trimEnd: e.target.value
-                                ? Number(e.target.value)
-                                : null,
-                            }))
+                            patchEdit({
+                              videoAdj: {
+                                ...videoAdj,
+                                trimEnd: e.target.value
+                                  ? Number(e.target.value)
+                                  : null,
+                              },
+                            })
                           }
                           placeholder={
                             asset.duration
@@ -600,7 +639,9 @@ export function StudioMediaEditor({
                         label="השתקת אודיו"
                         active={videoAdj.mute}
                         onClick={() =>
-                          setVideoAdj((a) => ({ ...a, mute: !a.mute }))
+                          patchEdit({
+                            videoAdj: { ...videoAdj, mute: !videoAdj.mute },
+                          })
                         }
                       />
                     </div>
@@ -610,14 +651,18 @@ export function StudioMediaEditor({
                         label="בהירות"
                         value={videoAdj.brightness}
                         onChange={(v) =>
-                          setVideoAdj((a) => ({ ...a, brightness: v }))
+                          patchEdit({
+                            videoAdj: { ...videoAdj, brightness: v },
+                          })
                         }
                       />
                       <AdjustSlider
                         label="רוויה"
                         value={videoAdj.saturation}
                         onChange={(v) =>
-                          setVideoAdj((a) => ({ ...a, saturation: v }))
+                          patchEdit({
+                            videoAdj: { ...videoAdj, saturation: v },
+                          })
                         }
                       />
                     </div>
@@ -732,7 +777,9 @@ export function StudioMediaEditor({
                     <Select
                       dir="rtl"
                       value={publishTarget}
-                      onValueChange={(v) => setPublishTarget(v as SettingKey)}
+                      onValueChange={(v) =>
+                        patchEdit({ publishTarget: v as SettingKey })
+                      }
                     >
                       <SelectTrigger className="rounded-none bg-background sm:max-w-xs">
                         <SelectValue />
@@ -783,7 +830,9 @@ export function StudioMediaEditor({
                       <Input
                         id="me-title"
                         value={productTitle}
-                        onChange={(e) => setProductTitle(e.target.value)}
+                        onChange={(e) =>
+                          patchEdit({ productTitle: e.target.value })
+                        }
                         placeholder="לדוגמה: טבעת סוליטר 1.5 קראט"
                         className="rounded-none bg-background"
                       />
@@ -795,7 +844,9 @@ export function StudioMediaEditor({
                       <Textarea
                         id="me-desc"
                         value={productDescription}
-                        onChange={(e) => setProductDescription(e.target.value)}
+                        onChange={(e) =>
+                          patchEdit({ productDescription: e.target.value })
+                        }
                         rows={2}
                         className="rounded-none resize-none bg-background"
                       />
@@ -810,7 +861,9 @@ export function StudioMediaEditor({
                         min="0"
                         step="0.01"
                         value={productPrice}
-                        onChange={(e) => setProductPrice(e.target.value)}
+                        onChange={(e) =>
+                          patchEdit({ productPrice: e.target.value })
+                        }
                         placeholder="0.00"
                         className="rounded-none bg-background"
                       />
@@ -825,7 +878,9 @@ export function StudioMediaEditor({
                         min="0"
                         step="0.01"
                         value={productOriginalPrice}
-                        onChange={(e) => setProductOriginalPrice(e.target.value)}
+                        onChange={(e) =>
+                          patchEdit({ productOriginalPrice: e.target.value })
+                        }
                         placeholder="אופציונלי"
                         className="rounded-none bg-background"
                       />
@@ -838,9 +893,10 @@ export function StudioMediaEditor({
                         dir="rtl"
                         value={productType}
                         onValueChange={(v) =>
-                          setProductType(
-                            v as (typeof PRODUCT_TYPES)[number]["value"]
-                          )
+                          patchEdit({
+                            productType:
+                              v as (typeof PRODUCT_TYPES)[number]["value"],
+                          })
                         }
                       >
                         <SelectTrigger className="rounded-none bg-background">
@@ -863,9 +919,10 @@ export function StudioMediaEditor({
                         dir="rtl"
                         value={productCategory}
                         onValueChange={(v) =>
-                          setProductCategory(
-                            v as (typeof PRODUCT_CATEGORIES)[number]["value"]
-                          )
+                          patchEdit({
+                            productCategory:
+                              v as (typeof PRODUCT_CATEGORIES)[number]["value"],
+                          })
                         }
                       >
                         <SelectTrigger className="rounded-none bg-background">
