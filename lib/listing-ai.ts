@@ -5,9 +5,6 @@ import {
   replicate,
 } from "@/lib/studio-replicate";
 
-const LLAVA_MODEL =
-  "yorickvp/llava-13b:80537f9ee667b1b177825e33fde32eb9cf5c6cd7b7f292c7c78f0c15d405b06";
-
 const VALID_CATEGORIES = [
   "rings",
   "engagement-rings",
@@ -93,22 +90,23 @@ function buildListingFromJson(json: Record<string, unknown>): GeneratedListingCo
   };
 }
 
-async function analyzeJewelryImage(imageUrl: string): Promise<string> {
-  const output = await replicate.run(LLAVA_MODEL, {
-    input: {
-      image: imageUrl,
-      prompt:
-        "You are a luxury jewelry expert. Describe ONLY what is visible in this product photo: jewelry type (ring, necklace, earrings, bracelet), metal color/finish, diamond or gemstone cut and setting, chain or band style, and overall design aesthetic. Be factual and specific. English only, 2-4 sentences.",
-      max_tokens: 400,
-      temperature: 0.2,
-    },
-  });
+async function analyzeJewelryImage(imageUrl: string): Promise<string | undefined> {
+  try {
+    const output = await replicate.run(MODELS.llava, {
+      input: {
+        image: imageUrl,
+        prompt:
+          "You are a luxury jewelry expert. Describe ONLY what is visible in this product photo: jewelry type (ring, necklace, earrings, bracelet), metal color/finish, diamond or gemstone cut and setting, chain or band style, and overall design aesthetic. Be factual and specific. English only, 2-4 sentences.",
+        max_tokens: 400,
+        temperature: 0.2,
+      },
+    });
 
-  const description = extractText(output);
-  if (!description) {
-    throw new Error("לא הצלחנו לנתח את התמונה — נסו שוב");
+    const description = extractText(output);
+    return description || undefined;
+  } catch {
+    return undefined;
   }
-  return description;
 }
 
 async function generateListingText(input: {
@@ -187,6 +185,10 @@ export async function generateListingContent(
     }
 
     const visualDescription = await analyzeJewelryImage(coverImage);
+    if (!visualDescription && !input.assetTitles?.length && !input.existingTitle?.trim()) {
+      throw new Error("לא הצלחנו לנתח את התמונה — נסו שוב או הוסיפו שם לנכס");
+    }
+
     return generateListingText({
       visualDescription,
       assetTitles: input.assetTitles,

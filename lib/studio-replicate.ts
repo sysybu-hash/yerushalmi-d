@@ -16,6 +16,8 @@ export const MODELS = {
   svd: "stability-ai/stable-video-diffusion:3f0457e4619daac51203dedb472816fd4af51f3149fa7a9e0b5ffcf1b8172438",
   kling: "kwaivgi/kling-v2.1",
   llama: "meta/meta-llama-3-8b-instruct",
+  /** LLaVA v1.6 — ניתוח תמונות תכשיטים (ללא hash — תמיד גרסה עדכנית) */
+  llava: "yorickvp/llava-v1.6-vicuna-7b",
 } as const;
 
 export const BASE_JEWELRY_QUALITY =
@@ -41,6 +43,9 @@ export function normalizeStudioError(error: unknown, fallback: string): string {
       }
       if (message.includes("402") || /insufficient credit/i.test(message)) {
         return "אין מספיק קרדיט ב-Replicate — הוסיפו אשראי בחשבון Replicate.";
+      }
+      if (message.includes("422") || /invalid version/i.test(message)) {
+        return "מודל ה-AI לא זמין כרגע — נסו שוב בעוד דקה.";
       }
       return message;
     }
