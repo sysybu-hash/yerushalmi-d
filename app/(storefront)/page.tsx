@@ -19,6 +19,10 @@ import { getSiteSettings } from "@/lib/site-settings";
 import { homepageCategories, collectionLabel, STOREFRONT_CATALOG_SLUGS } from "@/lib/categories";
 import { Button } from "@/components/ui/button";
 import { ProductCard } from "@/components/storefront/product-card";
+import {
+  ProductCarousel,
+  ProductCarouselItem,
+} from "@/components/storefront/product-carousel";
 
 // הדף מציג מלאי והגדרות חיים מהדאטהבייס — נטען בזמן בקשה
 export const dynamic = "force-dynamic";
@@ -187,16 +191,13 @@ export default async function HomePage() {
             </p>
           </div>
         ) : (
-          <div className="fade-up mt-14 flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4 sm:grid sm:grid-cols-3 sm:overflow-visible sm:pb-0 lg:grid-cols-4 xl:grid-cols-6">
+          <ProductCarousel>
             {featuredProducts.map((product) => (
-              <div
-                key={product.id}
-                className="w-[46vw] shrink-0 snap-start sm:w-auto"
-              >
+              <ProductCarouselItem key={product.id}>
                 <ProductCard product={product} />
-              </div>
+              </ProductCarouselItem>
             ))}
-          </div>
+          </ProductCarousel>
         )}
       </section>
 

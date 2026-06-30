@@ -3,11 +3,9 @@
 import * as React from "react";
 import { Loader2, Trash2 } from "lucide-react";
 
-import {
-  deleteMediaAsset,
-  updateMediaAsset,
-} from "@/app/(workspace)/workspace/content-library/actions";
+import { updateMediaAsset } from "@/app/(workspace)/workspace/content-library/actions";
 import type { AiMediaAsset } from "@/db/schema";
+import { AssetManageButtons } from "@/components/workspace/asset-manage-buttons";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -35,7 +33,6 @@ export function EditMediaAssetDialog({
 }: EditMediaAssetDialogProps) {
   const [title, setTitle] = React.useState("");
   const [pending, setPending] = React.useState(false);
-  const [deleting, setDeleting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -60,24 +57,14 @@ export function EditMediaAssetDialog({
     }
   }
 
-  async function handleDelete() {
-    if (!asset) return;
-    if (!window.confirm("למחוק את הנכס מהספרייה?")) return;
-
-    setDeleting(true);
-    setError(null);
-    try {
-      await deleteMediaAsset(asset.id);
-      onUpdated();
-      onOpenChange(false);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "המחיקה נכשלה");
-    } finally {
-      setDeleting(false);
-    }
-  }
-
   if (!asset) return null;
+
+  const statusLabel =
+    asset.status === "draft"
+      ? "טיוטה"
+      : asset.status === "published"
+        ? "פורסם"
+        : "בארכיון";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -88,7 +75,7 @@ export function EditMediaAssetDialog({
           </DialogTitle>
           <DialogDescription className="font-light">
             נכס #{asset.id} ·{" "}
-            {asset.mediaType === "video" ? "וידאו" : "תמונה"}
+            {asset.mediaType === "video" ? "וידאו" : "תמונה"} · {statusLabel}
           </DialogDescription>
         </DialogHeader>
 
@@ -115,7 +102,7 @@ export function EditMediaAssetDialog({
           <Button
             type="button"
             onClick={handleSave}
-            disabled={pending || deleting}
+            disabled={pending}
             className="w-full rounded-none text-xs font-light tracking-[0.12em]"
           >
             {pending ? (
@@ -124,22 +111,7 @@ export function EditMediaAssetDialog({
             שמירת שינויים
           </Button>
 
-          {asset.status === "draft" && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleDelete}
-              disabled={pending || deleting}
-              className="w-full rounded-none text-xs font-light tracking-[0.12em] text-destructive hover:text-destructive"
-            >
-              {deleting ? (
-                <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Trash2 className="ml-2 h-4 w-4" strokeWidth={1.5} />
-              )}
-              מחיקה מהספרייה
-            </Button>
-          )}
+          <AssetManageButtons asset={asset} layout="dialog" />
         </DialogFooter>
       </DialogContent>
     </Dialog>

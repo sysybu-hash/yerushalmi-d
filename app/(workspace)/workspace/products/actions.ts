@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { products } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth";
 import { parseOptionalProductImageUrl } from "@/lib/product-images";
+import { releaseAssetsForProduct } from "@/lib/release-product-assets";
 
 const PRODUCT_TYPES = ["natural", "lab"] as const;
 type ProductType = (typeof PRODUCT_TYPES)[number];
@@ -148,9 +149,11 @@ export async function deleteProduct(id: number) {
     throw new Error("מזהה מוצר לא תקין");
   }
 
+  await releaseAssetsForProduct(id);
   await db.delete(products).where(eq(products.id, id));
 
   revalidatePath("/workspace/products");
+  revalidatePath("/workspace/content-library");
   revalidatePath("/", "layout");
 }
 

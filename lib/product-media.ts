@@ -29,3 +29,13 @@ export function resolveProductMedia(input: {
   }
   return items;
 }
+
+/** כל כתובות המדיה של מוצר — לשחרור נכסים בספרייה */
+export function collectProductMediaUrls(product: {
+  imageUrl: string | null;
+  secondaryImageUrl?: string | null;
+  videoUrl?: string | null;
+  mediaGallery?: ProductMediaItem[] | null;
+}): string[] {
+  return Array.from(new Set(resolveProductMedia(product).map((item) => item.url)));
+}

@@ -191,6 +191,9 @@ export const aiMediaAssets = pgTable("ai_media_assets", {
   generatedUrl: text("generated_url").notNull(),
   title: text("title"),
   status: text("status").notNull().default("draft"),
+  publishedProductId: integer("published_product_id").references(
+    () => products.id
+  ),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

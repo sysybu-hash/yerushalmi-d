@@ -1,0 +1,2 @@
+ALTER TABLE "ai_media_assets" ADD COLUMN "published_product_id" integer;--> statement-breakpoint
+ALTER TABLE "ai_media_assets" ADD CONSTRAINT "ai_media_assets_published_product_id_products_id_fk" FOREIGN KEY ("published_product_id") REFERENCES "public"."products"("id") ON DELETE no action ON UPDATE no action;

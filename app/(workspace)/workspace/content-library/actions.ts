@@ -66,7 +66,7 @@ export async function updateMediaAsset(
   return updated;
 }
 
-/** מחיקת נכס טיוטה מהספרייה */
+/** מחיקת נכס מהספרייה (טיוטה או ארכיון) */
 export async function deleteMediaAsset(id: number) {
   await requireAdmin();
 
@@ -84,12 +84,90 @@ export async function deleteMediaAsset(id: number) {
   }
 
   if (asset.status === "published") {
-    throw new Error("לא ניתן למחוק נכס שכבר פורסם");
+    throw new Error("לא ניתן למחוק נכס פורסם — העבירו לארכיון תחילה");
   }
 
   await db.delete(aiMediaAssets).where(eq(aiMediaAssets.id, id));
 
   revalidatePath("/workspace/content-library");
+}
+
+/** העברת נכס לארכיון */
+export async function archiveMediaAsset(id: number) {
+  await requireAdmin();
+
+  if (!Number.isInteger(id) || id < 1) {
+    throw new Error("מזהה נכס לא תקין");
+  }
+
+  const [updated] = await db
+    .update(aiMediaAssets)
+    .set({ status: "archived", publishedProductId: null })
+    .where(eq(aiMediaAssets.id, id))
+    .returning({ id: aiMediaAssets.id });
+
+  if (!updated) {
+    throw new Error("הנכס לא נמצא");
+  }
+
+  revalidatePath("/workspace/content-library");
+
+  return { id: updated.id };
+}
+
+/** שחזור נכס מארכיון לטיוטה */
+export async function restoreAssetFromArchive(id: number) {
+  await requireAdmin();
+
+  if (!Number.isInteger(id) || id < 1) {
+    throw new Error("מזהה נכס לא תקין");
+  }
+
+  const [asset] = await db
+    .select()
+    .from(aiMediaAssets)
+    .where(eq(aiMediaAssets.id, id));
+
+  if (!asset) {
+    throw new Error("הנכס לא נמצא");
+  }
+
+  if (asset.status !== "archived") {
+    throw new Error("ניתן לשחזר רק נכסים בארכיון");
+  }
+
+  const [updated] = await db
+    .update(aiMediaAssets)
+    .set({ status: "draft", publishedProductId: null })
+    .where(eq(aiMediaAssets.id, id))
+    .returning({ id: aiMediaAssets.id });
+
+  revalidatePath("/workspace/content-library");
+
+  return { id: updated!.id };
+}
+
+/** מחזיר נכס פורסם לטיוטה לשימוש חוזר במודעה חדשה */
+export async function restoreAssetToDraft(id: number) {
+  await requireAdmin();
+
+  if (!Number.isInteger(id) || id < 1) {
+    throw new Error("מזהה נכס לא תקין");
+  }
+
+  const [updated] = await db
+    .update(aiMediaAssets)
+    .set({ status: "draft", publishedProductId: null })
+    .where(eq(aiMediaAssets.id, id))
+    .returning({ id: aiMediaAssets.id });
+
+  if (!updated) {
+    throw new Error("הנכס לא נמצא");
+  }
+
+  revalidatePath("/workspace/content-library");
+
+  return { id: updated.id };
 }
 
 /** סימון נכס בודד כפורסם (תאימות לאחור) */
@@ -200,7 +278,7 @@ export async function publishListingFromAssets(input: PublishListingInput) {
 
   await db
     .update(aiMediaAssets)
-    .set({ status: "published" })
+    .set({ status: "published", publishedProductId: created.id })
     .where(inArray(aiMediaAssets.id, uniqueIds));
 
   revalidatePath("/workspace/content-library");

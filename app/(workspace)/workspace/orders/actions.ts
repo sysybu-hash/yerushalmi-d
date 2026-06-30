@@ -4,7 +4,7 @@ import { and, desc, eq, ilike, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
-import { customers, orders } from "@/db/schema";
+import { orderItems, orders, customers } from "@/db/schema";
 import {
   ORDER_STATUSES,
   type OrderStatus,
@@ -138,6 +138,29 @@ export async function updateAdminNotes(orderId: number, formData: FormData) {
   if (!updated) {
     throw new Error("ההזמנה לא נמצאה");
   }
+
+  revalidatePath("/workspace/orders");
+}
+
+/** מחיקת הזמנה ופריטיה */
+export async function deleteOrder(orderId: number) {
+  await requireAdmin();
+
+  if (!Number.isInteger(orderId) || orderId <= 0) {
+    throw new Error("מזהה הזמנה לא תקין");
+  }
+
+  const [order] = await db
+    .select({ id: orders.id })
+    .from(orders)
+    .where(eq(orders.id, orderId));
+
+  if (!order) {
+    throw new Error("ההזמנה לא נמצאה");
+  }
+
+  await db.delete(orderItems).where(eq(orderItems.orderId, orderId));
+  await db.delete(orders).where(eq(orders.id, orderId));
 
   revalidatePath("/workspace/orders");
 }

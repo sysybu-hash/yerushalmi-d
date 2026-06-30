@@ -29,6 +29,13 @@
       "when": 1782846192236,
       "tag": "0003_strong_gladiator",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1782849353838,
+      "tag": "0004_stormy_alex_power",
+      "breakpoints": true
     }
   ]
 }

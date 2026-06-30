@@ -4,6 +4,7 @@ import { ClipboardList } from "lucide-react";
 
 import { OrderItemsDialog } from "@/components/workspace/order-items-dialog";
 import { OrderStatusSelect } from "@/components/workspace/order-status-select";
+import { DeleteOrderButton } from "@/components/workspace/delete-order-button";
 import { OrdersToolbar } from "@/components/workspace/orders-toolbar";
 import {
   Table,
@@ -90,6 +91,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                 </TableHead>
                 <TableHead className="text-right font-light">סטטוס</TableHead>
                 <TableHead className="text-left font-light">פירוט</TableHead>
+                <TableHead className="w-12 text-left font-light">מחיקה</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -140,6 +142,12 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                       order={order}
                       items={order.items}
                       matchedCustomerId={order.matchedCustomerId}
+                    />
+                  </TableCell>
+                  <TableCell className="text-left">
+                    <DeleteOrderButton
+                      id={order.id}
+                      customerName={order.customerName}
                     />
                   </TableCell>
                 </TableRow>
