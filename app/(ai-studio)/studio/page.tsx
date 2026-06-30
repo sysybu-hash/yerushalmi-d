@@ -48,6 +48,7 @@ import {
   type StudioWorkflowStep,
 } from "@/components/studio/studio-workflow-stepper";
 import { Button } from "@/components/ui/button";
+import { MediaPreviewTrigger } from "@/components/ui/media-preview";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import {
@@ -429,6 +430,12 @@ function StudioPageContent() {
               <CardTitle className="text-sm font-light tracking-[0.1em] text-muted-foreground">
                 תצוגה מקדימה
               </CardTitle>
+              {(source ||
+                (state.status === "done" && state.result)) && (
+                <p className="text-[10px] font-light text-muted-foreground">
+                  לחצו על תמונה או וידאו להגדלה
+                </p>
+              )}
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
@@ -438,13 +445,20 @@ function StudioPageContent() {
                   </p>
                   <div className="relative aspect-square overflow-hidden border border-border/60 bg-stone-100">
                     {source ? (
-                      <Image
-                        src={source}
+                      <MediaPreviewTrigger
+                        url={source}
+                        type="image"
                         alt="הצילום המקורי"
-                        fill
-                        sizes="(max-width: 1024px) 50vw, 30vw"
-                        className="object-contain"
-                      />
+                        className="absolute inset-0 block h-full w-full"
+                      >
+                        <Image
+                          src={source}
+                          alt="הצילום המקורי"
+                          fill
+                          sizes="(max-width: 1024px) 50vw, 30vw"
+                          className="object-contain"
+                        />
+                      </MediaPreviewTrigger>
                     ) : (
                       <div className="flex h-full items-center justify-center px-4 text-center text-xs font-light text-muted-foreground">
                         העלו צילום כדי להתחיל
@@ -466,25 +480,37 @@ function StudioPageContent() {
                       </div>
                     )}
                     {source && state.status === "done" && state.kind === "image" && (
-                      <Image
-                        src={state.result}
+                      <MediaPreviewTrigger
+                        url={state.result}
+                        type="image"
                         alt="תוצאת AI"
-                        fill
-                        sizes="(max-width: 1024px) 50vw, 30vw"
-                        className="object-contain bg-stone-900/5"
-                      />
+                        className="absolute inset-0 block h-full w-full"
+                      >
+                        <Image
+                          src={state.result}
+                          alt="תוצאת AI"
+                          fill
+                          sizes="(max-width: 1024px) 50vw, 30vw"
+                          className="bg-stone-900/5 object-contain"
+                        />
+                      </MediaPreviewTrigger>
                     )}
                     {source && state.status === "done" && state.kind === "video" && (
-                      // eslint-disable-next-line jsx-a11y/media-has-caption
-                      <video
-                        src={state.result}
-                        controls
-                        autoPlay
-                        loop
-                        muted
-                        playsInline
-                        className="h-full w-full object-contain"
-                      />
+                      <MediaPreviewTrigger
+                        url={state.result}
+                        type="video"
+                        alt="תוצאת וידאו AI"
+                        className="absolute inset-0 block h-full w-full"
+                      >
+                        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                        <video
+                          src={state.result}
+                          muted
+                          playsInline
+                          preload="metadata"
+                          className="pointer-events-none h-full w-full object-contain"
+                        />
+                      </MediaPreviewTrigger>
                     )}
                     {source && state.status === "error" && (
                       <p className="px-4 text-center text-xs font-light text-destructive">
@@ -673,8 +699,13 @@ function StudioPageContent() {
             התכשיט מועתק מהצילום המקורי — AI משנה רקע ותאורה, לא את התכשיט.
           </div>
 
-          <div className="space-y-2">
-            <Label className="font-light">סגנון רקע</Label>
+          <div className="space-y-3">
+            <div className="flex items-baseline justify-between gap-2">
+              <Label className="font-light">סגנון רקע</Label>
+              <span className="text-[10px] font-light tracking-[0.08em] text-muted-foreground">
+                {STUDIO_STYLE_PRESETS.length} סגנונות
+              </span>
+            </div>
             <StylePresetGrid
               value={stylePreset}
               onChange={setStylePreset}
