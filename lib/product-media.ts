@@ -3,6 +3,13 @@ export type ProductMediaItem = {
   url: string;
 };
 
+/** וידאו תמיד ראשון, ואז תמונות */
+export function sortProductMedia(items: ProductMediaItem[]): ProductMediaItem[] {
+  const videos = items.filter((item) => item.type === "video");
+  const images = items.filter((item) => item.type === "image");
+  return [...videos, ...images];
+}
+
 /** מאחד שדות מוצר ישנים וגלריה חדשה לרשימת מדיה אחת */
 export function resolveProductMedia(input: {
   imageUrl: string | null;
@@ -11,14 +18,14 @@ export function resolveProductMedia(input: {
   mediaGallery?: ProductMediaItem[] | null;
 }): ProductMediaItem[] {
   if (input.mediaGallery && input.mediaGallery.length > 0) {
-    return input.mediaGallery;
+    return sortProductMedia(input.mediaGallery);
   }
 
   const items: ProductMediaItem[] = [];
+  if (input.videoUrl) items.push({ type: "video", url: input.videoUrl });
   if (input.imageUrl) items.push({ type: "image", url: input.imageUrl });
   if (input.secondaryImageUrl) {
     items.push({ type: "image", url: input.secondaryImageUrl });
   }
-  if (input.videoUrl) items.push({ type: "video", url: input.videoUrl });
   return items;
 }

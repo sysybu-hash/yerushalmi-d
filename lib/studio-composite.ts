@@ -119,17 +119,17 @@ async function createMirrorReflection(
   jewelryPng: Buffer,
   width: number,
   height: number
-): Promise<{ buffer: Buffer; gap: number }> {
+): Promise<{ buffer: Buffer; overlap: number }> {
   const sharp = await loadSharp();
   const reflectionHeight = Math.max(1, Math.round(height * 0.34));
-  const gap = Math.max(1, Math.round(height * 0.01));
+  const overlap = Math.max(2, Math.round(height * 0.006));
 
   const flipped = await sharp(jewelryPng)
     .flip()
     .resize(width, reflectionHeight, { fit: "fill", kernel: "lanczos3" })
     .ensureAlpha()
     .linear(0.5, -6)
-    .blur(0.35)
+    .blur(0.45)
     .png()
     .toBuffer();
 
@@ -137,8 +137,8 @@ async function createMirrorReflection(
     `<svg width="${width}" height="${reflectionHeight}" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="white" stop-opacity="0.42"/>
-          <stop offset="45%" stop-color="white" stop-opacity="0.14"/>
+          <stop offset="0%" stop-color="white" stop-opacity="0.38"/>
+          <stop offset="35%" stop-color="white" stop-opacity="0.12"/>
           <stop offset="100%" stop-color="white" stop-opacity="0"/>
         </linearGradient>
       </defs>
@@ -151,26 +151,26 @@ async function createMirrorReflection(
     .png()
     .toBuffer();
 
-  return { buffer, gap };
+  return { buffer, overlap };
 }
 
-/** צל מגע דק מאוד — משלים את ההשתקפות בלי blob כבד */
+/** צל מגע רך — ללא קו כהה חד */
 async function createGroundShadow(
   jewelryPng: Buffer,
   width: number,
   height: number
 ): Promise<Buffer> {
   const sharp = await loadSharp();
-  const shadowWidth = Math.max(1, Math.round(width * 0.72));
-  const shadowHeight = Math.max(1, Math.round(height * 0.055));
-  const blur = Math.max(1.5, Math.round(width * 0.006));
+  const shadowWidth = Math.max(1, Math.round(width * 0.68));
+  const shadowHeight = Math.max(1, Math.round(height * 0.04));
+  const blur = Math.max(2, Math.round(width * 0.012));
 
   return sharp(jewelryPng)
     .ensureAlpha()
     .extractChannel(3)
     .resize(shadowWidth, shadowHeight, { fit: "fill" })
     .blur(blur)
-    .linear(0.14, 0)
+    .linear(0.08, 0)
     .png()
     .toBuffer();
 }
@@ -179,7 +179,8 @@ async function createGroundShadow(
 export async function compositeProductImage(
   jewelryPngUrl: string,
   backgroundBuffer: Buffer,
-  canvasSize = STUDIO_CANVAS_SIZE
+  canvasSize = STUDIO_CANVAS_SIZE,
+  options: { forVideo?: boolean } = {}
 ): Promise<Buffer> {
   const sharp = await loadSharp();
 
@@ -233,19 +234,26 @@ export async function compositeProductImage(
     Math.round((canvasSize - jHeight) / 2 - canvasSize * VERTICAL_OFFSET_RATIO)
   );
 
-  const { buffer: reflection, gap } = await createMirrorReflection(
+  const { buffer: reflection, overlap } = await createMirrorReflection(
     jewelryPng,
     jWidth,
     jHeight
   );
-  const reflectionTop = top + jHeight + gap;
+  const reflectionTop = top + jHeight - overlap;
 
-  const groundShadow = await createGroundShadow(jewelryPng, jWidth, jHeight);
-  const shadowLeft = left + Math.round((jWidth - jWidth * 0.72) / 2);
-  const shadowTop = top + jHeight - Math.round(jHeight * 0.04);
+  const composites: Array<{
+    input: Buffer;
+    left: number;
+    top: number;
+    blend?: "over" | "multiply";
+  }> = [];
 
-  return sharp(background)
-    .composite([
+  if (!options.forVideo) {
+    const groundShadow = await createGroundShadow(jewelryPng, jWidth, jHeight);
+    const shadowLeft = left + Math.round((jWidth - jWidth * 0.68) / 2);
+    const shadowTop = top + jHeight - Math.round(jHeight * 0.02);
+
+    composites.push(
       {
         input: reflection,
         left,
@@ -256,10 +264,15 @@ export async function compositeProductImage(
         input: groundShadow,
         left: shadowLeft,
         top: shadowTop,
-        blend: "multiply",
-      },
-      { input: jewelryPng, left, top },
-    ])
+        blend: "over",
+      }
+    );
+  }
+
+  composites.push({ input: jewelryPng, left, top });
+
+  return sharp(background)
+    .composite(composites)
     .png({ compressionLevel: 6 })
     .toBuffer();
 }

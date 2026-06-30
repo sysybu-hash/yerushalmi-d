@@ -194,7 +194,10 @@ function StudioPageContent() {
     };
   }
 
-  async function generateImagePipeline(sourceUrl: string): Promise<
+  async function generateImagePipeline(
+    sourceUrl: string,
+    options: { forVideo?: boolean } = {}
+  ): Promise<
     | { ok: true; url: string }
     | { ok: false; error: string }
   > {
@@ -204,7 +207,10 @@ function StudioPageContent() {
 
     setState({ status: "generating", source: sourceUrl, kind: "image", step: "background" });
     setState({ status: "generating", source: sourceUrl, kind: "image", step: "composite" });
-    const composite = await studioApiCompositeImage(cutout.data.url, aiOptions());
+    const composite = await studioApiCompositeImage(cutout.data.url, {
+      ...aiOptions(),
+      forVideo: options.forVideo,
+    });
     if (!composite.ok) return composite;
 
     return { ok: true, url: composite.data.url };
@@ -256,18 +262,14 @@ function StudioPageContent() {
       }
 
       let frameUrl: string;
-      if (state.status === "done" && state.kind === "image") {
-        frameUrl = state.result;
-      } else {
-        showToast("יוצרים תמונת יוקרה כבסיס לווידאו באיכות גבוהה...");
-        setState({ status: "generating", source, kind: "image", step: "cutout" });
-        const pipeline = await generateImagePipeline(source);
-        if (!pipeline.ok) {
-          failGeneration(source, pipeline.error);
-          return;
-        }
-        frameUrl = pipeline.url;
+      showToast("יוצרים תמונת בסיס נקייה לווידאו...");
+      setState({ status: "generating", source, kind: "image", step: "cutout" });
+      const pipeline = await generateImagePipeline(source, { forVideo: true });
+      if (!pipeline.ok) {
+        failGeneration(source, pipeline.error);
+        return;
       }
+      frameUrl = pipeline.url;
 
       setState({ status: "generating", source, kind: "video" });
       const video = await studioApiGenerateVideo(frameUrl, videoOptions());

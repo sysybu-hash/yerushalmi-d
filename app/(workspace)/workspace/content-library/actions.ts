@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { aiMediaAssets, products } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth";
 import type { ProductMediaItem } from "@/lib/product-media";
+import { sortProductMedia } from "@/lib/product-media";
 
 const PRODUCT_TYPES = ["natural", "lab"] as const;
 const PRODUCT_CATEGORIES = [
@@ -171,10 +172,12 @@ export async function publishListingFromAssets(input: PublishListingInput) {
 
   const videos = assets.filter((asset) => asset.mediaType === "video");
 
-  const mediaGallery: ProductMediaItem[] = assets.map((asset) => ({
-    type: asset.mediaType as "image" | "video",
-    url: asset.generatedUrl,
-  }));
+  const mediaGallery: ProductMediaItem[] = sortProductMedia(
+    assets.map((asset) => ({
+      type: asset.mediaType as "image" | "video",
+      url: asset.generatedUrl,
+    }))
+  );
 
   const [created] = await db
     .insert(products)

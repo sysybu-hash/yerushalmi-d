@@ -143,7 +143,7 @@ export const DEFAULT_VIDEO_PROMPT =
   "static luxury jewelry product shot, locked camera, no camera movement, subtle light sweep across diamond facets only, micro sparkle highlights, professional jewelry commercial, studio lighting, photorealistic, preserve exact product shape and stone count";
 
 export const DEFAULT_VIDEO_NEGATIVE_PROMPT =
-  "changing jewelry shape, different ring design, morphing product, extra prongs, missing stones, melted metal, plastic look, camera shake, zoom, orbit, pan, blur, distortion, oversaturated, jitter, low quality, text, watermark, hands, people";
+  "changing jewelry shape, different ring design, morphing product, extra prongs, missing stones, melted metal, plastic look, camera shake, zoom, orbit, pan, blur, distortion, oversaturated, jitter, low quality, text, watermark, hands, people, horizontal line, seam, split screen, glitch, reflection artifact, black bar, scan line";
 
 export const STUDIO_VIDEO_PROMPT_EXAMPLES = [
   "מצלמה קבועה, רק נצנוץ אור על היהלומים",
