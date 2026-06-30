@@ -6,8 +6,13 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { aiMediaAssets, products } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth";
+import {
+  generateListingContent as generateListingContentAi,
+  type GeneratedListingContent,
+} from "@/lib/listing-ai";
 import type { ProductMediaItem } from "@/lib/product-media";
 import { sortProductMedia } from "@/lib/product-media";
+import { runStudioAction } from "@/lib/studio-action";
 
 const PRODUCT_TYPES = ["natural", "lab"] as const;
 const PRODUCT_CATEGORIES = [
@@ -286,4 +291,56 @@ export async function publishListingFromAssets(input: PublishListingInput) {
   revalidatePath("/", "layout");
 
   return { productId: created.id };
+}
+
+export type GenerateListingContentInput = {
+  assetIds: number[];
+  mode: "fill" | "refine";
+  existingTitle?: string;
+  existingDescription?: string;
+};
+
+/** מילוי או שיפור תוכן מודעה (שם, תיאור, קטגוריה) באמצעות AI */
+export async function generateListingContent(
+  input: GenerateListingContentInput
+) {
+  return runStudioAction(async (): Promise<GeneratedListingContent> => {
+    await requireAdmin();
+
+    const uniqueIds = Array.from(new Set(input.assetIds)).filter(
+      (id) => Number.isInteger(id) && id > 0
+    );
+    if (uniqueIds.length === 0) {
+      throw new Error("לא נבחרו נכסים");
+    }
+
+    const assets = await db
+      .select()
+      .from(aiMediaAssets)
+      .where(inArray(aiMediaAssets.id, uniqueIds));
+
+    if (assets.length === 0) {
+      throw new Error("הנכסים לא נמצאו");
+    }
+
+    const imageUrls = assets
+      .filter((asset) => asset.mediaType === "image")
+      .map((asset) => asset.generatedUrl);
+
+    if (input.mode === "fill" && imageUrls.length === 0) {
+      throw new Error("נדרשת לפחות תמונת מוצר אחת למילוי אוטומטי");
+    }
+
+    const assetTitles = assets
+      .map((asset) => asset.title?.trim())
+      .filter((title): title is string => Boolean(title));
+
+    return generateListingContentAi({
+      imageUrls,
+      assetTitles,
+      existingTitle: input.existingTitle,
+      existingDescription: input.existingDescription,
+      mode: input.mode,
+    });
+  }, "יצירת התוכן ב-AI נכשלה — ודאו ש-REPLICATE_API_TOKEN מוגדר ב-Vercel.");
 }
