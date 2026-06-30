@@ -7,6 +7,14 @@ function isStudioApi(pathname: string) {
   return pathname.startsWith("/api/studio/");
 }
 
+function isWorkspaceApi(pathname: string) {
+  return pathname.startsWith("/api/workspace/");
+}
+
+function isProtectedApi(pathname: string) {
+  return isStudioApi(pathname) || isWorkspaceApi(pathname);
+}
+
 function studioApiUnauthorized(message: string, status = 401) {
   return NextResponse.json({ ok: false, error: message }, { status });
 }
@@ -46,7 +54,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const studioApi = isStudioApi(request.nextUrl.pathname);
+  const studioApi = isProtectedApi(request.nextUrl.pathname);
 
   if (!token) {
     if (studioApi) {
@@ -90,5 +98,11 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/workspace/:path*", "/studio/:path*", "/api/studio/:path*", "/login"],
+  matcher: [
+    "/workspace/:path*",
+    "/studio/:path*",
+    "/api/studio/:path*",
+    "/api/workspace/:path*",
+    "/login",
+  ],
 };

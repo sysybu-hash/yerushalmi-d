@@ -7,14 +7,17 @@ import Link from "next/link";
 import {
   Check,
   Clapperboard,
+  Download,
   FolderHeart,
   ImageIcon,
+  Loader2,
   Pencil,
   PackagePlus,
 } from "lucide-react";
 
 import type { AiMediaAsset } from "@/db/schema";
 import { CreateListingFromAssetsSheet } from "@/components/workspace/create-listing-from-assets-sheet";
+import { DownloadMediaButton } from "@/components/workspace/download-media-button";
 import { EditMediaAssetDialog } from "@/components/workspace/edit-media-asset-dialog";
 import { AssetManageButtons } from "@/components/workspace/asset-manage-buttons";
 import { AiCrossNav } from "@/components/workspace/ai-cross-nav";
@@ -23,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MediaPreviewTrigger } from "@/components/ui/media-preview";
 import { cn } from "@/lib/utils";
+import { downloadMediaAssets } from "@/lib/download-media";
 
 const dateFormatter = new Intl.DateTimeFormat("he-IL", {
   day: "2-digit",
@@ -53,6 +57,7 @@ export function ContentLibraryWorkspace({ assets }: ContentLibraryWorkspaceProps
   const [editingAsset, setEditingAsset] = React.useState<AiMediaAsset | null>(
     null
   );
+  const [bulkDownloading, setBulkDownloading] = React.useState(false);
 
   const activeAssets = assets.filter((asset) => asset.status !== "archived");
   const archivedAssets = assets.filter((asset) => asset.status === "archived");
@@ -83,6 +88,23 @@ export function ContentLibraryWorkspace({ assets }: ContentLibraryWorkspaceProps
   function handlePublished() {
     clearSelection();
     router.refresh();
+  }
+
+  async function handleBulkDownload() {
+    if (selectedAssets.length === 0 || bulkDownloading) return;
+    setBulkDownloading(true);
+    try {
+      await downloadMediaAssets(
+        selectedAssets.map((asset) => ({
+          url: asset.generatedUrl,
+          type: asset.mediaType as "image" | "video",
+          title: asset.title,
+          id: asset.id,
+        }))
+      );
+    } finally {
+      setBulkDownloading(false);
+    }
   }
 
   return (
@@ -240,6 +262,8 @@ export function ContentLibraryWorkspace({ assets }: ContentLibraryWorkspaceProps
                       url={asset.generatedUrl}
                       type="video"
                       alt={asset.title ?? `נכס AI #${asset.id}`}
+                      downloadTitle={asset.title}
+                      downloadId={asset.id}
                       className="absolute inset-0 h-full w-full"
                     >
                       {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
@@ -256,6 +280,8 @@ export function ContentLibraryWorkspace({ assets }: ContentLibraryWorkspaceProps
                       url={asset.generatedUrl}
                       type="image"
                       alt={asset.title ?? `נכס AI #${asset.id}`}
+                      downloadTitle={asset.title}
+                      downloadId={asset.id}
                       className="absolute inset-0 h-full w-full"
                     >
                       <Image
@@ -314,6 +340,13 @@ export function ContentLibraryWorkspace({ assets }: ContentLibraryWorkspaceProps
                         <Pencil className="ml-1.5 h-3.5 w-3.5" />
                         עריכה
                       </Button>
+
+                      <DownloadMediaButton
+                        url={asset.generatedUrl}
+                        mediaType={isVideo ? "video" : "image"}
+                        title={asset.title}
+                        assetId={asset.id}
+                      />
 
                       {isDraft && !isVideo && (
                         <Button
@@ -379,6 +412,20 @@ export function ContentLibraryWorkspace({ assets }: ContentLibraryWorkspaceProps
               </span>
             </div>
             <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={bulkDownloading}
+                onClick={handleBulkDownload}
+                className="rounded-none text-xs font-light"
+              >
+                {bulkDownloading ? (
+                  <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="ml-2 h-4 w-4" strokeWidth={1.5} />
+                )}
+                הורדת נבחרים
+              </Button>
               <Button
                 type="button"
                 variant="outline"

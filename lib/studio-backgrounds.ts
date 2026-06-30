@@ -35,8 +35,10 @@ async function radialSpotlight(
   const pixels = Buffer.alloc(size * size * 3);
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      const dist = Math.sqrt((x - cx) ** 2 + (y - cy) ** 2) / maxDist;
-      const t = Math.min(1, dist ** 1.28);
+      const distX = (x - cx) / (size * 0.52);
+      const distY = (y - cy) / (size * 0.46);
+      const dist = Math.sqrt(distX * distX + distY * distY);
+      const t = Math.min(1, dist ** 2.15);
       const v = centerLuminance + (edgeLuminance - centerLuminance) * t;
       const i = (y * size + x) * 3;
       pixels[i] = Math.min(255, Math.round(v * (tint?.r ?? 1)));
@@ -61,8 +63,8 @@ function marbleVeinOverlay(size: number): Buffer {
           <stop offset="40%" stop-color="rgba(210,200,188,0.1)" />
           <stop offset="100%" stop-color="rgba(70,65,58,0.28)" />
         </linearGradient>
-        <radialGradient id="spot" cx="50%" cy="42%" r="48%">
-          <stop offset="0%" stop-color="rgba(255,252,245,0.14)" />
+        <radialGradient id="spot" cx="50%" cy="42%" r="78%">
+          <stop offset="0%" stop-color="rgba(255,252,245,0.08)" />
           <stop offset="100%" stop-color="rgba(255,252,245,0)" />
         </radialGradient>
       </defs>
@@ -80,16 +82,59 @@ function goldRimLight(size: number): Buffer {
   return Buffer.from(
     `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <radialGradient id="rim" cx="50%" cy="40%" r="62%">
+        <radialGradient id="rim" cx="50%" cy="44%" r="78%">
           <stop offset="0%" stop-color="rgba(212,175,90,0)" />
-          <stop offset="68%" stop-color="rgba(212,175,90,0)" />
-          <stop offset="84%" stop-color="rgba(212,175,90,0.18)" />
-          <stop offset="100%" stop-color="rgba(160,125,60,0.32)" />
+          <stop offset="88%" stop-color="rgba(212,175,90,0)" />
+          <stop offset="96%" stop-color="rgba(212,175,90,0.08)" />
+          <stop offset="100%" stop-color="rgba(140,110,55,0.14)" />
         </radialGradient>
       </defs>
       <rect width="100%" height="100%" fill="url(#rim)" />
     </svg>`
   );
+}
+
+/** בוקה רך ללא עיגולים חדים — טקסטורה מטושטשת */
+function softBokehWash(
+  size: number,
+  rgb: { r: number; g: number; b: number },
+  opacity = 0.14
+): Buffer {
+  return Buffer.from(
+    `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <filter id="bokeh">
+          <feTurbulence type="fractalNoise" baseFrequency="0.0035" numOctaves="3" seed="19" />
+          <feGaussianBlur stdDeviation="${size * 0.028}" />
+          <feColorMatrix type="matrix" values="0 0 0 0 ${rgb.r / 255}  0 0 0 0 ${rgb.g / 255}  0 0 0 0 ${rgb.b / 255}  0 0 0 ${opacity} 0" />
+        </filter>
+      </defs>
+      <rect width="100%" height="100%" filter="url(#bokeh)" />
+    </svg>`
+  );
+}
+
+/** גרדיאנט ליניארי חלק — קטלוג יוקרתי */
+function linearBackdrop(
+  size: number,
+  top: string,
+  bottom: string
+): Buffer {
+  return Buffer.from(
+    `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${top}" />
+          <stop offset="100%" stop-color="${bottom}" />
+        </linearGradient>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#bg)" />
+    </svg>`
+  );
+}
+
+async function polishLuxuryBackground(image: Sharp): Promise<Buffer> {
+  return image.blur(0.28).png({ compressionLevel: 6 }).toBuffer();
 }
 
 function subtleGrain(size: number, opacity: number): Buffer {
@@ -153,32 +198,26 @@ async function presetBase(preset: StudioStylePresetId, size: number) {
         { input: subtleGrain(size, 0.08), blend: "overlay" },
       ]);
     }
-    case "white-studio":
-      return radialSpotlight(size, 252, 228, undefined, 0.42);
+    case "white-studio": {
+      const base = await sharp(
+        linearBackdrop(size, "#fcfcfc", "#e4e4e4")
+      )
+        .png()
+        .toBuffer();
+      return sharp(base).composite([
+        { input: subtleGrain(size, 0.04), blend: "overlay" },
+      ]);
+    }
     case "gold-bokeh": {
-      const darkImg = await radialSpotlight(
-        size,
-        24,
-        5,
-        { r: 0.94, g: 0.9, b: 0.84 },
-        0.42
-      );
-      const dark = await darkImg.linear(1.05, -2).png().toBuffer();
-      const orbs = Buffer.from(
-        `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <filter id="glow">
-              <feGaussianBlur stdDeviation="${size * 0.018}" />
-            </filter>
-          </defs>
-          <circle cx="${size * 0.22}" cy="${size * 0.28}" r="${size * 0.09}" fill="rgba(212,175,90,0.6)" filter="url(#glow)" />
-          <circle cx="${size * 0.78}" cy="${size * 0.35}" r="${size * 0.07}" fill="rgba(230,190,110,0.5)" filter="url(#glow)" />
-          <circle cx="${size * 0.62}" cy="${size * 0.72}" r="${size * 0.11}" fill="rgba(198,160,80,0.4)" filter="url(#glow)" />
-          <circle cx="${size * 0.35}" cy="${size * 0.68}" r="${size * 0.05}" fill="rgba(240,210,130,0.45)" filter="url(#glow)" />
-        </svg>`
-      );
-
-      return sharp(dark).composite([{ input: orbs, blend: "screen" }]);
+      const base = await sharp(
+        linearBackdrop(size, "#2a2620", "#0f0e0c")
+      )
+        .png()
+        .toBuffer();
+      return sharp(base).composite([
+        { input: softBokehWash(size, { r: 212, g: 175, b: 90 }, 0.12), blend: "screen" },
+        { input: subtleGrain(size, 0.06), blend: "overlay" },
+      ]);
     }
     case "lifestyle": {
       const img = await radialSpotlight(
@@ -191,28 +230,15 @@ async function presetBase(preset: StudioStylePresetId, size: number) {
       return img.modulate({ brightness: 1.03, saturation: 0.8 });
     }
     case "rose-gold-glow": {
-      const img = await radialSpotlight(
-        size,
-        245,
-        195,
-        { r: 1.08, g: 0.94, b: 0.92 },
-        0.4
-      );
-      const base = await img.modulate({ brightness: 1.04, saturation: 0.72 }).png().toBuffer();
-      const blush = Buffer.from(
-        `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <radialGradient id="rose" cx="50%" cy="38%" r="55%">
-              <stop offset="0%" stop-color="rgba(255,210,200,0.35)" />
-              <stop offset="100%" stop-color="rgba(255,210,200,0)" />
-            </radialGradient>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#rose)" />
-        </svg>`
-      );
+      const base = await sharp(
+        linearBackdrop(size, "#fff4f0", "#e8c8bc")
+      )
+        .modulate({ brightness: 1.02, saturation: 0.68 })
+        .png()
+        .toBuffer();
       return sharp(base).composite([
-        { input: blush, blend: "soft-light" },
-        { input: goldRimLight(size), blend: "screen" },
+        { input: softBokehWash(size, { r: 255, g: 200, b: 190 }, 0.1), blend: "soft-light" },
+        { input: subtleGrain(size, 0.05), blend: "overlay" },
       ]);
     }
     case "midnight-blue": {
@@ -227,11 +253,10 @@ async function presetBase(preset: StudioStylePresetId, size: number) {
       const coolRim = Buffer.from(
         `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
           <defs>
-            <radialGradient id="cool" cx="50%" cy="40%" r="60%">
-              <stop offset="0%" stop-color="rgba(180,200,255,0)" />
-              <stop offset="85%" stop-color="rgba(120,160,230,0.22)" />
-              <stop offset="100%" stop-color="rgba(80,110,180,0.35)" />
-            </radialGradient>
+            <linearGradient id="cool" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="rgba(120,150,210,0.08)" />
+              <stop offset="100%" stop-color="rgba(20,30,60,0.22)" />
+            </linearGradient>
           </defs>
           <rect width="100%" height="100%" fill="url(#cool)" />
         </svg>`
@@ -294,25 +319,15 @@ async function presetBase(preset: StudioStylePresetId, size: number) {
       ]);
     }
     case "botanical-soft": {
-      const img = await radialSpotlight(
-        size,
-        242,
-        220,
-        { r: 0.98, g: 1.02, b: 0.96 },
-        0.42
-      );
-      const base = await img.png().toBuffer();
-      const greenOrbs = Buffer.from(
-        `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <filter id="gb"><feGaussianBlur stdDeviation="${size * 0.022}" /></filter>
-          </defs>
-          <circle cx="${size * 0.18}" cy="${size * 0.3}" r="${size * 0.12}" fill="rgba(140,175,130,0.35)" filter="url(#gb)" />
-          <circle cx="${size * 0.82}" cy="${size * 0.25}" r="${size * 0.09}" fill="rgba(120,160,110,0.28)" filter="url(#gb)" />
-          <circle cx="${size * 0.7}" cy="${size * 0.75}" r="${size * 0.14}" fill="rgba(160,190,140,0.25)" filter="url(#gb)" />
-        </svg>`
-      );
-      return sharp(base).composite([{ input: greenOrbs, blend: "multiply" }]);
+      const base = await sharp(
+        linearBackdrop(size, "#f6f9f4", "#d4e0cc")
+      )
+        .png()
+        .toBuffer();
+      return sharp(base).composite([
+        { input: softBokehWash(size, { r: 140, g: 175, b: 130 }, 0.1), blend: "multiply" },
+        { input: subtleGrain(size, 0.05), blend: "overlay" },
+      ]);
     }
     case "mirror-glass": {
       const img = await radialSpotlight(size, 45, 8, { r: 0.92, g: 0.94, b: 0.98 }, 0.38);
@@ -346,27 +361,16 @@ async function presetBase(preset: StudioStylePresetId, size: number) {
       ]);
     }
     case "sunset-amber": {
-      const img = await radialSpotlight(
-        size,
-        220,
-        120,
-        { r: 1.12, g: 0.96, b: 0.78 },
-        0.36
-      );
-      const base = await img.modulate({ brightness: 1.08, saturation: 0.85 }).png().toBuffer();
-      const rays = Buffer.from(
-        `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <radialGradient id="sun" cx="50%" cy="30%" r="65%">
-              <stop offset="0%" stop-color="rgba(255,200,100,0.4)" />
-              <stop offset="55%" stop-color="rgba(255,160,60,0.12)" />
-              <stop offset="100%" stop-color="rgba(255,160,60,0)" />
-            </radialGradient>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#sun)" />
-        </svg>`
-      );
-      return sharp(base).composite([{ input: rays, blend: "screen" }]);
+      const base = await sharp(
+        linearBackdrop(size, "#fff6e8", "#c88848")
+      )
+        .modulate({ brightness: 1.04, saturation: 0.78 })
+        .png()
+        .toBuffer();
+      return sharp(base).composite([
+        { input: softBokehWash(size, { r: 255, g: 190, b: 100 }, 0.1), blend: "screen" },
+        { input: subtleGrain(size, 0.05), blend: "overlay" },
+      ]);
     }
     default:
       return radialSpotlight(size, 72, 18, undefined, 0.42);
@@ -393,10 +397,10 @@ async function applyLightingHints(
     const goldWash = Buffer.from(
       `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <radialGradient id="g" cx="50%" cy="42%" r="58%">
-            <stop offset="0%" stop-color="rgba(212,175,90,0.24)" />
+          <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="rgba(212,175,90,0.1)" />
             <stop offset="100%" stop-color="rgba(212,175,90,0)" />
-          </radialGradient>
+          </linearGradient>
         </defs>
         <rect width="100%" height="100%" fill="url(#g)" />
       </svg>`
@@ -434,5 +438,5 @@ export async function generatePresetBackground(
     size
   );
 
-  return withHints.png().toBuffer();
+  return polishLuxuryBackground(withHints);
 }

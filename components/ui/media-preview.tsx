@@ -1,19 +1,28 @@
 "use client";
 
 import * as React from "react";
+import { Download, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import {
+  buildMediaFilename,
+  downloadMediaAsset,
+  type MediaDownloadType,
+} from "@/lib/download-media";
 import { cn } from "@/lib/utils";
 
 type MediaPreviewDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   url: string;
-  type?: "image" | "video";
+  type?: MediaDownloadType;
   alt?: string;
+  downloadTitle?: string | null;
+  downloadId?: number;
 };
 
 export function MediaPreviewDialog({
@@ -22,7 +31,32 @@ export function MediaPreviewDialog({
   url,
   type = "image",
   alt,
+  downloadTitle,
+  downloadId,
 }: MediaPreviewDialogProps) {
+  const [downloading, setDownloading] = React.useState(false);
+
+  const [downloadError, setDownloadError] = React.useState<string | null>(null);
+
+  async function handleDownload() {
+    if (downloading) return;
+    setDownloading(true);
+    setDownloadError(null);
+    try {
+      await downloadMediaAsset(
+        url,
+        type,
+        buildMediaFilename(type, { title: downloadTitle ?? alt, id: downloadId })
+      );
+    } catch (error) {
+      setDownloadError(
+        error instanceof Error ? error.message : "ההורדה נכשלה"
+      );
+    } finally {
+      setDownloading(false);
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -51,6 +85,27 @@ export function MediaPreviewDialog({
             />
           )}
         </div>
+        <div className="border-t border-border/40 p-3">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={downloading}
+            onClick={handleDownload}
+            className="w-full rounded-none text-xs font-light tracking-wide"
+          >
+            {downloading ? (
+              <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="ml-2 h-4 w-4" strokeWidth={1.5} />
+            )}
+            הורדה למכשיר
+          </Button>
+          {downloadError && (
+            <p className="mt-2 text-center text-xs font-light text-destructive">
+              {downloadError}
+            </p>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );
@@ -58,8 +113,10 @@ export function MediaPreviewDialog({
 
 type MediaPreviewTriggerProps = {
   url: string;
-  type?: "image" | "video";
+  type?: MediaDownloadType;
   alt?: string;
+  downloadTitle?: string | null;
+  downloadId?: number;
   className?: string;
   children: React.ReactNode;
 };
@@ -69,6 +126,8 @@ export function MediaPreviewTrigger({
   url,
   type = "image",
   alt,
+  downloadTitle,
+  downloadId,
   className,
   children,
 }: MediaPreviewTriggerProps) {
@@ -96,6 +155,8 @@ export function MediaPreviewTrigger({
         url={url}
         type={type}
         alt={alt}
+        downloadTitle={downloadTitle}
+        downloadId={downloadId}
       />
     </>
   );

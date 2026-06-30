@@ -32,7 +32,7 @@ export const STUDIO_STYLE_PRESETS = [
     id: "gold-bokeh",
     label: "זהב ובוקה",
     suffix:
-      "dark moody background with warm gold bokeh lights, cinematic luxury atmosphere",
+      "smooth dark charcoal gradient background, soft warm gold ambient glow, luxury catalog atmosphere, no visible circles or patterns",
   },
   {
     id: "lifestyle",
@@ -92,7 +92,7 @@ export const STUDIO_STYLE_PRESETS = [
     id: "sunset-amber",
     label: "שקיעת ענבר",
     suffix:
-      "warm sunset amber gradient background, golden hour glow, honey light rays, radiant luxury warmth",
+      "smooth warm amber gradient background, soft golden hour warmth, luxury catalog lighting, no sun rays or radial patterns",
   },
 ] as const;
 
@@ -119,7 +119,7 @@ export const STUDIO_PRESET_LIGHTING_HINTS: Record<
   "white-studio":
     "soft diffused catalog lighting, clean white seamless, bright",
   "gold-bokeh":
-    "warm gold bokeh, moody cinematic atmosphere, subtle sparkle",
+    "smooth dark gradient, soft warm gold ambient tone, subtle sparkle on stones only",
   lifestyle:
     "warm natural editorial light, soft, elegant lifestyle",
   "rose-gold-glow":
@@ -139,7 +139,7 @@ export const STUDIO_PRESET_LIGHTING_HINTS: Record<
   "royal-purple":
     "dramatic purple velvet spotlight, regal amethyst mood lighting",
   "sunset-amber":
-    "warm amber sunset glow, golden hour rays, radiant honey light",
+    "smooth amber gradient warmth, soft honey tones, no rays or radial patterns",
 };
 
 export const STUDIO_PROMPT_EXAMPLES = [
@@ -215,48 +215,48 @@ export type StudioPipelineStepId =
   (typeof STUDIO_PIPELINE_STEPS)[number]["id"];
 
 export const DEFAULT_VIDEO_PROMPT =
-  "static luxury jewelry product shot, locked camera, no camera movement, subtle light sweep across diamond facets only, micro sparkle highlights, professional jewelry commercial, studio lighting, photorealistic, preserve exact product shape and stone count";
+  "static luxury jewelry product shot, completely frozen background, locked camera, no camera movement, no background animation, no morphing backdrop, subtle micro sparkle on diamond facets only, professional jewelry commercial, soft studio lighting, photorealistic, preserve exact product shape and stone count, seamless smooth gradient backdrop";
 
 export const DEFAULT_VIDEO_NEGATIVE_PROMPT =
-  "changing jewelry shape, different ring design, morphing product, extra prongs, missing stones, melted metal, plastic look, camera shake, zoom, orbit, pan, blur, distortion, oversaturated, jitter, low quality, text, watermark, hands, people, horizontal line, seam, split screen, glitch, reflection artifact, black bar, scan line";
+  "changing jewelry shape, different ring design, morphing product, extra prongs, missing stones, melted metal, plastic look, camera shake, zoom, orbit, pan, blur, distortion, oversaturated, jitter, low quality, text, watermark, hands, people, horizontal line, seam, split screen, glitch, reflection artifact, black bar, scan line, concentric circles, radial gradient, tunnel effect, target pattern, spinning background, pulsing background, moving bokeh orbs, light rays, sunburst, vortex, kaleidoscope, animated backdrop, background morphing, warping background";
 
 export const STUDIO_VIDEO_PROMPT_EXAMPLES = [
-  "מצלמה קבועה, רק נצנוץ אור על היהלומים",
-  "תאורת סטודיו רכה, ללא תנועת מצלמה",
-  "ברק עדין על הפאות, התכשיט לא זז",
-  "גלישת אור חמה כמו שקיעה, ללא תזוזת מוצר",
-  "הבזקי אור קרירים על רקע כהה",
-  "נצנוץ עדין בסגנון קטלוג יוקרתי",
+  "מצלמה קבועה, רקע לגמרי סטטי, נצנוץ עדין על היהלומים בלבד",
+  "תאורת סטודיו רכה, ללא תנועת מצלמה וללא תזוזת רקע",
+  "ברק עדין על הפאות, התכשיט לא זז, הרקע לא משתנה",
+  "סגנון קטלוג יוקרתי, רקע חלק וקבוע",
+  "נצנוץ מיקרו על אבנים, ללא אנימציה ברקע",
+  "תאורה מקצועית, רקע גרדיאנט חלק ללא עיגולים",
 ] as const;
 
-/** הנחיות תנועה ואווירה לווידאו לפי סגנון הרקע */
+/** הנחיות תנועה לווידאו — רק נצנוץ על התכשיט, רקע קפוא לחלוטין */
 export const STUDIO_VIDEO_PRESET_HINTS: Record<StudioStylePresetId, string> = {
   "luxury-marble":
-    "subtle light sweep across marble reflections, dramatic rim highlights on metal",
+    "frozen marble backdrop, micro sparkle on diamond facets only, no background movement",
   "black-velvet":
-    "soft spotlight shimmer on diamonds, velvet darkness stays still",
+    "static velvet darkness, soft diamond shimmer only, backdrop completely still",
   "white-studio":
-    "clean catalog sparkle, bright even studio light, no shadows moving",
+    "frozen white seamless backdrop, clean catalog micro sparkle on stones",
   "gold-bokeh":
-    "warm gold bokeh lights gently pulsing, cinematic micro sparkle on stones",
+    "static smooth dark gradient, no pulsing bokeh, micro sparkle on gemstones only",
   lifestyle:
-    "warm natural light shimmer, soft editorial glow, fabric stays still",
+    "still silk fabric backdrop, warm micro sparkle on jewelry facets only",
   "rose-gold-glow":
-    "gentle rose gold light pulse, romantic blush shimmer on facets",
+    "frozen rose gold gradient, no light pulse, gentle facet sparkle only",
   "midnight-blue":
-    "cool silver light sweep, deep blue atmosphere, elegant evening sparkle",
+    "static deep blue backdrop, cool micro sparkle on diamonds, no light sweep",
   "champagne-silk":
-    "soft champagne silk sheen, bridal warm glow on diamonds",
+    "still champagne silk backdrop, soft facet shimmer, no background animation",
   "jerusalem-stone":
-    "warm golden hour light rays, honey limestone warmth, Mediterranean glow",
+    "frozen limestone texture, warm static backdrop, micro stone sparkle only",
   "concrete-minimal":
-    "cool minimal studio shimmer, clean modern highlights, no warm tint shift",
+    "static gray concrete backdrop, clean facet highlights, no warm shift",
   "botanical-soft":
-    "soft natural green ambient glow, organic fresh sparkle on stones",
+    "frozen soft green gradient, static backdrop, natural micro sparkle on stones",
   "mirror-glass":
-    "sharp glass reflection shimmer, mirror highlight sweep, showcase sparkle",
+    "static glass surface, sharp facet sparkle only, no reflection sweep",
   "royal-purple":
-    "dramatic purple spotlight pulse, regal sparkle on gemstones",
+    "frozen purple velvet backdrop, regal micro sparkle on gemstones, no spotlight pulse",
   "sunset-amber":
-    "warm amber sunset light rays, golden hour glow sweep across facets",
+    "static amber gradient, no sun rays or light sweep, micro facet sparkle only",
 };
