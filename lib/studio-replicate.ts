@@ -16,8 +16,10 @@ export const MODELS = {
   svd: "stability-ai/stable-video-diffusion:3f0457e4619daac51203dedb472816fd4af51f3149fa7a9e0b5ffcf1b8172438",
   kling: "kwaivgi/kling-v2.1",
   llama: "meta/meta-llama-3-8b-instruct",
-  /** LLaVA v1.6 — ניתוח תמונות תכשיטים (ללא hash — תמיד גרסה עדכנית) */
-  llava: "yorickvp/llava-v1.6-vicuna-7b",
+  /** LLaVA 1.5 13B — ניתוח תמונות תכשיטים (v1.6-vicuna-7b אין לו גרסאות פעילות ב-Replicate) */
+  llava: "yorickvp/llava-13b",
+  /** גיבוי לניתוח תמונה כשהמודל הראשי נכשל */
+  llavaFallback: "yorickvp/llava-v1.6-mistral-7b",
 } as const;
 
 export const BASE_JEWELRY_QUALITY =
@@ -44,8 +46,8 @@ export function normalizeStudioError(error: unknown, fallback: string): string {
       if (message.includes("402") || /insufficient credit/i.test(message)) {
         return "אין מספיק קרדיט ב-Replicate — הוסיפו אשראי בחשבון Replicate.";
       }
-      if (message.includes("422") || /invalid version/i.test(message)) {
-        return "מודל ה-AI לא זמין כרגע — נסו שוב בעוד דקה.";
+      if (message.includes("422") || /invalid version|no enabled versions/i.test(message)) {
+        return "מודל ניתוח התמונה לא זמין כרגע — נסו שוב בעוד דקה.";
       }
       return message;
     }
@@ -89,8 +91,33 @@ export function extractUrl(output: unknown): string {
 
 export function extractText(output: unknown): string {
   if (typeof output === "string") return output.trim();
-  if (Array.isArray(output)) return output.join("").trim();
-  return String(output).trim();
+  if (Array.isArray(output)) {
+    return output.map((chunk) => (typeof chunk === "string" ? chunk : String(chunk))).join("").trim();
+  }
+  if (output && typeof output === "object") {
+    if ("output" in output && typeof (output as { output: unknown }).output === "string") {
+      return (output as { output: string }).output.trim();
+    }
+  }
+  const asString = String(output).trim();
+  return asString === "[object Object]" ? "" : asString;
+}
+
+/** איסוף פלט טקסט מ-Replicate — כולל מודלים שמחזירים איטרטור */
+export async function collectReplicateText(output: unknown): Promise<string> {
+  if (
+    output &&
+    typeof output === "object" &&
+    Symbol.asyncIterator in (output as object)
+  ) {
+    let text = "";
+    for await (const chunk of output as AsyncIterable<unknown>) {
+      text += typeof chunk === "string" ? chunk : String(chunk);
+    }
+    return text.trim();
+  }
+
+  return extractText(output);
 }
 
 export function hasHebrew(text: string) {

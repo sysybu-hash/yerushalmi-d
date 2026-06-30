@@ -17,6 +17,14 @@ export function withCloudinaryTransform(
   return url;
 }
 
+/** גרסה מותאמת לניתוח AI — קטן ומהיר, נגיש ל-LLaVA */
+export function visionAnalysisUrl(cloudinaryUrl: string): string {
+  return withCloudinaryTransform(
+    cloudinaryUrl,
+    "w_1280,h_1280,c_limit,q_auto,f_jpg"
+  );
+}
+
 /** גרסה מותאמת ל-Bria RMBG — PNG מלא לשמירת נצנוץ יהלומים וקצוות אלפא */
 export function rembgSourceUrl(cloudinaryUrl: string): string {
   return withCloudinaryTransform(

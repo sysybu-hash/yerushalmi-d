@@ -1,4 +1,6 @@
+import { visionAnalysisUrl } from "@/lib/cloudinary-url";
 import {
+  collectReplicateText,
   extractText,
   MODELS,
   normalizeStudioError,
@@ -150,27 +152,131 @@ Good example:
   "type": "natural"
 }`;
 
-async function analyzeJewelryImage(imageUrl: string): Promise<string | undefined> {
-  try {
-    const output = await replicate.run(MODELS.llava, {
-      input: {
-        image: imageUrl,
-        prompt:
-          "You are a luxury jewelry expert. Describe ONLY what is visible in this product photo: jewelry type (ring, necklace, earrings, bracelet), metal color/finish, diamond or gemstone cut and setting, chain or band style, and overall design aesthetic. Be factual and specific. English only, 2-4 sentences.",
-        max_tokens: 400,
-        temperature: 0.2,
-      },
-    });
+const JEWELRY_VISION_PROMPT = `You are a luxury jewelry expert analyzing a product photo.
+Describe ONLY what is clearly visible. Do not guess brand or price.
 
-    const description = extractText(output);
-    return description || undefined;
+Output ONLY valid JSON, no markdown:
+{
+  "jewelryType": "earrings | ring | necklace | bracelet | pendant | brooch | other",
+  "metal": "metal color and finish, e.g. white gold, yellow gold, rose gold, platinum",
+  "stones": "gemstone type, cut shape, setting style, approximate stone count if visible",
+  "style": "design style in 3-6 English words",
+  "description": "factual 2-3 sentence English description of the jewelry piece"
+}`;
+
+type JewelryVisualAnalysis = {
+  description: string;
+  jewelryType?: string;
+  metal?: string;
+  stones?: string;
+  style?: string;
+};
+
+function prepareVisionImageUrl(url: string): string {
+  if (url.includes("res.cloudinary.com")) {
+    return visionAnalysisUrl(url);
+  }
+  return url;
+}
+
+function parseVisionAnalysis(text: string): JewelryVisualAnalysis | undefined {
+  try {
+    const json = parseJsonObject(text);
+    const description = asString(json.description);
+    if (!description) return undefined;
+
+    return {
+      description,
+      jewelryType: asString(json.jewelryType) || undefined,
+      metal: asString(json.metal) || undefined,
+      stones: asString(json.stones) || undefined,
+      style: asString(json.style) || undefined,
+    };
   } catch {
-    return undefined;
+    const trimmed = text.trim();
+    if (trimmed.length < 12) return undefined;
+    return { description: trimmed };
   }
 }
 
+function formatVisualAnalysis(analysis: JewelryVisualAnalysis): string {
+  const parts = [
+    analysis.description,
+    analysis.jewelryType ? `Type: ${analysis.jewelryType}` : "",
+    analysis.metal ? `Metal: ${analysis.metal}` : "",
+    analysis.stones ? `Stones: ${analysis.stones}` : "",
+    analysis.style ? `Style: ${analysis.style}` : "",
+  ].filter(Boolean);
+
+  return parts.join(" | ");
+}
+
+function categoryFromJewelryType(jewelryType?: string): ListingAiCategory | undefined {
+  if (!jewelryType) return undefined;
+  const raw = jewelryType.toLowerCase();
+  if (raw.includes("engagement")) return "engagement-rings";
+  if (raw.includes("earring") || raw.includes("stud")) return "earrings";
+  if (raw.includes("necklace") || raw.includes("pendant")) return "necklaces";
+  if (raw.includes("bracelet") || raw.includes("bangle")) return "bracelets";
+  if (raw.includes("ring")) return "rings";
+  if (raw.includes("diamond")) return "diamonds";
+  return undefined;
+}
+
+async function runVisionModel(
+  model: (typeof MODELS)["llava"] | (typeof MODELS)["llavaFallback"],
+  imageUrl: string
+): Promise<string> {
+  const output = await replicate.run(model, {
+    input: {
+      image: prepareVisionImageUrl(imageUrl),
+      prompt: JEWELRY_VISION_PROMPT,
+      max_tokens: 500,
+      temperature: 0.1,
+    },
+  });
+
+  const text = await collectReplicateText(output);
+  if (!text) {
+    throw new Error("מודל הראייה לא החזיר תיאור");
+  }
+
+  return text;
+}
+
+async function analyzeJewelryImage(imageUrl: string): Promise<JewelryVisualAnalysis | undefined> {
+  const models = [MODELS.llava, MODELS.llavaFallback] as const;
+  let lastError: unknown;
+
+  for (const model of models) {
+    try {
+      const raw = await runVisionModel(model, imageUrl);
+      const parsed = parseVisionAnalysis(raw);
+      if (parsed?.description) {
+        return parsed;
+      }
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  if (lastError) {
+    console.error("[listing-ai] vision analysis failed:", lastError);
+  }
+
+  return undefined;
+}
+
+async function analyzeJewelryImages(imageUrls: string[]): Promise<JewelryVisualAnalysis | undefined> {
+  for (const imageUrl of imageUrls) {
+    const analysis = await analyzeJewelryImage(imageUrl);
+    if (analysis) return analysis;
+  }
+  return undefined;
+}
+
 async function generateListingText(input: {
-  visualDescription?: string;
+  visualAnalysis?: JewelryVisualAnalysis;
   assetTitles?: string[];
   existingTitle?: string;
   existingDescription?: string;
@@ -178,7 +284,10 @@ async function generateListingText(input: {
 }): Promise<GeneratedListingContent> {
   const titleHints =
     input.assetTitles?.filter(Boolean).join(", ") || "אין";
-  const visual = input.visualDescription?.trim() || "אין תיאור ויזואלי";
+  const visual = input.visualAnalysis
+    ? formatVisualAnalysis(input.visualAnalysis)
+    : "אין תיאור ויזואלי";
+  const detectedCategory = categoryFromJewelryType(input.visualAnalysis?.jewelryType);
   const currentTitle = input.existingTitle?.trim() || "";
   const currentDescription = input.existingDescription?.trim() || "";
 
@@ -215,6 +324,10 @@ Output ONLY valid JSON, no markdown, no explanation:
   const text = extractText(output);
   const result = buildListingFromJson(parseJsonObject(text));
 
+  if (detectedCategory && input.mode === "fill") {
+    result.category = detectedCategory;
+  }
+
   if (
     hasAwkwardHebrewCopy(`${result.title} ${result.description}`)
   ) {
@@ -248,14 +361,13 @@ export async function generateListingContent(
         throw new Error("יש להזין שם או תיאור לפני שיפור התוכן");
       }
 
-      let visualDescription: string | undefined;
-      const coverImage = input.imageUrls[0];
-      if (coverImage) {
-        visualDescription = await analyzeJewelryImage(coverImage);
+      let visualAnalysis: JewelryVisualAnalysis | undefined;
+      if (input.imageUrls.length > 0) {
+        visualAnalysis = await analyzeJewelryImages(input.imageUrls);
       }
 
       return generateListingText({
-        visualDescription,
+        visualAnalysis,
         assetTitles: input.assetTitles,
         existingTitle: input.existingTitle,
         existingDescription: input.existingDescription,
@@ -268,13 +380,13 @@ export async function generateListingContent(
       throw new Error("נדרשת לפחות תמונת מוצר אחת למילוי אוטומטי");
     }
 
-    const visualDescription = await analyzeJewelryImage(coverImage);
-    if (!visualDescription && !input.assetTitles?.length && !input.existingTitle?.trim()) {
+    const visualAnalysis = await analyzeJewelryImages(input.imageUrls);
+    if (!visualAnalysis && !input.assetTitles?.length && !input.existingTitle?.trim()) {
       throw new Error("לא הצלחנו לנתח את התמונה — נסו שוב או הוסיפו שם לנכס");
     }
 
     return generateListingText({
-      visualDescription,
+      visualAnalysis,
       assetTitles: input.assetTitles,
       existingTitle: input.existingTitle,
       existingDescription: input.existingDescription,
