@@ -6,8 +6,20 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { products } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth";
+import {
+  generateListingContent as generateListingContentAi,
+  type GeneratedListingContent,
+} from "@/lib/listing-ai";
+import { isAllowedProductMediaUrl } from "@/lib/product-images";
 import { parseOptionalProductImageUrl } from "@/lib/product-images";
+import {
+  deriveProductMediaFields,
+  resolveProductMedia,
+  sortProductMedia,
+  type ProductMediaItem,
+} from "@/lib/product-media";
 import { releaseAssetsForProduct } from "@/lib/release-product-assets";
+import { runStudioAction } from "@/lib/studio-action";
 
 const PRODUCT_TYPES = ["natural", "lab"] as const;
 type ProductType = (typeof PRODUCT_TYPES)[number];
@@ -18,6 +30,45 @@ export type ProductFilters = {
   sort?: string;
 };
 
+function parseMediaGallery(raw: FormDataEntryValue | null): ProductMediaItem[] {
+  const value = raw?.toString().trim();
+  if (!value) return [];
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new Error("גלריית המדיה אינה תקינה");
+  }
+
+  if (!Array.isArray(parsed)) {
+    throw new Error("גלריית המדיה אינה תקינה");
+  }
+
+  const items: ProductMediaItem[] = [];
+  for (const entry of parsed) {
+    if (
+      !entry ||
+      typeof entry !== "object" ||
+      !("type" in entry) ||
+      !("url" in entry)
+    ) {
+      throw new Error("פריט מדיה אינו תקין");
+    }
+    const type = String((entry as { type: unknown }).type);
+    const url = String((entry as { url: unknown }).url).trim();
+    if (type !== "image" && type !== "video") {
+      throw new Error("סוג מדיה לא נתמך");
+    }
+    if (!url || !isAllowedProductMediaUrl(url)) {
+      throw new Error("כתובת מדיה אינה תקינה");
+    }
+    items.push({ type, url });
+  }
+
+  return sortProductMedia(items);
+}
+
 function parseProductForm(formData: FormData) {
   const title = formData.get("title")?.toString().trim();
   const description = formData.get("description")?.toString().trim() || null;
@@ -25,14 +76,23 @@ function parseProductForm(formData: FormData) {
   const originalPriceRaw = formData.get("original_price")?.toString().trim();
   const type = formData.get("type")?.toString() as ProductType;
   const category = formData.get("category")?.toString().trim();
-  const imageUrl = parseOptionalProductImageUrl(
-    formData.get("image_url"),
-    "תמונה ראשית"
-  );
-  const secondaryImageUrl = parseOptionalProductImageUrl(
-    formData.get("secondary_image_url"),
-    "תמונה שנייה"
-  );
+  const gallery = parseMediaGallery(formData.get("media_gallery"));
+  const mediaFields = deriveProductMediaFields(gallery);
+
+  // תאימות לאחור — אם אין גלריה, קוראים שדות ישנים
+  const imageUrl =
+    gallery.length > 0
+      ? mediaFields.imageUrl
+      : parseOptionalProductImageUrl(formData.get("image_url"), "תמונה ראשית");
+  const secondaryImageUrl =
+    gallery.length > 0
+      ? mediaFields.secondaryImageUrl
+      : parseOptionalProductImageUrl(
+          formData.get("secondary_image_url"),
+          "תמונה שנייה"
+        );
+  const videoUrl = gallery.length > 0 ? mediaFields.videoUrl : null;
+  const mediaGallery = gallery.length > 0 ? mediaFields.mediaGallery : null;
 
   if (!title) {
     throw new Error("שם המוצר הוא שדה חובה");
@@ -69,6 +129,8 @@ function parseProductForm(formData: FormData) {
     category,
     imageUrl,
     secondaryImageUrl,
+    videoUrl,
+    mediaGallery,
   };
 }
 
@@ -183,8 +245,56 @@ export async function duplicateProduct(id: number) {
     category: product.category,
     imageUrl: product.imageUrl,
     secondaryImageUrl: product.secondaryImageUrl,
+    videoUrl: product.videoUrl,
+    mediaGallery: product.mediaGallery,
   });
 
   revalidatePath("/workspace/products");
   revalidatePath("/", "layout");
+}
+
+export type GenerateProductListingInput = {
+  productId: number;
+  mode: "fill" | "refine";
+  existingTitle?: string;
+  existingDescription?: string;
+};
+
+/** מילוי או שיפור תוכן מודעה קיימת באמצעות AI */
+export async function generateProductListingContent(
+  input: GenerateProductListingInput
+) {
+  return runStudioAction(async (): Promise<GeneratedListingContent> => {
+    await requireAdmin();
+
+    if (!Number.isInteger(input.productId) || input.productId < 1) {
+      throw new Error("מזהה מוצר לא תקין");
+    }
+
+    const [product] = await db
+      .select()
+      .from(products)
+      .where(eq(products.id, input.productId));
+
+    if (!product) {
+      throw new Error("המוצר לא נמצא");
+    }
+
+    const imageUrls = resolveProductMedia(product)
+      .filter((item) => item.type === "image")
+      .map((item) => item.url);
+
+    if (input.mode === "fill" && imageUrls.length === 0) {
+      throw new Error("נדרשת לפחות תמונת מוצר אחת למילוי אוטומטי");
+    }
+
+    return generateListingContentAi({
+      imageUrls,
+      assetTitles: [product.title],
+      existingTitle: input.existingTitle ?? product.title,
+      existingDescription:
+        input.existingDescription ?? product.description ?? undefined,
+      mode: input.mode,
+    });
+  }, "יצירת התוכן ב-AI נכשלה — ודאו ש-REPLICATE_API_TOKEN מוגדר ב-Vercel.");
 }

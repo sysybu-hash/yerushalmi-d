@@ -14,6 +14,11 @@ export function isAllowedProductImageUrl(url: string): boolean {
   );
 }
 
+/** בדיקת כתובת מדיה (תמונה/וידאו) — Cloudinary או Replicate בלבד */
+export function isAllowedProductMediaUrl(url: string): boolean {
+  return isAllowedProductImageUrl(url);
+}
+
 export function parseOptionalProductImageUrl(
   raw: FormDataEntryValue | null,
   fieldLabel: string

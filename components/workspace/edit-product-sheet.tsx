@@ -4,9 +4,13 @@ import * as React from "react";
 import { useFormStatus } from "react-dom";
 import { Loader2, Pencil } from "lucide-react";
 
-import { updateProduct } from "@/app/(workspace)/workspace/products/actions";
+import {
+  generateProductListingContent,
+  updateProduct,
+} from "@/app/(workspace)/workspace/products/actions";
 import type { products } from "@/db/schema";
-import { ProductImageField } from "@/components/workspace/product-image-field";
+import { ListingAiToolbar } from "@/components/workspace/listing-ai-toolbar";
+import { ProductMediaEditor } from "@/components/workspace/product-media-editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,6 +34,7 @@ import {
   PRODUCT_CATEGORIES,
   PRODUCT_TYPES,
 } from "@/components/workspace/product-constants";
+import { resolveProductMedia } from "@/lib/product-media";
 
 type Product = typeof products.$inferSelect;
 
@@ -57,9 +62,75 @@ function SubmitButton() {
 export function EditProductSheet({ product }: { product: Product }) {
   const [open, setOpen] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [title, setTitle] = React.useState(product.title);
+  const [description, setDescription] = React.useState(
+    product.description ?? ""
+  );
+  const [type, setType] =
+    React.useState<(typeof PRODUCT_TYPES)[number]["value"]>(product.type);
+  const [category, setCategory] = React.useState(product.category);
+  const [aiPending, setAiPending] = React.useState<"fill" | "refine" | null>(
+    null
+  );
+  const [aiNotice, setAiNotice] = React.useState<string | null>(null);
+
+  const mediaItems = React.useMemo(
+    () => resolveProductMedia(product),
+    [product]
+  );
+  const hasImages = mediaItems.some((item) => item.type === "image");
+
+  React.useEffect(() => {
+    if (!open) return;
+    setTitle(product.title);
+    setDescription(product.description ?? "");
+    setType(product.type);
+    setCategory(product.category);
+    setError(null);
+    setAiNotice(null);
+  }, [open, product]);
+
+  async function runAi(mode: "fill" | "refine") {
+    setError(null);
+    setAiNotice(null);
+    setAiPending(mode);
+
+    try {
+      const result = await generateProductListingContent({
+        productId: product.id,
+        mode,
+        existingTitle: title,
+        existingDescription: description,
+      });
+
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+
+      setTitle(result.data.title);
+      setDescription(result.data.description);
+      setCategory(result.data.category);
+      setType(result.data.type);
+      setAiNotice(
+        mode === "fill"
+          ? "התוכן מולא אוטומטית — ניתן לערוך לפני השמירה"
+          : "התוכן שופר — ניתן לערוך לפני השמירה"
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "יצירת התוכן ב-AI נכשלה");
+    } finally {
+      setAiPending(null);
+    }
+  }
 
   async function handleSubmit(formData: FormData) {
     setError(null);
+    formData.set("title", title);
+    formData.set("description", description);
+    formData.set("type", type);
+    formData.set("category", category);
+
     try {
       await updateProduct(product.id, formData);
       setOpen(false);
@@ -81,7 +152,7 @@ export function EditProductSheet({ product }: { product: Product }) {
         </Button>
       </SheetTrigger>
 
-      <SheetContent side="left" className="w-full overflow-y-auto sm:max-w-md">
+      <SheetContent side="left" className="w-full overflow-y-auto sm:max-w-lg">
         <SheetHeader className="text-right">
           <SheetTitle className="font-serif text-2xl font-light tracking-wide">
             עריכת תכשיט
@@ -92,6 +163,15 @@ export function EditProductSheet({ product }: { product: Product }) {
         </SheetHeader>
 
         <form action={handleSubmit} className="mt-8 space-y-6">
+          <ListingAiToolbar
+            aiPending={aiPending}
+            canFill={hasImages}
+            canRefine={Boolean(title.trim() || description.trim())}
+            notice={aiNotice}
+            onFill={() => runAi("fill")}
+            onRefine={() => runAi("refine")}
+          />
+
           <div className="space-y-2">
             <Label htmlFor={`title-${product.id}`} className="font-light">
               שם המוצר *
@@ -100,7 +180,8 @@ export function EditProductSheet({ product }: { product: Product }) {
               id={`title-${product.id}`}
               name="title"
               required
-              defaultValue={product.title}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
               className="rounded-none"
             />
           </div>
@@ -116,8 +197,9 @@ export function EditProductSheet({ product }: { product: Product }) {
               id={`description-${product.id}`}
               name="description"
               rows={4}
-              defaultValue={product.description ?? ""}
-              className="rounded-none resize-none"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="resize-none rounded-none"
             />
           </div>
 
@@ -158,59 +240,52 @@ export function EditProductSheet({ product }: { product: Product }) {
           <div className="space-y-2">
             <Label className="font-light">סוג יהלום *</Label>
             <Select
-              name="type"
               required
               dir="rtl"
-              defaultValue={product.type}
+              value={type}
+              onValueChange={(value) =>
+                setType(value as (typeof PRODUCT_TYPES)[number]["value"])
+              }
             >
               <SelectTrigger className="rounded-none">
                 <SelectValue placeholder="בחירת סוג" />
               </SelectTrigger>
               <SelectContent>
-                {PRODUCT_TYPES.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
+                {PRODUCT_TYPES.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            <input type="hidden" name="type" value={type} />
           </div>
 
           <div className="space-y-2">
             <Label className="font-light">קטגוריה *</Label>
             <Select
-              name="category"
               required
               dir="rtl"
-              defaultValue={product.category}
+              value={category}
+              onValueChange={setCategory}
             >
               <SelectTrigger className="rounded-none">
                 <SelectValue placeholder="בחירת קטגוריה" />
               </SelectTrigger>
               <SelectContent>
-                {PRODUCT_CATEGORIES.map((category) => (
-                  <SelectItem key={category.value} value={category.value}>
-                    {category.label}
+                {PRODUCT_CATEGORIES.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            <input type="hidden" name="category" value={category} />
           </div>
 
-          <ProductImageField
-            key={`primary-${product.id}-${product.imageUrl ?? "none"}`}
-            name="image_url"
-            label="תמונה ראשית"
-            defaultValue={product.imageUrl}
-            uploadLabel="העלאת תמונה ראשית"
-          />
-
-          <ProductImageField
-            key={`secondary-${product.id}-${product.secondaryImageUrl ?? "none"}`}
-            name="secondary_image_url"
-            label="תמונה שנייה (אופציונלי)"
-            defaultValue={product.secondaryImageUrl}
-            uploadLabel="העלאת תמונה שנייה"
+          <ProductMediaEditor
+            key={`media-${product.id}-${open ? "open" : "closed"}`}
+            defaultItems={mediaItems}
           />
 
           {error && (

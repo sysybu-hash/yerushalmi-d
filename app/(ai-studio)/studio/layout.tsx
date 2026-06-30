@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { ArrowRight, LayoutDashboard, Sparkles } from "lucide-react";
+import { ArrowRight, Sparkles } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { AiCrossNav } from "@/components/workspace/ai-cross-nav";
 
 export const metadata = { title: "סטודיו תוכן AI" };
 
@@ -29,17 +29,7 @@ export default function StudioLayout({
               סטודיו AI
             </span>
           </div>
-          <Button
-            asChild
-            variant="ghost"
-            size="sm"
-            className="rounded-none text-xs font-light tracking-[0.1em]"
-          >
-            <Link href="/workspace">
-              <LayoutDashboard className="ml-1.5 h-3.5 w-3.5" />
-              חזרה לניהול
-            </Link>
-          </Button>
+          <AiCrossNav current="studio" />
         </div>
       </header>
 

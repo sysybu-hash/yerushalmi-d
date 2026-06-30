@@ -17,6 +17,7 @@ import type { AiMediaAsset } from "@/db/schema";
 import { CreateListingFromAssetsSheet } from "@/components/workspace/create-listing-from-assets-sheet";
 import { EditMediaAssetDialog } from "@/components/workspace/edit-media-asset-dialog";
 import { AssetManageButtons } from "@/components/workspace/asset-manage-buttons";
+import { AiCrossNav } from "@/components/workspace/ai-cross-nav";
 import { RestoreAssetButton } from "@/components/workspace/restore-asset-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -103,31 +104,33 @@ export function ContentLibraryWorkspace({ assets }: ContentLibraryWorkspaceProps
             </div>
           </div>
 
-          {view === "active" && draftAssets.length > 0 && (
-            <div className="flex flex-wrap gap-2">
+          <AiCrossNav current="content-library" />
+        </div>
+
+        {view === "active" && draftAssets.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={selectAllDrafts}
+              className="rounded-none text-xs font-light"
+            >
+              בחירת כל הטיוטות
+            </Button>
+            {selectedIds.size > 0 && (
               <Button
                 type="button"
-                variant="outline"
+                variant="ghost"
                 size="sm"
-                onClick={selectAllDrafts}
+                onClick={clearSelection}
                 className="rounded-none text-xs font-light"
               >
-                בחירת כל הטיוטות
+                ניקוי בחירה
               </Button>
-              {selectedIds.size > 0 && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={clearSelection}
-                  className="rounded-none text-xs font-light"
-                >
-                  ניקוי בחירה
-                </Button>
-              )}
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
 
         {assets.length > 0 && (
           <div className="mt-4 flex flex-wrap items-center gap-4">

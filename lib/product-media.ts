@@ -30,6 +30,20 @@ export function resolveProductMedia(input: {
   return items;
 }
 
+/** מפיק שדות DB מגלריית מדיה מאוחדת */
+export function deriveProductMediaFields(gallery: ProductMediaItem[]) {
+  const sorted = sortProductMedia(gallery);
+  const videos = sorted.filter((item) => item.type === "video");
+  const images = sorted.filter((item) => item.type === "image");
+
+  return {
+    mediaGallery: sorted.length > 0 ? sorted : null,
+    videoUrl: videos[0]?.url ?? null,
+    imageUrl: images[0]?.url ?? null,
+    secondaryImageUrl: images[1]?.url ?? null,
+  };
+}
+
 /** כל כתובות המדיה של מוצר — לשחרור נכסים בספרייה */
 export function collectProductMediaUrls(product: {
   imageUrl: string | null;

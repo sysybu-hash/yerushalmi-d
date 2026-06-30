@@ -2,13 +2,14 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { Loader2, PackagePlus, Sparkles, Wand2 } from "lucide-react";
+import { Loader2, PackagePlus } from "lucide-react";
 
 import {
   generateListingContent,
   publishListingFromAssets,
 } from "@/app/(workspace)/workspace/content-library/actions";
 import type { AiMediaAsset } from "@/db/schema";
+import { ListingAiToolbar } from "@/components/workspace/listing-ai-toolbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -205,44 +206,15 @@ export function CreateListingFromAssetsSheet({
         </div>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-6">
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={aiPending !== null || pending || images.length === 0}
-              onClick={() => runAi("fill")}
-              className="rounded-none text-xs font-light tracking-wide"
-            >
-              {aiPending === "fill" ? (
-                <Loader2 className="ml-2 h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Sparkles className="ml-2 h-3.5 w-3.5" strokeWidth={1.5} />
-              )}
-              מילוי אוטומטי עם AI
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={
-                aiPending !== null ||
-                pending ||
-                (!title.trim() && !description.trim())
-              }
-              onClick={() => runAi("refine")}
-              className="rounded-none text-xs font-light tracking-wide"
-            >
-              {aiPending === "refine" ? (
-                <Loader2 className="ml-2 h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Wand2 className="ml-2 h-3.5 w-3.5" strokeWidth={1.5} />
-              )}
-              שפר ומטב
-            </Button>
-          </div>
-
-          {aiNotice && (
-            <p className="text-xs font-light text-emerald-700">{aiNotice}</p>
-          )}
+          <ListingAiToolbar
+            aiPending={aiPending}
+            canFill={images.length > 0}
+            canRefine={Boolean(title.trim() || description.trim())}
+            disabled={pending}
+            notice={aiNotice}
+            onFill={() => runAi("fill")}
+            onRefine={() => runAi("refine")}
+          />
 
           <div className="space-y-2">
             <Label htmlFor="listing-title" className="font-light">
