@@ -25,6 +25,10 @@ export const products = pgTable("products", {
   category: varchar("category", { length: 100 }).notNull(),
   imageUrl: text("image_url"),
   secondaryImageUrl: text("secondary_image_url"),
+  videoUrl: text("video_url"),
+  mediaGallery: jsonb("media_gallery").$type<
+    Array<{ type: "image" | "video"; url: string }>
+  >(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -185,6 +189,7 @@ export const aiMediaAssets = pgTable("ai_media_assets", {
   mediaType: text("media_type").notNull(),
   originalUrl: text("original_url").notNull(),
   generatedUrl: text("generated_url").notNull(),
+  title: text("title"),
   status: text("status").notNull().default("draft"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });

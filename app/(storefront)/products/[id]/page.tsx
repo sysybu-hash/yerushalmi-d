@@ -142,6 +142,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
             title={product.title}
             imageUrl={product.imageUrl}
             secondaryImageUrl={product.secondaryImageUrl}
+            videoUrl={product.videoUrl}
+            mediaGallery={product.mediaGallery}
             sizes="(max-width: 1024px) 100vw, 50vw"
             priority
             variant="gallery"

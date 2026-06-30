@@ -5,15 +5,21 @@ import Image from "next/image";
 import { Gem } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import {
+  resolveProductMedia,
+  type ProductMediaItem,
+} from "@/lib/product-media";
 
 type ProductImagesProps = {
   title: string;
   imageUrl: string | null;
   secondaryImageUrl?: string | null;
+  videoUrl?: string | null;
+  mediaGallery?: ProductMediaItem[] | null;
   sizes: string;
   priority?: boolean;
   className?: string;
-  /** כרטיס מוצר — החלפה ב-hover; דף מוצר — גaleria עם נקודות */
+  /** כרטיס מוצר — החלפה ב-hover; דף מוצר — גלריה עם נקודות */
   variant?: "card" | "gallery";
 };
 
@@ -21,17 +27,23 @@ export function ProductImages({
   title,
   imageUrl,
   secondaryImageUrl = null,
+  videoUrl = null,
+  mediaGallery = null,
   sizes,
   priority = false,
   className,
   variant = "card",
 }: ProductImagesProps) {
-  const images = [imageUrl, secondaryImageUrl].filter(
-    (url): url is string => Boolean(url)
-  );
+  const items = resolveProductMedia({
+    imageUrl,
+    secondaryImageUrl,
+    videoUrl,
+    mediaGallery,
+  });
+  const images = items.filter((item) => item.type === "image");
   const [activeIndex, setActiveIndex] = React.useState(0);
 
-  if (images.length === 0) {
+  if (items.length === 0) {
     return (
       <div
         className={cn(
@@ -52,7 +64,7 @@ export function ProductImages({
     return (
       <div className={cn("relative h-full w-full", className)}>
         <Image
-          src={images[0]}
+          src={images[0]?.url ?? items[0].url}
           alt={title}
           fill
           sizes={sizes}
@@ -66,7 +78,7 @@ export function ProductImages({
         />
         {images[1] ? (
           <Image
-            src={images[1]}
+            src={images[1].url}
             alt={`${title} — תמונה נוספת`}
             fill
             sizes={sizes}
@@ -77,44 +89,69 @@ export function ProductImages({
     );
   }
 
-  const active = images[activeIndex] ?? images[0];
+  const active = items[activeIndex] ?? items[0];
 
   return (
     <div className={cn("flex flex-col gap-4", className)}>
       <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-secondary to-muted">
-        <Image
-          src={active}
-          alt={title}
-          fill
-          priority={priority}
-          sizes={sizes}
-          className="object-cover"
-        />
+        {active.type === "video" ? (
+          // eslint-disable-next-line jsx-a11y/media-has-caption
+          <video
+            key={active.url}
+            src={active.url}
+            controls
+            playsInline
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <Image
+            src={active.url}
+            alt={title}
+            fill
+            priority={priority}
+            sizes={sizes}
+            className="object-cover"
+          />
+        )}
       </div>
 
-      {images.length > 1 ? (
-        <div className="flex justify-center gap-2">
-          {images.map((url, index) => (
+      {items.length > 1 ? (
+        <div className="flex justify-center gap-2 overflow-x-auto pb-1">
+          {items.map((item, index) => (
             <button
-              key={url}
+              key={`${item.type}-${item.url}`}
               type="button"
-              aria-label={`תמונה ${index + 1}`}
+              aria-label={
+                item.type === "video"
+                  ? `וידאו ${index + 1}`
+                  : `תמונה ${index + 1}`
+              }
               aria-pressed={activeIndex === index}
               onClick={() => setActiveIndex(index)}
               className={cn(
-                "relative h-16 w-16 overflow-hidden border transition-colors",
+                "relative h-16 w-16 shrink-0 overflow-hidden border transition-colors",
                 activeIndex === index
                   ? "border-gold"
                   : "border-border/60 opacity-70 hover:opacity-100"
               )}
             >
-              <Image
-                src={url}
-                alt=""
-                fill
-                sizes="64px"
-                className="object-cover"
-              />
+              {item.type === "video" ? (
+                // eslint-disable-next-line jsx-a11y/media-has-caption
+                <video
+                  src={item.url}
+                  muted
+                  playsInline
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <Image
+                  src={item.url}
+                  alt=""
+                  fill
+                  sizes="64px"
+                  className="object-cover"
+                />
+              )}
             </button>
           ))}
         </div>
