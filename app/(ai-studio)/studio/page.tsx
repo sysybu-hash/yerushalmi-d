@@ -195,8 +195,7 @@ function StudioPageContent() {
   }
 
   async function generateImagePipeline(
-    sourceUrl: string,
-    options: { forVideo?: boolean } = {}
+    sourceUrl: string
   ): Promise<
     | { ok: true; url: string }
     | { ok: false; error: string }
@@ -207,10 +206,7 @@ function StudioPageContent() {
 
     setState({ status: "generating", source: sourceUrl, kind: "image", step: "background" });
     setState({ status: "generating", source: sourceUrl, kind: "image", step: "composite" });
-    const composite = await studioApiCompositeImage(cutout.data.url, {
-      ...aiOptions(),
-      forVideo: options.forVideo,
-    });
+    const composite = await studioApiCompositeImage(cutout.data.url, aiOptions());
     if (!composite.ok) return composite;
 
     return { ok: true, url: composite.data.url };
@@ -263,7 +259,7 @@ function StudioPageContent() {
 
       showToast("יוצרים תמונת בסיס נקייה לווידאו...");
       setState({ status: "generating", source, kind: "image", step: "cutout" });
-      const pipeline = await generateImagePipeline(source, { forVideo: true });
+      const pipeline = await generateImagePipeline(source);
       if (!pipeline.ok) {
         failGeneration(source, pipeline.error);
         return;

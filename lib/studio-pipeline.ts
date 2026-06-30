@@ -19,8 +19,6 @@ import type { GenerateVideoOptions } from "@/lib/studio-types";
 export type StudioImageOptions = {
   customPrompt?: string;
   stylePreset?: StudioStylePresetId;
-  /** תמונת בסיס לווידאו — ללא השתקפות/צל שעלולים ליצור קו אופקי */
-  forVideo?: boolean;
 };
 
 function assertCloudinaryUrl(imageUrl: string) {
@@ -75,8 +73,7 @@ export async function pipelineCompositeImage(
   const buffer = await compositeProductImage(
     cutoutUrl,
     backgroundBuffer,
-    STUDIO_CANVAS_SIZE,
-    { forVideo: options.forVideo }
+    STUDIO_CANVAS_SIZE
   );
   const url = await uploadBufferToCloudinary(
     buffer,

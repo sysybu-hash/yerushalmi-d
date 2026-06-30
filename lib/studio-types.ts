@@ -3,7 +3,6 @@ import type { StudioStylePresetId } from "@/lib/studio-presets";
 export type GenerateImageOptions = {
   customPrompt?: string;
   stylePreset?: StudioStylePresetId;
-  forVideo?: boolean;
 };
 
 export type GenerateVideoOptions = {
