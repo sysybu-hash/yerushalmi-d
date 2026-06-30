@@ -16,10 +16,12 @@ export const MODELS = {
   svd: "stability-ai/stable-video-diffusion:3f0457e4619daac51203dedb472816fd4af51f3149fa7a9e0b5ffcf1b8172438",
   kling: "kwaivgi/kling-v2.1",
   llama: "meta/meta-llama-3-8b-instruct",
-  /** LLaVA 1.5 13B — ניתוח תמונות תכשיטים (v1.6-vicuna-7b אין לו גרסאות פעילות ב-Replicate) */
-  llava: "yorickvp/llava-13b",
-  /** גיבוי לניתוח תמונה כשהמודל הראשי נכשל */
-  llavaFallback: "yorickvp/llava-v1.6-mistral-7b",
+  /** Moondream2 — מודל ראייה מהיר ואמין לזיהוי תכשיטים */
+  moondream:
+    "lucataco/moondream2:392a53ac3f36d630d2d07ce0e78142acaccc338d6caeeb8ca552fe5baca2781e",
+  /** LLaVA 1.5 13B — גיבוי לניתוח תמונה */
+  llava:
+    "yorickvp/llava-13b:80537f9eead1a5bfa72d5ac6ea6414379be41d4d4f6679fd776e9535d1eb58bb",
 } as const;
 
 export const BASE_JEWELRY_QUALITY =

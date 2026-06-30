@@ -1,4 +1,4 @@
-import { visionAnalysisUrl } from "@/lib/cloudinary-url";
+import { fetchImageDataUri } from "@/lib/vision-image";
 import {
   collectReplicateText,
   extractText,
@@ -152,16 +152,22 @@ Good example:
   "type": "natural"
 }`;
 
-const JEWELRY_VISION_PROMPT = `You are a luxury jewelry expert analyzing a product photo.
-Describe ONLY what is clearly visible. Do not guess brand or price.
+const JEWELRY_VISION_PROMPT = `What jewelry is shown in this product photo?
+Answer in English with these details:
+1) jewelry type (earrings, ring, necklace, bracelet, pendant, or other)
+2) metal color and finish
+3) gemstone type, cut shape, and setting style
+4) overall design style
+Be factual — describe only what is clearly visible.`;
 
-Output ONLY valid JSON, no markdown:
+const LLAVA_JSON_PROMPT = `You are a luxury jewelry expert. Describe ONLY what is visible.
+Output ONLY valid JSON:
 {
-  "jewelryType": "earrings | ring | necklace | bracelet | pendant | brooch | other",
-  "metal": "metal color and finish, e.g. white gold, yellow gold, rose gold, platinum",
-  "stones": "gemstone type, cut shape, setting style, approximate stone count if visible",
-  "style": "design style in 3-6 English words",
-  "description": "factual 2-3 sentence English description of the jewelry piece"
+  "jewelryType": "earrings | ring | necklace | bracelet | pendant | other",
+  "metal": "metal color and finish",
+  "stones": "gemstone type, cut, setting",
+  "style": "design style",
+  "description": "2-3 sentence English description"
 }`;
 
 type JewelryVisualAnalysis = {
@@ -172,30 +178,42 @@ type JewelryVisualAnalysis = {
   style?: string;
 };
 
-function prepareVisionImageUrl(url: string): string {
-  if (url.includes("res.cloudinary.com")) {
-    return visionAnalysisUrl(url);
-  }
-  return url;
+function inferJewelryTypeFromText(text: string): string | undefined {
+  const lower = text.toLowerCase();
+  if (lower.includes("engagement ring")) return "engagement ring";
+  if (lower.includes("earring") || lower.includes("stud earring")) return "earrings";
+  if (lower.includes("necklace") || lower.includes("pendant")) return "necklace";
+  if (lower.includes("bracelet") || lower.includes("bangle")) return "bracelet";
+  if (lower.includes("ring")) return "ring";
+  return undefined;
+}
+
+function inferAnalysisFromText(text: string): JewelryVisualAnalysis {
+  const jewelryType = inferJewelryTypeFromText(text);
+  return {
+    description: text.trim(),
+    jewelryType,
+  };
 }
 
 function parseVisionAnalysis(text: string): JewelryVisualAnalysis | undefined {
+  const trimmed = text.trim();
+  if (trimmed.length < 8) return undefined;
+
   try {
-    const json = parseJsonObject(text);
+    const json = parseJsonObject(trimmed);
     const description = asString(json.description);
-    if (!description) return undefined;
+    if (!description) return inferAnalysisFromText(trimmed);
 
     return {
       description,
-      jewelryType: asString(json.jewelryType) || undefined,
+      jewelryType: asString(json.jewelryType) || inferJewelryTypeFromText(trimmed),
       metal: asString(json.metal) || undefined,
       stones: asString(json.stones) || undefined,
       style: asString(json.style) || undefined,
     };
   } catch {
-    const trimmed = text.trim();
-    if (trimmed.length < 12) return undefined;
-    return { description: trimmed };
+    return inferAnalysisFromText(trimmed);
   }
 }
 
@@ -223,14 +241,27 @@ function categoryFromJewelryType(jewelryType?: string): ListingAiCategory | unde
   return undefined;
 }
 
-async function runVisionModel(
-  model: (typeof MODELS)["llava"] | (typeof MODELS)["llavaFallback"],
-  imageUrl: string
-): Promise<string> {
-  const output = await replicate.run(model, {
+async function runMoondream(imageInput: string): Promise<string> {
+  const output = await replicate.run(MODELS.moondream, {
     input: {
-      image: prepareVisionImageUrl(imageUrl),
+      image: imageInput,
       prompt: JEWELRY_VISION_PROMPT,
+    },
+  });
+
+  const text = await collectReplicateText(output);
+  if (!text) {
+    throw new Error("מודל הראייה לא החזיר תיאור");
+  }
+
+  return text;
+}
+
+async function runLlava(imageInput: string): Promise<string> {
+  const output = await replicate.run(MODELS.llava, {
+    input: {
+      image: imageInput,
+      prompt: LLAVA_JSON_PROMPT,
       max_tokens: 500,
       temperature: 0.1,
     },
@@ -244,35 +275,51 @@ async function runVisionModel(
   return text;
 }
 
-async function analyzeJewelryImage(imageUrl: string): Promise<JewelryVisualAnalysis | undefined> {
-  const models = [MODELS.llava, MODELS.llavaFallback] as const;
-  let lastError: unknown;
+async function analyzeJewelryImage(imageUrl: string): Promise<JewelryVisualAnalysis> {
+  const imageInput = await fetchImageDataUri(imageUrl);
+  const errors: string[] = [];
 
-  for (const model of models) {
+  for (const run of [
+    { label: "Moondream", fn: () => runMoondream(imageInput) },
+    { label: "LLaVA", fn: () => runLlava(imageInput) },
+  ]) {
     try {
-      const raw = await runVisionModel(model, imageUrl);
+      const raw = await run.fn();
       const parsed = parseVisionAnalysis(raw);
       if (parsed?.description) {
         return parsed;
       }
+      errors.push(`${run.label}: תשובה ריקה`);
     } catch (error) {
-      lastError = error;
+      errors.push(
+        `${run.label}: ${normalizeStudioError(error, "שגיאה לא ידועה")}`
+      );
     }
   }
 
-  if (lastError) {
-    console.error("[listing-ai] vision analysis failed:", lastError);
-  }
-
-  return undefined;
+  throw new Error(
+    errors.length > 0
+      ? `ניתוח התמונה נכשל — ${errors.join(" | ")}`
+      : "לא הצלחנו לנתח את התמונה"
+  );
 }
 
-async function analyzeJewelryImages(imageUrls: string[]): Promise<JewelryVisualAnalysis | undefined> {
+async function analyzeJewelryImages(imageUrls: string[]): Promise<JewelryVisualAnalysis> {
+  const errors: string[] = [];
+
   for (const imageUrl of imageUrls) {
-    const analysis = await analyzeJewelryImage(imageUrl);
-    if (analysis) return analysis;
+    try {
+      return await analyzeJewelryImage(imageUrl);
+    } catch (error) {
+      errors.push(normalizeStudioError(error, "שגיאה לא ידועה"));
+    }
   }
-  return undefined;
+
+  throw new Error(
+    errors.length > 0
+      ? `לא הצלחנו לנתח את התמונה — ${errors[errors.length - 1]}`
+      : "לא הצלחנו לנתח את התמונה — נסו שוב או הוסיפו שם לנכס"
+  );
 }
 
 async function generateListingText(input: {
@@ -363,7 +410,11 @@ export async function generateListingContent(
 
       let visualAnalysis: JewelryVisualAnalysis | undefined;
       if (input.imageUrls.length > 0) {
-        visualAnalysis = await analyzeJewelryImages(input.imageUrls);
+        try {
+          visualAnalysis = await analyzeJewelryImages(input.imageUrls);
+        } catch {
+          visualAnalysis = undefined;
+        }
       }
 
       return generateListingText({
@@ -381,9 +432,6 @@ export async function generateListingContent(
     }
 
     const visualAnalysis = await analyzeJewelryImages(input.imageUrls);
-    if (!visualAnalysis && !input.assetTitles?.length && !input.existingTitle?.trim()) {
-      throw new Error("לא הצלחנו לנתח את התמונה — נסו שוב או הוסיפו שם לנכס");
-    }
 
     return generateListingText({
       visualAnalysis,

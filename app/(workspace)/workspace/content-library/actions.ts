@@ -13,6 +13,7 @@ import {
 import type { ProductMediaItem } from "@/lib/product-media";
 import { sortProductMedia } from "@/lib/product-media";
 import { runStudioAction } from "@/lib/studio-action";
+import { collectVisionImageUrls } from "@/lib/vision-image";
 
 const PRODUCT_TYPES = ["natural", "lab"] as const;
 const PRODUCT_CATEGORIES = [
@@ -323,9 +324,14 @@ export async function generateListingContent(
       throw new Error("הנכסים לא נמצאו");
     }
 
-    const imageUrls = assets
-      .filter((asset) => asset.mediaType === "image")
-      .map((asset) => asset.generatedUrl);
+    const imageUrls = collectVisionImageUrls(
+      assets
+        .filter((asset) => asset.mediaType === "image")
+        .map((asset) => ({
+          originalUrl: asset.originalUrl,
+          generatedUrl: asset.generatedUrl,
+        }))
+    );
 
     if (input.mode === "fill" && imageUrls.length === 0) {
       throw new Error("נדרשת לפחות תמונת מוצר אחת למילוי אוטומטי");

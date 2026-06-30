@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import { Sidebar } from "@/components/workspace/sidebar";
 import { Topbar } from "@/components/workspace/topbar";
 
+export const maxDuration = 60;
+
 export const metadata: Metadata = {
   title: "אזור ניהול",
 };
