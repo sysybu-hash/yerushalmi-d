@@ -261,7 +261,6 @@ function StudioPageContent() {
         return;
       }
 
-      let frameUrl: string;
       showToast("יוצרים תמונת בסיס נקייה לווידאו...");
       setState({ status: "generating", source, kind: "image", step: "cutout" });
       const pipeline = await generateImagePipeline(source, { forVideo: true });
@@ -269,7 +268,7 @@ function StudioPageContent() {
         failGeneration(source, pipeline.error);
         return;
       }
-      frameUrl = pipeline.url;
+      const frameUrl = pipeline.url;
 
       setState({ status: "generating", source, kind: "video" });
       const video = await studioApiGenerateVideo(frameUrl, videoOptions());
