@@ -21,6 +21,7 @@ import { AiCrossNav } from "@/components/workspace/ai-cross-nav";
 import { RestoreAssetButton } from "@/components/workspace/restore-asset-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { MediaPreviewTrigger } from "@/components/ui/media-preview";
 import { cn } from "@/lib/utils";
 
 const dateFormatter = new Intl.DateTimeFormat("he-IL", {
@@ -235,23 +236,36 @@ export function ContentLibraryWorkspace({ assets }: ContentLibraryWorkspaceProps
                   )}
 
                   {isVideo ? (
-                    // eslint-disable-next-line jsx-a11y/media-has-caption
-                    <video
-                      src={asset.generatedUrl}
-                      controls
-                      muted
-                      playsInline
-                      preload="metadata"
-                      className="h-full w-full object-contain"
-                    />
-                  ) : (
-                    <Image
-                      src={asset.generatedUrl}
+                    <MediaPreviewTrigger
+                      url={asset.generatedUrl}
+                      type="video"
                       alt={asset.title ?? `נכס AI #${asset.id}`}
-                      fill
-                      sizes="(max-width: 1280px) 50vw, 33vw"
-                      className="object-contain transition-transform duration-500 group-hover:scale-[1.02]"
-                    />
+                      className="absolute inset-0 h-full w-full"
+                    >
+                      {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                      <video
+                        src={asset.generatedUrl}
+                        muted
+                        playsInline
+                        preload="metadata"
+                        className="pointer-events-none h-full w-full object-contain"
+                      />
+                    </MediaPreviewTrigger>
+                  ) : (
+                    <MediaPreviewTrigger
+                      url={asset.generatedUrl}
+                      type="image"
+                      alt={asset.title ?? `נכס AI #${asset.id}`}
+                      className="absolute inset-0 h-full w-full"
+                    >
+                      <Image
+                        src={asset.generatedUrl}
+                        alt={asset.title ?? `נכס AI #${asset.id}`}
+                        fill
+                        sizes="(max-width: 1280px) 50vw, 33vw"
+                        className="object-contain transition-transform duration-500 group-hover:scale-[1.02]"
+                      />
+                    </MediaPreviewTrigger>
                   )}
 
                   <div className="absolute left-3 top-3 flex items-center gap-2">

@@ -7,6 +7,7 @@ import { Clapperboard, ImagePlus, Trash2, Video } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { MediaPreviewTrigger } from "@/components/ui/media-preview";
 import type { ProductMediaItem } from "@/lib/product-media";
 import { sortProductMedia } from "@/lib/product-media";
 import { cn } from "@/lib/utils";
@@ -44,27 +45,34 @@ export function ProductMediaEditor({
               key={`${item.type}-${item.url}-${index}`}
               className="group relative aspect-square overflow-hidden border border-border/60 bg-muted/20"
             >
-              {item.type === "video" ? (
-                // eslint-disable-next-line jsx-a11y/media-has-caption
-                <video
-                  src={item.url}
-                  muted
-                  playsInline
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <Image
-                  src={item.url}
-                  alt={`מדיה ${index + 1}`}
-                  fill
-                  sizes="120px"
-                  className="object-cover"
-                />
-              )}
+              <MediaPreviewTrigger
+                url={item.url}
+                type={item.type}
+                alt={`מדיה ${index + 1}`}
+                className="absolute inset-0 h-full w-full"
+              >
+                {item.type === "video" ? (
+                  // eslint-disable-next-line jsx-a11y/media-has-caption
+                  <video
+                    src={item.url}
+                    muted
+                    playsInline
+                    className="pointer-events-none h-full w-full object-cover"
+                  />
+                ) : (
+                  <Image
+                    src={item.url}
+                    alt={`מדיה ${index + 1}`}
+                    fill
+                    sizes="120px"
+                    className="object-cover"
+                  />
+                )}
+              </MediaPreviewTrigger>
 
               <div
                 className={cn(
-                  "absolute inset-x-0 top-0 flex items-center justify-between gap-1 bg-background/80 px-1.5 py-1",
+                  "absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-1 bg-background/80 px-1.5 py-1",
                   "text-[10px] font-light"
                 )}
               >
@@ -80,7 +88,10 @@ export function ProductMediaEditor({
                   type="button"
                   variant="ghost"
                   size="icon"
-                  onClick={() => removeAt(index)}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    removeAt(index);
+                  }}
                   className="h-6 w-6 text-muted-foreground hover:text-destructive"
                   aria-label="הסרת מדיה"
                 >

@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import Image from "next/image";
 import { Gem, ImageOff } from "lucide-react";
 
+import { MediaPreviewTrigger } from "@/components/ui/media-preview";
 import { AddProductSheet } from "@/components/workspace/add-product-sheet";
 import { DuplicateProductButton } from "@/components/workspace/duplicate-product-button";
 import { EditProductSheet } from "@/components/workspace/edit-product-sheet";
@@ -109,7 +110,12 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                 <TableRow key={product.id}>
                   <TableCell>
                     {product.imageUrl ? (
-                      <div className="relative h-12 w-12 overflow-hidden border border-border/60">
+                      <MediaPreviewTrigger
+                        url={product.imageUrl}
+                        type="image"
+                        alt={product.title}
+                        className="relative block h-12 w-12 overflow-hidden border border-border/60"
+                      >
                         <Image
                           src={product.imageUrl}
                           alt={product.title}
@@ -117,7 +123,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                           sizes="48px"
                           className="object-cover"
                         />
-                      </div>
+                      </MediaPreviewTrigger>
                     ) : (
                       <div className="flex h-12 w-12 items-center justify-center border border-dashed border-border/60 bg-muted/30">
                         <ImageOff

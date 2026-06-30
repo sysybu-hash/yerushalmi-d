@@ -13,6 +13,7 @@ import { ListingAiToolbar } from "@/components/workspace/listing-ai-toolbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { MediaPreviewTrigger } from "@/components/ui/media-preview";
 import {
   Select,
   SelectContent,
@@ -180,8 +181,11 @@ export function CreateListingFromAssetsSheet({
 
         <div className="mt-6 flex gap-2 overflow-x-auto pb-2">
           {selectedAssets.map((asset) => (
-            <div
+            <MediaPreviewTrigger
               key={asset.id}
+              url={asset.generatedUrl}
+              type={asset.mediaType === "video" ? "video" : "image"}
+              alt={asset.title ?? `נכס ${asset.id}`}
               className="relative h-20 w-20 shrink-0 overflow-hidden border border-border/60 bg-muted/30"
             >
               {asset.mediaType === "video" ? (
@@ -190,7 +194,7 @@ export function CreateListingFromAssetsSheet({
                   src={asset.generatedUrl}
                   muted
                   playsInline
-                  className="h-full w-full object-cover"
+                  className="pointer-events-none h-full w-full object-cover"
                 />
               ) : (
                 <Image
@@ -201,7 +205,7 @@ export function CreateListingFromAssetsSheet({
                   className="object-cover"
                 />
               )}
-            </div>
+            </MediaPreviewTrigger>
           ))}
         </div>
 

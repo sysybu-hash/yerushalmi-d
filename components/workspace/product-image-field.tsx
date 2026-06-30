@@ -7,6 +7,7 @@ import { ImagePlus, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { MediaPreviewTrigger } from "@/components/ui/media-preview";
 
 type ProductImageFieldProps = {
   name: string;
@@ -30,7 +31,12 @@ export function ProductImageField({
 
       {imageUrl ? (
         <div className="flex items-center gap-4">
-          <div className="relative h-20 w-20 shrink-0 overflow-hidden border border-border/60">
+          <MediaPreviewTrigger
+            url={imageUrl}
+            type="image"
+            alt={label}
+            className="relative block h-20 w-20 shrink-0 overflow-hidden border border-border/60"
+          >
             <Image
               src={imageUrl}
               alt={label}
@@ -38,7 +44,7 @@ export function ProductImageField({
               sizes="80px"
               className="object-cover"
             />
-          </div>
+          </MediaPreviewTrigger>
           <Button
             type="button"
             variant="ghost"
