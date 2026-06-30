@@ -40,6 +40,60 @@ export const STUDIO_STYLE_PRESETS = [
     suffix:
       "elegant lifestyle product shot, subtle silk fabric, warm natural light, editorial magazine style",
   },
+  {
+    id: "rose-gold-glow",
+    label: "זהב ורוד רומנטי",
+    suffix:
+      "soft rose gold gradient background, romantic warm blush tones, gentle sparkle, feminine luxury jewelry display",
+  },
+  {
+    id: "midnight-blue",
+    label: "כחול חצות",
+    suffix:
+      "deep midnight blue velvet background, cool silver highlights, elegant evening luxury atmosphere",
+  },
+  {
+    id: "champagne-silk",
+    label: "משי שמפניה",
+    suffix:
+      "champagne silk fabric draped background, warm cream tones, soft diffused glow, bridal luxury aesthetic",
+  },
+  {
+    id: "jerusalem-stone",
+    label: "אבן ירושלמית",
+    suffix:
+      "warm Jerusalem limestone texture background, honey beige tones, Mediterranean luxury, soft golden hour light",
+  },
+  {
+    id: "concrete-minimal",
+    label: "בטון מינימליסטי",
+    suffix:
+      "modern light gray concrete surface, minimalist Scandinavian luxury, clean cool studio lighting",
+  },
+  {
+    id: "botanical-soft",
+    label: "בוטני רך",
+    suffix:
+      "soft sage green botanical bokeh background, natural organic luxury, muted greenery blur, fresh editorial style",
+  },
+  {
+    id: "mirror-glass",
+    label: "זכוכית מראה",
+    suffix:
+      "reflective black glass surface, mirror-like reflections, high-end showcase display, sharp studio highlights",
+  },
+  {
+    id: "royal-purple",
+    label: "סגול מלכותי",
+    suffix:
+      "rich royal purple velvet background, regal amethyst tones, dramatic luxury spotlight, evening gala aesthetic",
+  },
+  {
+    id: "sunset-amber",
+    label: "שקיעת ענבר",
+    suffix:
+      "warm sunset amber gradient background, golden hour glow, honey light rays, radiant luxury warmth",
+  },
 ] as const;
 
 export type StudioStylePresetId = (typeof STUDIO_STYLE_PRESETS)[number]["id"];
@@ -68,6 +122,24 @@ export const STUDIO_PRESET_LIGHTING_HINTS: Record<
     "warm gold bokeh, moody cinematic atmosphere, subtle sparkle",
   lifestyle:
     "warm natural editorial light, soft, elegant lifestyle",
+  "rose-gold-glow":
+    "soft rose gold blush glow, romantic warm highlights, gentle sparkle",
+  "midnight-blue":
+    "cool silver rim light, deep blue atmosphere, evening elegance",
+  "champagne-silk":
+    "warm champagne silk sheen, soft bridal glow, cream highlights",
+  "jerusalem-stone":
+    "warm golden hour limestone light, honey beige Mediterranean warmth",
+  "concrete-minimal":
+    "cool minimal studio light, clean gray concrete, Scandinavian bright",
+  "botanical-soft":
+    "soft natural green bokeh, organic muted botanical atmosphere",
+  "mirror-glass":
+    "sharp glass reflections, mirror shine, high contrast studio highlights",
+  "royal-purple":
+    "dramatic purple velvet spotlight, regal amethyst mood lighting",
+  "sunset-amber":
+    "warm amber sunset glow, golden hour rays, radiant honey light",
 };
 
 export const STUDIO_PROMPT_EXAMPLES = [
@@ -75,6 +147,9 @@ export const STUDIO_PROMPT_EXAMPLES = [
   "רקע כהה, תאורת סטודיו רכה — מתאים לקטלוג",
   "צילום קטלוגי נקי, בהירות מאוזנת",
   "הדגש נצנוץ יהלומים בלבד, ללא שינוי צורת התכשיט",
+  "אווירה רומנטית עם גוון זהב ורוד עדין",
+  "תאורת שקיעה חמה וענברית",
+  "סגנון מינימליסטי מודרני, רקע אפור נקי",
 ] as const;
 
 export const STUDIO_WORKSPACE_UPLOAD_MODES = [
@@ -149,4 +224,39 @@ export const STUDIO_VIDEO_PROMPT_EXAMPLES = [
   "מצלמה קבועה, רק נצנוץ אור על היהלומים",
   "תאורת סטודיו רכה, ללא תנועת מצלמה",
   "ברק עדין על הפאות, התכשיט לא זז",
+  "גלישת אור חמה כמו שקיעה, ללא תזוזת מוצר",
+  "הבזקי אור קרירים על רקע כהה",
+  "נצנוץ עדין בסגנון קטלוג יוקרתי",
 ] as const;
+
+/** הנחיות תנועה ואווירה לווידאו לפי סגנון הרקע */
+export const STUDIO_VIDEO_PRESET_HINTS: Record<StudioStylePresetId, string> = {
+  "luxury-marble":
+    "subtle light sweep across marble reflections, dramatic rim highlights on metal",
+  "black-velvet":
+    "soft spotlight shimmer on diamonds, velvet darkness stays still",
+  "white-studio":
+    "clean catalog sparkle, bright even studio light, no shadows moving",
+  "gold-bokeh":
+    "warm gold bokeh lights gently pulsing, cinematic micro sparkle on stones",
+  lifestyle:
+    "warm natural light shimmer, soft editorial glow, fabric stays still",
+  "rose-gold-glow":
+    "gentle rose gold light pulse, romantic blush shimmer on facets",
+  "midnight-blue":
+    "cool silver light sweep, deep blue atmosphere, elegant evening sparkle",
+  "champagne-silk":
+    "soft champagne silk sheen, bridal warm glow on diamonds",
+  "jerusalem-stone":
+    "warm golden hour light rays, honey limestone warmth, Mediterranean glow",
+  "concrete-minimal":
+    "cool minimal studio shimmer, clean modern highlights, no warm tint shift",
+  "botanical-soft":
+    "soft natural green ambient glow, organic fresh sparkle on stones",
+  "mirror-glass":
+    "sharp glass reflection shimmer, mirror highlight sweep, showcase sparkle",
+  "royal-purple":
+    "dramatic purple spotlight pulse, regal sparkle on gemstones",
+  "sunset-amber":
+    "warm amber sunset light rays, golden hour glow sweep across facets",
+};

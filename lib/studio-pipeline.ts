@@ -4,6 +4,7 @@ import {
   DEFAULT_VIDEO_PROMPT,
   STUDIO_CANVAS_SIZE,
   STUDIO_PRESET_LIGHTING_HINTS,
+  STUDIO_VIDEO_PRESET_HINTS,
   type StudioStylePresetId,
 } from "@/lib/studio-presets";
 export { pipelineRemoveBackground } from "@/lib/studio-pipeline-remove-bg";
@@ -95,9 +96,12 @@ export async function pipelineGenerateVideo(
     ? await translateToEnglish(options.customPrompt)
     : "";
 
-  const prompt = englishCustom
-    ? `${DEFAULT_VIDEO_PROMPT}, ${englishCustom}`
-    : DEFAULT_VIDEO_PROMPT;
+  const preset = options.stylePreset ?? "luxury-marble";
+  const presetVideoHints = STUDIO_VIDEO_PRESET_HINTS[preset];
+
+  const prompt = [DEFAULT_VIDEO_PROMPT, presetVideoHints, englishCustom]
+    .filter(Boolean)
+    .join(", ");
 
   const output = await replicate.run(MODELS.kling, {
     input: {

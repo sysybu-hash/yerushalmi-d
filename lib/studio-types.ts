@@ -10,4 +10,5 @@ export type GenerateVideoOptions = {
   negativePrompt?: string;
   duration?: 5 | 10;
   mode?: "standard" | "pro";
+  stylePreset?: StudioStylePresetId;
 };

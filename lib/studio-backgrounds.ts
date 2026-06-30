@@ -190,6 +190,184 @@ async function presetBase(preset: StudioStylePresetId, size: number) {
       );
       return img.modulate({ brightness: 1.03, saturation: 0.8 });
     }
+    case "rose-gold-glow": {
+      const img = await radialSpotlight(
+        size,
+        245,
+        195,
+        { r: 1.08, g: 0.94, b: 0.92 },
+        0.4
+      );
+      const base = await img.modulate({ brightness: 1.04, saturation: 0.72 }).png().toBuffer();
+      const blush = Buffer.from(
+        `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="rose" cx="50%" cy="38%" r="55%">
+              <stop offset="0%" stop-color="rgba(255,210,200,0.35)" />
+              <stop offset="100%" stop-color="rgba(255,210,200,0)" />
+            </radialGradient>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#rose)" />
+        </svg>`
+      );
+      return sharp(base).composite([
+        { input: blush, blend: "soft-light" },
+        { input: goldRimLight(size), blend: "screen" },
+      ]);
+    }
+    case "midnight-blue": {
+      const img = await radialSpotlight(
+        size,
+        32,
+        6,
+        { r: 0.72, g: 0.82, b: 1.05 },
+        0.42
+      );
+      const base = await img.linear(1.1, -8).png().toBuffer();
+      const coolRim = Buffer.from(
+        `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="cool" cx="50%" cy="40%" r="60%">
+              <stop offset="0%" stop-color="rgba(180,200,255,0)" />
+              <stop offset="85%" stop-color="rgba(120,160,230,0.22)" />
+              <stop offset="100%" stop-color="rgba(80,110,180,0.35)" />
+            </radialGradient>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#cool)" />
+        </svg>`
+      );
+      return sharp(base).composite([
+        { input: velvetTexture(size), blend: "overlay" },
+        { input: coolRim, blend: "screen" },
+      ]);
+    }
+    case "champagne-silk": {
+      const img = await radialSpotlight(
+        size,
+        248,
+        215,
+        { r: 1.04, g: 1.0, b: 0.9 },
+        0.4
+      );
+      const base = await img.modulate({ brightness: 1.05, saturation: 0.65 }).png().toBuffer();
+      const silk = Buffer.from(
+        `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <filter id="silk">
+              <feTurbulence type="fractalNoise" baseFrequency="0.012 0.04" numOctaves="3" seed="21" />
+              <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.18 0" />
+            </filter>
+          </defs>
+          <rect width="100%" height="100%" filter="url(#silk)" opacity="0.7" />
+        </svg>`
+      );
+      return sharp(base).composite([{ input: silk, blend: "soft-light" }]);
+    }
+    case "jerusalem-stone": {
+      const img = await radialSpotlight(
+        size,
+        200,
+        155,
+        { r: 1.06, g: 0.98, b: 0.86 },
+        0.42
+      );
+      const base = await img.modulate({ brightness: 1.02, saturation: 0.7 }).png().toBuffer();
+      const stone = Buffer.from(
+        `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <filter id="stone">
+              <feTurbulence type="fractalNoise" baseFrequency="0.009 0.022" numOctaves="4" seed="33" />
+              <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.35 0" />
+            </filter>
+          </defs>
+          <rect width="100%" height="100%" filter="url(#stone)" opacity="0.55" />
+          <path d="M ${size * 0.05} ${size * 0.4} Q ${size * 0.45} ${size * 0.35} ${size * 0.95} ${size * 0.45}" stroke="rgba(210,185,150,0.2)" stroke-width="${size * 0.008}" fill="none" />
+        </svg>`
+      );
+      return sharp(base).composite([{ input: stone, blend: "multiply" }]);
+    }
+    case "concrete-minimal": {
+      const img = await radialSpotlight(size, 235, 205, { r: 0.96, g: 0.97, b: 0.98 }, 0.42);
+      const base = await img.linear(0.98, 8).png().toBuffer();
+      return sharp(base).composite([
+        { input: subtleGrain(size, 0.1), blend: "overlay" },
+      ]);
+    }
+    case "botanical-soft": {
+      const img = await radialSpotlight(
+        size,
+        242,
+        220,
+        { r: 0.98, g: 1.02, b: 0.96 },
+        0.42
+      );
+      const base = await img.png().toBuffer();
+      const greenOrbs = Buffer.from(
+        `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <filter id="gb"><feGaussianBlur stdDeviation="${size * 0.022}" /></filter>
+          </defs>
+          <circle cx="${size * 0.18}" cy="${size * 0.3}" r="${size * 0.12}" fill="rgba(140,175,130,0.35)" filter="url(#gb)" />
+          <circle cx="${size * 0.82}" cy="${size * 0.25}" r="${size * 0.09}" fill="rgba(120,160,110,0.28)" filter="url(#gb)" />
+          <circle cx="${size * 0.7}" cy="${size * 0.75}" r="${size * 0.14}" fill="rgba(160,190,140,0.25)" filter="url(#gb)" />
+        </svg>`
+      );
+      return sharp(base).composite([{ input: greenOrbs, blend: "multiply" }]);
+    }
+    case "mirror-glass": {
+      const img = await radialSpotlight(size, 45, 8, { r: 0.92, g: 0.94, b: 0.98 }, 0.38);
+      const base = await img.linear(1.2, -12).png().toBuffer();
+      const glass = Buffer.from(
+        `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="refl" x1="0" y1="0.55" x2="0" y2="1">
+              <stop offset="0%" stop-color="rgba(255,255,255,0)" />
+              <stop offset="55%" stop-color="rgba(255,255,255,0.06)" />
+              <stop offset="100%" stop-color="rgba(200,220,255,0.18)" />
+            </linearGradient>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#refl)" />
+        </svg>`
+      );
+      return sharp(base).composite([{ input: glass, blend: "screen" }]);
+    }
+    case "royal-purple": {
+      const img = await radialSpotlight(
+        size,
+        38,
+        8,
+        { r: 0.88, g: 0.78, b: 1.08 },
+        0.42
+      );
+      const base = await img.linear(1.12, -10).png().toBuffer();
+      return sharp(base).composite([
+        { input: velvetTexture(size), blend: "overlay" },
+        { input: goldRimLight(size), blend: "soft-light" },
+      ]);
+    }
+    case "sunset-amber": {
+      const img = await radialSpotlight(
+        size,
+        220,
+        120,
+        { r: 1.12, g: 0.96, b: 0.78 },
+        0.36
+      );
+      const base = await img.modulate({ brightness: 1.08, saturation: 0.85 }).png().toBuffer();
+      const rays = Buffer.from(
+        `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="sun" cx="50%" cy="30%" r="65%">
+              <stop offset="0%" stop-color="rgba(255,200,100,0.4)" />
+              <stop offset="55%" stop-color="rgba(255,160,60,0.12)" />
+              <stop offset="100%" stop-color="rgba(255,160,60,0)" />
+            </radialGradient>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#sun)" />
+        </svg>`
+      );
+      return sharp(base).composite([{ input: rays, blend: "screen" }]);
+    }
     default:
       return radialSpotlight(size, 72, 18, undefined, 0.42);
   }

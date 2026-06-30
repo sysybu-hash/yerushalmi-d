@@ -82,13 +82,73 @@ function buildListingFromJson(json: Record<string, unknown>): GeneratedListingCo
     throw new Error("ה-AI לא הצליח ליצור שם מוצר — נסו שוב");
   }
 
-  return {
+  return polishHebrewListing({
     title,
     description,
     category: normalizeCategory(json.category),
     type: normalizeType(json.type),
-  };
+  });
 }
+
+const AWKWARD_HEBREW_PATTERNS = [
+  /טיפולוג/i,
+  /נופש מושלם/i,
+  /הנופש/i,
+  /טיפוס של/i,
+  /משקף את ה/i,
+  /בעל אופי ייחודי/i,
+  /מתנה/i,
+  /typology/i,
+  /perfect vacation/i,
+];
+
+function hasAwkwardHebrewCopy(text: string): boolean {
+  return AWKWARD_HEBREW_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+/** תיקוני ניסוח נפוצים מהמודל */
+function polishHebrewListing(
+  content: GeneratedListingContent
+): GeneratedListingContent {
+  let { title, description } = content;
+
+  title = title
+    .replace(/\s+/g, " ")
+    .replace(/יהלום יקרה\b/g, "יהלום יוקרתי")
+    .replace(/ענק ויפה/g, "מרכזי מרשים")
+    .trim();
+
+  description = description
+    .replace(/\s+/g, " ")
+    .replace(/טיפולוגיה/g, "אופי")
+    .replace(/הנופש המושלם/g, "המראה המושלם")
+    .replace(/נופש מושלם/g, "מראה מושלם")
+    .replace(/יהלום ענק ויפה/g, "יהלום מרכזי מרשים")
+    .replace(/משקף את הטיפולוגיה של המתנה/g, "מעניק נוכחות יוקרתית")
+    .replace(/העיצוב המודרני מעניק לה את האופי הייחודי/g, "העיצוב המודרני מעניק לה נוכחות ייחודית")
+    .trim();
+
+  return { ...content, title, description };
+}
+
+const HEBREW_COPY_RULES = `You are a native Israeli Hebrew copywriter for YERUSHALMI DIAMONDS — a luxury jewelry boutique in Jerusalem.
+
+Writing rules (MANDATORY):
+- Write fluent, natural Israeli Hebrew — as in a high-end jewelry catalog, NOT translated English.
+- Title: 3–7 words, elegant product name (e.g. "שרשרת יהלום סוליטר בזהב לבן").
+- Description: exactly 2 short sentences, 35–70 Hebrew words total.
+- Mention only what is visible: jewelry type, metal, stone cut/setting, style.
+- Tone: refined, warm, understated luxury. No hype clichés.
+- NEVER use these words/phrases: טיפולוגיה, נופש, מתנה, משקף את ה, בעל אופי ייחודי, ענק ויפה, יקרה (use יוקרתי instead).
+- Prefer: יוקרתי, עדין, זוהר, מבריק, מעוצב, קלאסי, מרשים, סוליטר, שיבוץ.
+
+Good example:
+{
+  "title": "שרשרת יהלום סוליטר בזהב לבן",
+  "description": "שרשרת עדינה מזהב לבן עם יהלום מרכזי בחיתוך עגול ושיבוץ ארבע עיניים. עיצוב מינימליסטי ויוקרתי שמתאים לכל אירוע — מהיומיום ועד ערב מיוחד.",
+  "category": "necklaces",
+  "type": "natural"
+}`;
 
 async function analyzeJewelryImage(imageUrl: string): Promise<string | undefined> {
   try {
@@ -124,35 +184,59 @@ async function generateListingText(input: {
 
   const taskPrompt =
     input.mode === "refine"
-      ? `Improve and polish the existing Hebrew product listing for YERUSHALMI DIAMONDS luxury jewelry store.
-Keep the same product meaning but make the title more elegant and the description more compelling for e-commerce.
-If category/type can be inferred better from the content, update them.`
-      : `Create a new Hebrew product listing for YERUSHALMI DIAMONDS luxury jewelry e-commerce store.
-Write elegant, premium marketing copy in Hebrew suitable for a product page.`;
+      ? `Rewrite and improve the existing Hebrew listing. Fix awkward or translated phrasing. Keep the same product facts. Make it sound like premium Israeli jewelry copy.`
+      : `Create a new Hebrew product listing from the visual analysis.`;
 
-  const output = await replicate.run(MODELS.llama, {
-    input: {
-      prompt: `${taskPrompt}
+  const prompt = `${HEBREW_COPY_RULES}
+
+Task: ${taskPrompt}
 
 Visual analysis (English): ${visual}
 Asset title hints: ${titleHints}
 Current title (Hebrew): ${currentTitle || "ריק"}
 Current description (Hebrew): ${currentDescription || "ריק"}
 
-Output ONLY valid JSON, no markdown, no extra text:
+Output ONLY valid JSON, no markdown, no explanation:
 {
-  "title": "short elegant Hebrew product name, max 60 characters",
-  "description": "2-3 sentences luxury Hebrew marketing description for the product page",
+  "title": "...",
+  "description": "...",
   "category": "one of: rings, engagement-rings, necklaces, earrings, bracelets, diamonds, custom",
-  "type": "natural or lab — default natural unless clearly lab-grown"
-}`,
-      max_tokens: 700,
-      temperature: input.mode === "refine" ? 0.35 : 0.55,
+  "type": "natural or lab"
+}`;
+
+  const output = await replicate.run(MODELS.llama, {
+    input: {
+      prompt,
+      max_tokens: 600,
+      temperature: input.mode === "refine" ? 0.2 : 0.3,
     },
   });
 
   const text = extractText(output);
-  return buildListingFromJson(parseJsonObject(text));
+  const result = buildListingFromJson(parseJsonObject(text));
+
+  if (
+    hasAwkwardHebrewCopy(`${result.title} ${result.description}`)
+  ) {
+    const retryOutput = await replicate.run(MODELS.llama, {
+      input: {
+        prompt: `${HEBREW_COPY_RULES}
+
+The previous Hebrew draft was awkward. Rewrite it completely in natural Israeli Hebrew.
+
+Previous title: ${result.title}
+Previous description: ${result.description}
+Visual analysis: ${visual}
+
+Output ONLY valid JSON with improved natural Hebrew.`,
+        max_tokens: 600,
+        temperature: 0.15,
+      },
+    });
+    return buildListingFromJson(parseJsonObject(extractText(retryOutput)));
+  }
+
+  return result;
 }
 
 export async function generateListingContent(
