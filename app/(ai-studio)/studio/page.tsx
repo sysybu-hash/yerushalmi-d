@@ -6,26 +6,21 @@ import Image from "next/image";
 import Link from "next/link";
 import { CldUploadWidget } from "next-cloudinary";
 import {
-  ArrowLeft,
   CheckCircle2,
   Clapperboard,
-  CloudUpload,
   Copy,
   Download,
-  Globe,
+  FolderHeart,
   ImagePlus,
   Loader2,
-  PackagePlus,
   RotateCcw,
-  Save,
   Sparkles,
   Wand2,
 } from "lucide-react";
 
 import {
-  publishImageToSite,
-  publishProductToCatalog,
   saveAssetToCloudinary,
+  saveToMediaLibrary,
 } from "./actions";
 import {
   humanizeStudioError,
@@ -54,12 +49,7 @@ import {
 } from "@/components/studio/studio-workflow-stepper";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  PRODUCT_CATEGORIES,
-  PRODUCT_TYPES,
-} from "@/components/workspace/product-constants";
 import {
   Select,
   SelectContent,
@@ -72,14 +62,10 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   STUDIO_PIPELINE_STEPS,
   STUDIO_PROMPT_EXAMPLES,
-  STUDIO_PUBLISH_TARGETS,
   STUDIO_STYLE_PRESETS,
   STUDIO_VIDEO_PROMPT_EXAMPLES,
-  STUDIO_WORKSPACE_UPLOAD_MODES,
   type StudioStylePresetId,
-  type StudioWorkspaceUploadModeId,
 } from "@/lib/studio-presets";
-import type { SettingKey } from "@/lib/site-settings";
 
 const LOADING_MESSAGES: Record<"image" | "video", string> = {
   image: "שומר על התכשיט המקורי — מחליף רק את הרקע והתאורה",
@@ -95,18 +81,6 @@ function StudioPageContent() {
   const [videoPrompt, setVideoPrompt] = React.useState("");
   const [videoDuration, setVideoDuration] = React.useState<5 | 10>(5);
   const [videoMode, setVideoMode] = React.useState<"standard" | "pro">("pro");
-  const [workspaceUploadMode, setWorkspaceUploadMode] =
-    React.useState<StudioWorkspaceUploadModeId>("site-banner");
-  const [publishTarget, setPublishTarget] =
-    React.useState<SettingKey>("heroImage");
-  const [productTitle, setProductTitle] = React.useState("");
-  const [productDescription, setProductDescription] = React.useState("");
-  const [productPrice, setProductPrice] = React.useState("");
-  const [productOriginalPrice, setProductOriginalPrice] = React.useState("");
-  const [productType, setProductType] =
-    React.useState<(typeof PRODUCT_TYPES)[number]["value"]>("natural");
-  const [productCategory, setProductCategory] =
-    React.useState<(typeof PRODUCT_CATEGORIES)[number]["value"]>("rings");
   const [busy, setBusy] = React.useState<string | null>(null);
   const [toast, setToast] = React.useState<string | null>(null);
   const [mode, setMode] = React.useState<"create" | "edit">("create");
@@ -124,16 +98,6 @@ function StudioPageContent() {
     setVideoPrompt(next.videoPrompt);
     setVideoDuration(next.videoDuration);
     setVideoMode(next.videoMode);
-    setWorkspaceUploadMode(next.workspaceUploadMode);
-    setPublishTarget(next.publishTarget);
-    setProductTitle(next.productTitle);
-    setProductDescription(next.productDescription);
-    setProductPrice(next.productPrice);
-    setProductOriginalPrice(next.productOriginalPrice);
-    setProductType(next.productType);
-    setProductCategory(
-      next.productCategory as (typeof PRODUCT_CATEGORIES)[number]["value"]
-    );
     setEdit(next.edit);
   }, []);
 
@@ -170,14 +134,14 @@ function StudioPageContent() {
       videoPrompt,
       videoDuration,
       videoMode,
-      workspaceUploadMode,
-      publishTarget,
-      productTitle,
-      productDescription,
-      productPrice,
-      productOriginalPrice,
-      productType,
-      productCategory,
+      workspaceUploadMode: "site-banner",
+      publishTarget: "heroImage",
+      productTitle: "",
+      productDescription: "",
+      productPrice: "",
+      productOriginalPrice: "",
+      productType: "natural",
+      productCategory: "rings",
       edit,
     },
     applyForm,
@@ -246,6 +210,21 @@ function StudioPageContent() {
     return { ok: true, url: composite.data.url };
   }
 
+  async function persistToContentLibrary(
+    kind: "image" | "video",
+    sourceUrl: string,
+    resultUrl: string
+  ): Promise<string> {
+    setBusy("library");
+    try {
+      const { url } = await saveAssetToCloudinary(resultUrl, kind);
+      await saveToMediaLibrary(kind, sourceUrl, url);
+      return url;
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function generate(kind: "image" | "video") {
     if (!source) return;
 
@@ -259,8 +238,20 @@ function StudioPageContent() {
           failGeneration(source, pipeline.error);
           return;
         }
-        setState({ status: "done", source, kind: "image", result: pipeline.url });
+        const savedUrl = await persistToContentLibrary(
+          "image",
+          source,
+          pipeline.url
+        );
+        setState({
+          status: "done",
+          source,
+          kind: "image",
+          result: pipeline.url,
+          savedUrl,
+        });
         setWorkflowStep(4);
+        showToast("נשמר בהצלחה בספריית התוכן");
         return;
       }
 
@@ -285,14 +276,21 @@ function StudioPageContent() {
         return;
       }
 
+      const savedUrl = await persistToContentLibrary(
+        "video",
+        source,
+        video.data.url
+      );
       setState({
         status: "done",
         source,
         kind: "video",
         result: video.data.url,
         videoProvider: video.data.provider,
+        savedUrl,
       });
       setWorkflowStep(4);
+      showToast("נשמר בהצלחה בספריית התוכן");
     } catch (error) {
       failGeneration(
         source,
@@ -300,95 +298,6 @@ function StudioPageContent() {
       );
     }
   }
-
-  async function handleSaveToCloudinary() {
-    if (state.status !== "done") return;
-
-    setBusy("save");
-    try {
-      const { url } = await saveAssetToCloudinary(
-        state.result,
-        state.kind
-      );
-      setState({ ...state, savedUrl: url });
-      showToast("הנכס נשמר ב-Cloudinary");
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : "השמירה נכשלה");
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function handlePublishToSite() {
-    if (state.status !== "done" || state.kind !== "image") return;
-
-    const imageUrl = state.savedUrl;
-    if (!imageUrl) {
-      showToast("קודם שמרו את התמונה ב-Cloudinary");
-      return;
-    }
-
-    setBusy("publish");
-    try {
-      await publishImageToSite(publishTarget, imageUrl);
-      await markPublished({ kind: "site", settingKey: publishTarget });
-      const label =
-        STUDIO_PUBLISH_TARGETS.find((t) => t.key === publishTarget)
-          ?.label ?? "האתר";
-      showToast(`פורסם בהצלחה: ${label}`);
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : "הפרסום נכשל");
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function handlePublishToCatalog() {
-    if (state.status !== "done" || state.kind !== "image") return;
-
-    const imageUrl = state.savedUrl;
-    if (!imageUrl) {
-      showToast("קודם שמרו את התמונה ב-Cloudinary");
-      return;
-    }
-
-    const price = Number(productPrice);
-    if (!productTitle.trim()) {
-      showToast("הזינו שם מוצר בהגדרות הפרסום");
-      return;
-    }
-    if (!productPrice || Number.isNaN(price) || price < 0) {
-      showToast("הזינו מחיר תקין בהגדרות הפרסום");
-      return;
-    }
-
-    const originalPrice = productOriginalPrice
-      ? Number(productOriginalPrice)
-      : null;
-
-    setBusy("catalog");
-    try {
-      const { productId } = await publishProductToCatalog({
-        title: productTitle,
-        description: productDescription,
-        price,
-        originalPrice,
-        type: productType,
-        category: productCategory,
-        imageUrl,
-      });
-      await markPublished({ kind: "catalog", productId });
-      showToast(`המוצר נוסף למלאי (#${productId})`);
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : "ההוספה למלאי נכשלה");
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  const selectedPublishTarget = STUDIO_PUBLISH_TARGETS.find(
-    (target) => target.key === publishTarget
-  );
 
   async function handleCopyUrl() {
     if (!resultUrl) return;
@@ -621,12 +530,10 @@ function StudioPageContent() {
                 </ul>
               )}
               {state.status === "done" && (
-                <p className="text-center text-[11px] font-light text-muted-foreground">
-                  {state.savedUrl
-                    ? "✓ נשמר ב-Cloudinary — מוכן לפרסום"
-                    : "שמרו ב-Cloudinary בשלב 4 לפני פרסום"}
+                <p className="text-center text-[11px] font-light text-emerald-800">
+                  ✓ נשמר בספריית התוכן — פרסמו למלאי מאזור הניהול
                   {state.kind === "video" && state.videoProvider === "kling" && (
-                    <span className="mt-1 block text-emerald-800">
+                    <span className="mt-1 block text-muted-foreground">
                       וידאו Kling Pro — מצלמה קבועה, תנועת אור עדינה
                     </span>
                   )}
@@ -807,207 +714,10 @@ function StudioPageContent() {
 
           <Separator className="bg-border/40" />
 
-          <div className="space-y-4 rounded-none border border-gold/30 bg-gold/5 p-4">
-            <div className="space-y-1">
-              <Label className="font-light text-gold-dark">
-                יעד פרסום (לאחר יצירה)
-              </Label>
-              <p className="text-[11px] font-light leading-relaxed text-muted-foreground">
-                הגדירו לאן התמונה תופיע אחרי שמירה ב-Cloudinary — באנר או מוצר
-                חדש.
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-xs font-light text-muted-foreground">
-                סוג העלאה
-              </Label>
-              <Select
-                value={workspaceUploadMode}
-                onValueChange={(v) =>
-                  setWorkspaceUploadMode(v as StudioWorkspaceUploadModeId)
-                }
-                disabled={!source || isGenerating}
-                dir="rtl"
-              >
-                <SelectTrigger className="rounded-none bg-background">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {STUDIO_WORKSPACE_UPLOAD_MODES.map((mode) => (
-                    <SelectItem key={mode.id} value={mode.id}>
-                      {mode.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-[11px] font-light text-muted-foreground">
-                {
-                  STUDIO_WORKSPACE_UPLOAD_MODES.find(
-                    (mode) => mode.id === workspaceUploadMode
-                  )?.description
-                }
-              </p>
-            </div>
-
-            {workspaceUploadMode === "site-banner" && (
-              <div className="space-y-3">
-                <div className="space-y-2">
-                  <Label className="text-xs font-light text-muted-foreground">
-                    יעד באתר
-                  </Label>
-                  <Select
-                    value={publishTarget}
-                    onValueChange={(v) =>
-                      setPublishTarget(v as SettingKey)
-                    }
-                    disabled={!source || isGenerating}
-                    dir="rtl"
-                  >
-                    <SelectTrigger className="rounded-none bg-background">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {STUDIO_PUBLISH_TARGETS.map((target) => (
-                        <SelectItem key={target.key} value={target.key}>
-                          {target.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                {selectedPublishTarget && (
-                  <div className="space-y-2 border border-border/40 bg-background/80 p-3 text-[11px] font-light leading-relaxed text-muted-foreground">
-                    <p>{selectedPublishTarget.description}</p>
-                    <Link
-                      href={selectedPublishTarget.previewPath}
-                      className="inline-flex items-center text-gold-dark hover:underline"
-                      target="_blank"
-                    >
-                      <Globe className="ml-1 h-3 w-3" />
-                      תצוגה מקדימה באתר
-                    </Link>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {workspaceUploadMode === "product-catalog" && (
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="product-title" className="font-light">
-                    שם המוצר *
-                  </Label>
-                  <Input
-                    id="product-title"
-                    value={productTitle}
-                    onChange={(e) => setProductTitle(e.target.value)}
-                    disabled={!source || isGenerating}
-                    placeholder="לדוגמה: טבעת סוליטר 1.5 קראט"
-                    className="rounded-none bg-background"
-                  />
-                </div>
-
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="product-description" className="font-light">
-                    תיאור (אופציונלי)
-                  </Label>
-                  <Textarea
-                    id="product-description"
-                    value={productDescription}
-                    onChange={(e) => setProductDescription(e.target.value)}
-                    rows={2}
-                    disabled={!source || isGenerating}
-                    placeholder="תיאור שיוצג בדף המוצר..."
-                    className="rounded-none resize-none bg-background"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="product-price" className="font-light">
-                    מחיר (₪) *
-                  </Label>
-                  <Input
-                    id="product-price"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={productPrice}
-                    onChange={(e) => setProductPrice(e.target.value)}
-                    disabled={!source || isGenerating}
-                    placeholder="0.00"
-                    className="rounded-none bg-background"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="product-original-price" className="font-light">
-                    מחיר לפני הנחה
-                  </Label>
-                  <Input
-                    id="product-original-price"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={productOriginalPrice}
-                    onChange={(e) => setProductOriginalPrice(e.target.value)}
-                    disabled={!source || isGenerating}
-                    placeholder="אופציונלי"
-                    className="rounded-none bg-background"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="font-light">סוג יהלום *</Label>
-                  <Select
-                    value={productType}
-                    onValueChange={(v) =>
-                      setProductType(
-                        v as (typeof PRODUCT_TYPES)[number]["value"]
-                      )
-                    }
-                    disabled={!source || isGenerating}
-                    dir="rtl"
-                  >
-                    <SelectTrigger className="rounded-none bg-background">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PRODUCT_TYPES.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="font-light">קטגוריה *</Label>
-                  <Select
-                    value={productCategory}
-                    onValueChange={(v) =>
-                      setProductCategory(
-                        v as (typeof PRODUCT_CATEGORIES)[number]["value"]
-                      )
-                    }
-                    disabled={!source || isGenerating}
-                    dir="rtl"
-                  >
-                    <SelectTrigger className="rounded-none bg-background">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PRODUCT_CATEGORIES.map((category) => (
-                        <SelectItem key={category.value} value={category.value}>
-                          {category.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            )}
+          <div className="rounded-none border border-gold/30 bg-gold/5 p-4 text-[11px] font-light leading-relaxed text-muted-foreground">
+            לאחר היצירה, הנכס יישמר אוטומטית ב
+            <span className="text-gold-dark"> ספריית התוכן </span>
+            — פרסום למלאי או לאתר יתבצע מאזור הניהול.
           </div>
 
           <Button
@@ -1173,15 +883,19 @@ function StudioPageContent() {
       </Card>
       )}
 
-      {/* שלב 4 — שמירה ופרסום */}
+      {/* שלב 4 — ספריית תוכן */}
       {workflowStep >= 4 && state.status === "done" && source && (
             <Card className="rounded-none border-border/60 shadow-none">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-light tracking-[0.1em] text-muted-foreground">
-                  שלב 4 · שמירה, פרסום והעלאה
+                  שלב 4 · ספריית התוכן
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-5">
+                <p className="rounded-none border border-emerald-200/80 bg-emerald-50/60 px-3 py-2 text-center text-xs font-light text-emerald-900">
+                  נשמר בהצלחה בספריית התוכן — פרסמו למלאי מאזור הניהול
+                </p>
+
                 <div className="flex flex-wrap gap-3">
                   <Button
                     variant="outline"
@@ -1191,19 +905,6 @@ function StudioPageContent() {
                   >
                     <RotateCcw className="ml-2 h-4 w-4" />
                     יצירה מחדש
-                  </Button>
-
-                  <Button
-                    disabled={busy !== null}
-                    onClick={handleSaveToCloudinary}
-                    className="rounded-none text-xs font-light tracking-[0.1em]"
-                  >
-                    {busy === "save" ? (
-                      <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Save className="ml-2 h-4 w-4" strokeWidth={1.5} />
-                    )}
-                    שמירה ב-Cloudinary
                   </Button>
 
                   <Button
@@ -1238,97 +939,13 @@ function StudioPageContent() {
                   )}
                 </div>
 
-                {state.kind === "image" && (
-                  <div className="space-y-4 border border-border/40 p-4">
-                    <div className="space-y-1 text-[11px] font-light text-muted-foreground">
-                      <p className="text-foreground/80">יעד שהוגדר בשלב 2:</p>
-                      {workspaceUploadMode === "site-banner" ? (
-                        <p>{selectedPublishTarget?.label ?? "באנר באתר"}</p>
-                      ) : (
-                        <p>
-                          מוצר במלאי
-                          {productTitle.trim()
-                            ? `: ${productTitle.trim()}`
-                            : " — הזינו שם בשלב 2"}
-                        </p>
-                      )}
-                    </div>
-
-                    {workspaceUploadMode === "site-banner" ? (
-                      <div className="flex flex-wrap gap-3">
-                        <Button
-                          disabled={busy !== null || !state.savedUrl}
-                          onClick={handlePublishToSite}
-                          className="rounded-none text-xs font-light tracking-[0.15em]"
-                        >
-                          {busy === "publish" ? (
-                            <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-                          ) : (
-                            <Globe className="ml-2 h-4 w-4" strokeWidth={1.5} />
-                          )}
-                          פרסום באתר
-                        </Button>
-                        {selectedPublishTarget && (
-                          <Button
-                            asChild
-                            variant="outline"
-                            className="rounded-none text-xs font-light tracking-[0.1em]"
-                          >
-                            <Link
-                              href={selectedPublishTarget.previewPath}
-                              target="_blank"
-                            >
-                              <ArrowLeft className="ml-2 h-4 w-4" />
-                              צפייה ביעד
-                            </Link>
-                          </Button>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="flex flex-wrap gap-3">
-                        <Button
-                          disabled={busy !== null || !state.savedUrl}
-                          onClick={handlePublishToCatalog}
-                          className="rounded-none text-xs font-light tracking-[0.15em]"
-                        >
-                          {busy === "catalog" ? (
-                            <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-                          ) : (
-                            <PackagePlus className="ml-2 h-4 w-4" strokeWidth={1.5} />
-                          )}
-                          הוספה למלאי
-                        </Button>
-                        <Button
-                          asChild
-                          variant="outline"
-                          className="rounded-none text-xs font-light tracking-[0.1em]"
-                        >
-                          <Link href="/workspace/products">
-                            <ArrowLeft className="ml-2 h-4 w-4" />
-                            ניהול מלאי
-                          </Link>
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {state.kind === "video" && (
-                  <p className="text-center text-xs font-light text-muted-foreground">
-                    <CloudUpload className="ml-1 inline h-3.5 w-3.5" />
-                    שמרו את הווידאו ב-Cloudinary ואז הורידו לשימוש ברשתות
-                    החברתיות
-                  </p>
-                )}
-
                 <Button
                   asChild
-                  variant="ghost"
-                  className="w-full rounded-none text-xs font-light tracking-[0.1em] text-muted-foreground"
+                  className="w-full rounded-none text-xs font-light tracking-[0.15em]"
                 >
-                  <Link href="/">
-                    <ArrowLeft className="ml-2 h-4 w-4" />
-                    צפייה באתר לאחר פרסום
+                  <Link href="/workspace/content-library">
+                    <FolderHeart className="ml-2 h-4 w-4" strokeWidth={1.5} />
+                    עבור לספריית התוכן
                   </Link>
                 </Button>
               </CardContent>

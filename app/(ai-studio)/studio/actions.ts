@@ -4,7 +4,7 @@ import { sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
-import { products, siteSettings } from "@/db/schema";
+import { aiMediaAssets, products, siteSettings } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth";
 import { runStudioAction, type StudioActionResult } from "@/lib/studio-action";
 import { IMAGE_SETTING_KEYS } from "@/lib/studio-presets";
@@ -89,6 +89,39 @@ export async function generateJewelryVideo(
     await requireAdmin();
     return pipelineGenerateVideo(imageUrl, options);
   }, "יצירת הווידאו נכשלה — ודאו ש-REPLICATE_API_TOKEN מוגדר ב-Vercel.");
+}
+
+export async function saveToMediaLibrary(
+  mediaType: "image" | "video",
+  originalUrl: string,
+  generatedUrl: string
+) {
+  await requireAdmin();
+
+  if (mediaType !== "image" && mediaType !== "video") {
+    throw new Error("סוג מדיה לא תקין");
+  }
+
+  if (!originalUrl.trim() || !generatedUrl.trim()) {
+    throw new Error("חסרות כתובות מדיה");
+  }
+
+  assertRemoteAssetUrl(originalUrl);
+  assertRemoteAssetUrl(generatedUrl);
+
+  const [created] = await db
+    .insert(aiMediaAssets)
+    .values({
+      mediaType,
+      originalUrl,
+      generatedUrl,
+      status: "draft",
+    })
+    .returning({ id: aiMediaAssets.id });
+
+  revalidatePath("/workspace/content-library");
+
+  return { id: created.id };
 }
 
 export async function saveAssetToCloudinary(

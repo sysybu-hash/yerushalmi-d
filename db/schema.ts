@@ -179,6 +179,16 @@ export const studioProjectStatusEnum = pgEnum("studio_project_status", [
 ]);
 
 /** תיק עבודות בסטודיו AI — שמירת מצב מלא עד לפרסום */
+/** נכסי מדיה שנוצרו בסטודיו AI — טיוטה עד לפרסום מהספרייה */
+export const aiMediaAssets = pgTable("ai_media_assets", {
+  id: serial("id").primaryKey(),
+  mediaType: text("media_type").notNull(),
+  originalUrl: text("original_url").notNull(),
+  generatedUrl: text("generated_url").notNull(),
+  status: text("status").notNull().default("draft"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const studioProjects = pgTable("studio_projects", {
   id: serial("id").primaryKey(),
   title: text("title").notNull().default("עבודה חדשה"),
@@ -220,5 +230,7 @@ export type Invoice = typeof invoices.$inferSelect;
 export type NewInvoice = typeof invoices.$inferInsert;
 export type InvoiceItem = typeof invoiceItems.$inferSelect;
 export type NewInvoiceItem = typeof invoiceItems.$inferInsert;
+export type AiMediaAsset = typeof aiMediaAssets.$inferSelect;
+export type NewAiMediaAsset = typeof aiMediaAssets.$inferInsert;
 export type StudioProject = typeof studioProjects.$inferSelect;
 export type NewStudioProject = typeof studioProjects.$inferInsert;
