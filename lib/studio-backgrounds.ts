@@ -30,7 +30,6 @@ async function radialSpotlight(
   const sharp = await loadSharp();
   const cx = size / 2;
   const cy = size * centerYRatio;
-  const maxDist = Math.sqrt(cx * cx + cy * cy);
 
   const pixels = Buffer.alloc(size * size * 3);
   for (let y = 0; y < size; y++) {
