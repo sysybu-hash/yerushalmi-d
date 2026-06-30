@@ -17,7 +17,6 @@ import {
   Save,
   Sparkles,
   UploadCloud,
-  Wand2,
 } from "lucide-react";
 
 import {
