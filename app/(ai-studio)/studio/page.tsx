@@ -44,6 +44,10 @@ import {
   type StudioEditSnapshot,
 } from "@/lib/studio-project-snapshot";
 import {
+  DEFAULT_IMAGE_ADJUSTMENTS,
+  DEFAULT_VIDEO_ADJUSTMENTS,
+} from "@/lib/studio-transform";
+import {
   StudioWorkflowStepper,
   type StudioWorkflowStep,
 } from "@/components/studio/studio-workflow-stepper";
@@ -150,6 +154,12 @@ function StudioPageContent() {
   });
 
   const source = "source" in state ? state.source : null;
+  const editImageSource =
+    mode === "edit" && edit.asset?.type === "image" ? edit.asset.url : null;
+  const activeSource = mode === "create" ? source : editImageSource;
+  const useAiStudioFlow =
+    mode === "create" || (mode === "edit" && edit.asset?.type === "image");
+
   const resultUrl =
     state.status === "done"
       ? state.savedUrl ?? state.result
@@ -158,18 +168,29 @@ function StudioPageContent() {
   const canSelectWorkflowStep = React.useCallback(
     (step: StudioWorkflowStep) => {
       if (step === 1) return true;
-      if (!source) return false;
+      if (!activeSource) return false;
       if (step === 4) return state.status === "done";
       return true;
     },
-    [source, state.status]
+    [activeSource, state.status]
   );
 
   React.useEffect(() => {
-    if (!source) {
+    if (mode === "edit" && edit.asset?.type === "image") {
+      if (
+        state.status === "empty" ||
+        ("source" in state && state.source !== edit.asset.url)
+      ) {
+        setState({ status: "uploaded", source: edit.asset.url });
+      }
+    }
+  }, [mode, edit.asset?.type, edit.asset?.url, state.status, state]);
+
+  React.useEffect(() => {
+    if (!activeSource) {
       setWorkflowStep(1);
     }
-  }, [source]);
+  }, [activeSource]);
 
   function failGeneration(sourceUrl: string, message: string) {
     setState({
@@ -229,27 +250,74 @@ function StudioPageContent() {
     }
   }
 
+  function setUploadedSource(url: string) {
+    setState({ status: "uploaded", source: url });
+    if (mode === "edit") {
+      setEdit((prev) => ({
+        ...prev,
+        asset: { url, type: "image", duration: null },
+        imageAdj: DEFAULT_IMAGE_ADJUSTMENTS,
+        videoAdj: DEFAULT_VIDEO_ADJUSTMENTS,
+        savedUrl: null,
+      }));
+    }
+    setWorkflowStep(2);
+  }
+
+  function handleEditMediaUpload(info: unknown) {
+    if (typeof info !== "object" || !info || !("secure_url" in info)) {
+      return;
+    }
+    const data = info as {
+      secure_url: string;
+      resource_type?: string;
+      duration?: number;
+    };
+    const type = data.resource_type === "video" ? "video" : "image";
+
+    if (type === "image") {
+      setUploadedSource(data.secure_url);
+      showToast("תמונה נטענה — בחרו סגנון רקע");
+      return;
+    }
+
+    setState({ status: "empty" });
+    setEdit((prev) => ({
+      ...prev,
+      asset: {
+        url: data.secure_url,
+        type: "video",
+        duration: typeof data.duration === "number" ? data.duration : null,
+      },
+      imageAdj: DEFAULT_IMAGE_ADJUSTMENTS,
+      videoAdj: DEFAULT_VIDEO_ADJUSTMENTS,
+      savedUrl: null,
+    }));
+    setWorkflowStep(2);
+    showToast("וידאו נטען לעריכה");
+  }
+
   async function generate(kind: "image" | "video") {
-    if (!source) return;
+    if (!activeSource) return;
 
     setWorkflowStep(3);
 
     try {
       if (kind === "image") {
-        setState({ status: "generating", source, kind: "image" });
-        const pipeline = await generateImagePipeline(source);
+        setState({ status: "generating", source: activeSource, kind: "image" });
+        const pipeline = await generateImagePipeline(activeSource);
         if (!pipeline.ok) {
-          failGeneration(source, pipeline.error);
+          failGeneration(activeSource, pipeline.error);
           return;
         }
         const savedUrl = await persistToContentLibrary(
           "image",
-          source,
+          activeSource,
           pipeline.url
         );
         setState({
           status: "done",
-          source,
+          source: activeSource,
           kind: "image",
           result: pipeline.url,
           savedUrl,
@@ -260,29 +328,29 @@ function StudioPageContent() {
       }
 
       showToast("יוצרים תמונת בסיס נקייה לווידאו...");
-      setState({ status: "generating", source, kind: "image", step: "cutout" });
-      const pipeline = await generateImagePipeline(source);
+      setState({ status: "generating", source: activeSource, kind: "image", step: "cutout" });
+      const pipeline = await generateImagePipeline(activeSource);
       if (!pipeline.ok) {
-        failGeneration(source, pipeline.error);
+        failGeneration(activeSource, pipeline.error);
         return;
       }
       const frameUrl = pipeline.url;
 
-      setState({ status: "generating", source, kind: "video" });
+      setState({ status: "generating", source: activeSource, kind: "video" });
       const video = await studioApiGenerateVideo(frameUrl, videoOptions());
       if (!video.ok) {
-        failGeneration(source, video.error);
+        failGeneration(activeSource, video.error);
         return;
       }
 
       const savedUrl = await persistToContentLibrary(
         "video",
-        source,
+        activeSource,
         video.data.url
       );
       setState({
         status: "done",
-        source,
+        source: activeSource,
         kind: "video",
         result: video.data.url,
         videoProvider: video.data.provider,
@@ -292,7 +360,7 @@ function StudioPageContent() {
       showToast("נשמר בהצלחה בספריית התוכן");
     } catch (error) {
       failGeneration(
-        source,
+        activeSource,
         error instanceof Error ? error.message : "היצירה נכשלה"
       );
     }
@@ -403,16 +471,19 @@ function StudioPageContent() {
         </button>
       </div>
 
-      {mode === "edit" && (
+      {mode === "edit" && !useAiStudioFlow && (
         <StudioMediaEditor
           showToast={showToast}
           edit={edit}
           onEditChange={setEdit}
           onPublished={markPublished}
+          onUpload={handleEditMediaUpload}
+          workflowStep={workflowStep}
+          onWorkflowStepChange={setWorkflowStep}
         />
       )}
 
-      {mode === "create" && (
+      {useAiStudioFlow && (
         <>
       <StudioTipsPanel />
 
@@ -430,7 +501,7 @@ function StudioPageContent() {
               <CardTitle className="text-sm font-light tracking-[0.1em] text-muted-foreground">
                 תצוגה מקדימה
               </CardTitle>
-              {(source ||
+              {(activeSource ||
                 (state.status === "done" && state.result)) && (
                 <p className="text-[10px] font-light text-muted-foreground">
                   לחצו על תמונה או וידאו להגדלה
@@ -444,15 +515,15 @@ function StudioPageContent() {
                     מקור
                   </p>
                   <div className="relative aspect-square overflow-hidden border border-border/60 bg-stone-100">
-                    {source ? (
+                    {activeSource ? (
                       <MediaPreviewTrigger
-                        url={source}
+                        url={activeSource}
                         type="image"
                         alt="הצילום המקורי"
                         className="absolute inset-0 block h-full w-full"
                       >
                         <Image
-                          src={source}
+                          src={activeSource}
                           alt="הצילום המקורי"
                           fill
                           sizes="(max-width: 1024px) 50vw, 30vw"
@@ -471,7 +542,7 @@ function StudioPageContent() {
                     תוצאה
                   </p>
                   <div className="relative flex aspect-square items-center justify-center overflow-hidden border border-border/60 bg-gradient-to-br from-stone-100 to-stone-200">
-                    {source && state.status === "generating" && (
+                    {activeSource && state.status === "generating" && (
                       <div className="flex flex-col items-center gap-3 px-4 text-center">
                         <Loader2 className="h-7 w-7 animate-spin text-foreground/60" />
                         <p className="text-xs font-light text-muted-foreground">
@@ -479,7 +550,7 @@ function StudioPageContent() {
                         </p>
                       </div>
                     )}
-                    {source && state.status === "done" && state.kind === "image" && (
+                    {activeSource && state.status === "done" && state.kind === "image" && (
                       <MediaPreviewTrigger
                         url={state.result}
                         type="image"
@@ -495,7 +566,7 @@ function StudioPageContent() {
                         />
                       </MediaPreviewTrigger>
                     )}
-                    {source && state.status === "done" && state.kind === "video" && (
+                    {activeSource && state.status === "done" && state.kind === "video" && (
                       <MediaPreviewTrigger
                         url={state.result}
                         type="video"
@@ -512,14 +583,14 @@ function StudioPageContent() {
                         />
                       </MediaPreviewTrigger>
                     )}
-                    {source && state.status === "error" && (
+                    {activeSource && state.status === "error" && (
                       <p className="px-4 text-center text-xs font-light text-destructive">
                         {state.message}
                       </p>
                     )}
-                    {(!source || state.status === "uploaded" || state.status === "empty") && (
+                    {(!activeSource || state.status === "uploaded" || state.status === "empty") && (
                       <p className="px-4 text-center text-xs font-light text-muted-foreground">
-                        {source
+                        {activeSource
                           ? "לחצו «עצב בסגנון יוקרתי» ליצירה"
                           : "כאן תופיע התוצאה"}
                       </p>
@@ -570,18 +641,18 @@ function StudioPageContent() {
         {/* עמודת הגדרות — לפי שלב */}
         <div className="space-y-4">
       {/* שלב 1 — העלאה */}
-      {(workflowStep === 1 || !source) && (
+      {(workflowStep === 1 || !activeSource) && (
       <Card className="rounded-none border-border/60 shadow-none">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-light tracking-[0.1em] text-muted-foreground">
-            שלב 1 · העלאת צילום
+            שלב 1 · {mode === "edit" ? "העלאת חומר קיים" : "העלאת צילום"}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {source ? (
+          {activeSource ? (
             <div className="space-y-3">
               <p className="text-sm font-light text-emerald-800">
-                ✓ צילום הועלה — המשיכו לשלב סגנון
+                ✓ {mode === "edit" ? "חומר" : "צילום"} הועלה — המשיכו לשלב סגנון
               </p>
               <div className="flex flex-wrap gap-2">
                 <Button
@@ -600,6 +671,7 @@ function StudioPageContent() {
                     maxFiles: 1,
                     multiple: false,
                     folder: "yerushalmi-studio",
+                    resourceType: mode === "edit" ? "auto" : "image",
                   }}
                   onSuccess={(result) => {
                     if (
@@ -607,11 +679,11 @@ function StudioPageContent() {
                       result.info &&
                       "secure_url" in result.info
                     ) {
-                      setState({
-                        status: "uploaded",
-                        source: result.info.secure_url as string,
-                      });
-                      setWorkflowStep(2);
+                      if (mode === "edit") {
+                        handleEditMediaUpload(result.info);
+                        return;
+                      }
+                      setUploadedSource(result.info.secure_url as string);
                       showToast("צילום חדש הועלה");
                     }
                   }}
@@ -638,6 +710,7 @@ function StudioPageContent() {
                 maxFiles: 1,
                 multiple: false,
                 folder: "yerushalmi-studio",
+                resourceType: mode === "edit" ? "auto" : "image",
               }}
               onSuccess={(result) => {
                 if (
@@ -645,11 +718,11 @@ function StudioPageContent() {
                   result.info &&
                   "secure_url" in result.info
                 ) {
-                  setState({
-                    status: "uploaded",
-                    source: result.info.secure_url as string,
-                  });
-                  setWorkflowStep(2);
+                  if (mode === "edit") {
+                    handleEditMediaUpload(result.info);
+                    return;
+                  }
+                  setUploadedSource(result.info.secure_url as string);
                   showToast("הצילום הועלה — בחרו סגנון רקע");
                 }
               }}
@@ -666,10 +739,14 @@ function StudioPageContent() {
                     strokeWidth={0.75}
                   />
                   <span className="font-serif text-lg font-light">
-                    העלאת צילום גולמי
+                    {mode === "edit"
+                      ? "העלאת תמונה או וידאו מהמחשב"
+                      : "העלאת צילום גולמי"}
                   </span>
                   <span className="text-xs font-light tracking-[0.1em] text-muted-foreground">
-                    JPG / PNG · מינימום 2000×2000 · רקע אחיד · חד (macro)
+                    {mode === "edit"
+                      ? "תמונות: JPG / PNG / WEBP · וידאו: MP4 / MOV"
+                      : "JPG / PNG · מינימום 2000×2000 · רקע אחיד · חד (macro)"}
                   </span>
                 </button>
               )}
@@ -681,7 +758,7 @@ function StudioPageContent() {
 
       {workflowStep >= 2 && (
       <Card
-        className={`rounded-none border-border/60 shadow-none ${!source ? "opacity-90" : ""}`}
+        className={`rounded-none border-border/60 shadow-none ${!activeSource ? "opacity-90" : ""}`}
       >
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-light tracking-[0.1em] text-muted-foreground">
@@ -689,7 +766,7 @@ function StudioPageContent() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
-          {!source && (
+          {!activeSource && (
             <p className="rounded-none border border-amber-200/80 bg-amber-50 px-3 py-2 text-[11px] font-light text-amber-900">
               העלו צילום בשלב 1 כדי לבחור סגנון.
             </p>
@@ -709,7 +786,7 @@ function StudioPageContent() {
             <StylePresetGrid
               value={stylePreset}
               onChange={setStylePreset}
-              disabled={!source || isGenerating}
+              disabled={!activeSource || isGenerating}
             />
           </div>
 
@@ -722,7 +799,7 @@ function StudioPageContent() {
               value={customPrompt}
               onChange={(e) => setCustomPrompt(e.target.value)}
               rows={3}
-              disabled={!source || isGenerating}
+              disabled={!activeSource || isGenerating}
               placeholder="לדוגמה: תאורה דרמטית, השתקפויות זהב, רקע כהה..."
               className="rounded-none resize-none"
             />
@@ -731,7 +808,7 @@ function StudioPageContent() {
                 <button
                   key={example}
                   type="button"
-                  disabled={!source || isGenerating}
+                  disabled={!activeSource || isGenerating}
                   onClick={() => setCustomPrompt(example)}
                   className="border border-border/60 px-2 py-1 text-[11px] font-light text-muted-foreground transition-colors hover:border-gold/50 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
                 >
@@ -751,7 +828,7 @@ function StudioPageContent() {
 
           <Button
             type="button"
-            disabled={!source || isGenerating}
+            disabled={!activeSource || isGenerating}
             onClick={() => setWorkflowStep(3)}
             className="w-full rounded-none text-xs font-light tracking-[0.15em]"
           >
@@ -791,7 +868,7 @@ function StudioPageContent() {
                     onValueChange={(v) =>
                       setVideoDuration(Number(v) as 5 | 10)
                     }
-                    disabled={!source || isGenerating}
+                    disabled={!activeSource || isGenerating}
                     dir="rtl"
                   >
                     <SelectTrigger className="rounded-none">
@@ -812,7 +889,7 @@ function StudioPageContent() {
                     onValueChange={(v) =>
                       setVideoMode(v as "standard" | "pro")
                     }
-                    disabled={!source || isGenerating}
+                    disabled={!activeSource || isGenerating}
                     dir="rtl"
                   >
                     <SelectTrigger className="rounded-none">
@@ -829,7 +906,7 @@ function StudioPageContent() {
                 value={videoPrompt}
                 onChange={(e) => setVideoPrompt(e.target.value)}
                 rows={2}
-                disabled={!source || isGenerating}
+                disabled={!activeSource || isGenerating}
                 placeholder="תנועה לווידאו (אופציונלי): סיבוב איטי, נצנוץ יהלומים..."
                 className="rounded-none resize-none"
               />
@@ -838,7 +915,7 @@ function StudioPageContent() {
                   <button
                     key={example}
                     type="button"
-                    disabled={!source || isGenerating}
+                    disabled={!activeSource || isGenerating}
                     onClick={() => setVideoPrompt(example)}
                     className="border border-border/60 px-2 py-1 text-[11px] font-light text-muted-foreground transition-colors hover:border-gold/50 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
                   >
@@ -858,7 +935,7 @@ function StudioPageContent() {
                   value={negativePrompt}
                   onChange={(e) => setNegativePrompt(e.target.value)}
                   rows={2}
-                  disabled={!source || isGenerating}
+                  disabled={!activeSource || isGenerating}
                   placeholder="לדוגמה: שינוי צורת התכשיט, תנועת מצלמה, טשטוש..."
                   className="rounded-none resize-none"
                 />
@@ -868,7 +945,7 @@ function StudioPageContent() {
 
           <div className="flex flex-col gap-3 pt-2">
             <Button
-              disabled={!source || isGenerating}
+              disabled={!activeSource || isGenerating}
               onClick={() => generate("image")}
               className="w-full rounded-none text-xs font-light tracking-[0.15em]"
             >
@@ -880,7 +957,7 @@ function StudioPageContent() {
               עצב בסגנון יוקרתי
             </Button>
             <Button
-              disabled={!source || isGenerating}
+              disabled={!activeSource || isGenerating}
               onClick={() => generate("video")}
               variant="outline"
               className="w-full rounded-none text-xs font-light tracking-[0.15em]"
@@ -892,7 +969,7 @@ function StudioPageContent() {
               )}
               הפוך לווידאו מנצנץ
             </Button>
-            {source && (
+            {activeSource && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -913,7 +990,7 @@ function StudioPageContent() {
       )}
 
       {/* שלב 4 — ספריית תוכן */}
-      {workflowStep >= 4 && state.status === "done" && source && (
+      {workflowStep >= 4 && state.status === "done" && activeSource && (
             <Card className="rounded-none border-border/60 shadow-none">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-light tracking-[0.1em] text-muted-foreground">

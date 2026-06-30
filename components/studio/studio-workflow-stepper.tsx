@@ -11,14 +11,27 @@ const STEPS: { id: StudioWorkflowStep; label: string; hint: string }[] = [
   { id: 4, label: "פרסום", hint: "שמירה ופרסום" },
 ];
 
+export const EDIT_VIDEO_WORKFLOW_STEPS: {
+  id: StudioWorkflowStep;
+  label: string;
+  hint: string;
+}[] = [
+  { id: 1, label: "העלאה", hint: "וידאו מהמחשב" },
+  { id: 2, label: "עריכה", hint: "חיתוך ומיטוב" },
+  { id: 3, label: "שמירה", hint: "Cloudinary" },
+  { id: 4, label: "ספרייה", hint: "תוכן AI" },
+];
+
 export function StudioWorkflowStepper({
   current,
   onSelect,
   canSelect,
+  steps = STEPS,
 }: {
   current: StudioWorkflowStep;
   onSelect: (step: StudioWorkflowStep) => void;
   canSelect: (step: StudioWorkflowStep) => boolean;
+  steps?: { id: StudioWorkflowStep; label: string; hint: string }[];
 }) {
   return (
     <nav
@@ -26,7 +39,7 @@ export function StudioWorkflowStepper({
       className="border border-border/60 bg-muted/20 px-3 py-4 sm:px-5"
     >
       <ol className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {STEPS.map((step, index) => {
+        {steps.map((step, index) => {
           const enabled = canSelect(step.id);
           const isCurrent = current === step.id;
           const isComplete = current > step.id;
@@ -71,7 +84,7 @@ export function StudioWorkflowStepper({
                   </span>
                 </span>
               </button>
-              {index < STEPS.length - 1 && (
+              {index < steps.length - 1 && (
                 <span className="sr-only">ואז</span>
               )}
             </li>

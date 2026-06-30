@@ -8,6 +8,7 @@ import {
   Copy,
   Download,
   FileVideo,
+  FolderHeart,
   Globe,
   ImageDown,
   Loader2,
@@ -23,8 +24,16 @@ import {
   publishImageToSite,
   publishProductToCatalog,
   saveAssetToCloudinary,
+  saveToMediaLibrary,
 } from "@/app/(ai-studio)/studio/actions";
+import {
+  EDIT_VIDEO_WORKFLOW_STEPS,
+  StudioWorkflowStepper,
+  type StudioWorkflowStep,
+} from "@/components/studio/studio-workflow-stepper";
+import { StudioTipsPanel } from "@/components/studio/studio-tips-panel";
 import { Button } from "@/components/ui/button";
+import { MediaPreviewTrigger } from "@/components/ui/media-preview";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -125,6 +134,9 @@ export function StudioMediaEditor({
   edit,
   onEditChange,
   onPublished,
+  onUpload,
+  workflowStep = 1,
+  onWorkflowStepChange,
 }: {
   showToast: (message: string) => void;
   edit: StudioEditSnapshot;
@@ -134,6 +146,9 @@ export function StudioMediaEditor({
       | { kind: "site"; settingKey: string }
       | { kind: "catalog"; productId: number }
   ) => void | Promise<void>;
+  onUpload?: (info: unknown) => void;
+  workflowStep?: StudioWorkflowStep;
+  onWorkflowStepChange?: (step: StudioWorkflowStep) => void;
 }) {
   const [busy, setBusy] = React.useState<string | null>(null);
 
@@ -182,6 +197,11 @@ export function StudioMediaEditor({
   }
 
   function handleUploadResult(info: unknown) {
+    if (onUpload) {
+      onUpload(info);
+      return;
+    }
+
     if (
       typeof info !== "object" ||
       !info ||
@@ -207,6 +227,30 @@ export function StudioMediaEditor({
       savedUrl: null,
     });
     showToast(type === "video" ? "וידאו נטען לעריכה" : "תמונה נטענה לעריכה");
+    onWorkflowStepChange?.(2);
+  }
+
+  async function handleSaveToLibrary() {
+    if (!asset) return;
+    setBusy("library");
+    try {
+      const url = await ensureSaved();
+      if (!url) throw new Error("השמירה נכשלה");
+      await saveToMediaLibrary(asset.type, asset.url, url);
+      onWorkflowStepChange?.(4);
+      showToast("נשמר בהצלחה בספריית התוכן");
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "השמירה לספרייה נכשלה");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function canSelectVideoStep(step: StudioWorkflowStep) {
+    if (step === 1) return true;
+    if (!asset) return false;
+    if (step === 4) return Boolean(savedUrl);
+    return true;
   }
 
   async function handleSave() {
@@ -326,7 +370,19 @@ export function StudioMediaEditor({
 
   return (
     <div className="space-y-8">
+      <StudioTipsPanel />
+
+      {onWorkflowStepChange && (
+        <StudioWorkflowStepper
+          current={workflowStep}
+          onSelect={onWorkflowStepChange}
+          canSelect={canSelectVideoStep}
+          steps={EDIT_VIDEO_WORKFLOW_STEPS}
+        />
+      )}
+
       {/* העלאה */}
+      {(workflowStep === 1 || !asset) && (
       <Card className="rounded-none border-border/60 shadow-none">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-light tracking-[0.1em] text-muted-foreground">
@@ -419,8 +475,9 @@ export function StudioMediaEditor({
           )}
         </CardContent>
       </Card>
+      )}
 
-      {asset && (
+      {asset && (isImage || workflowStep >= 2) && (
         <>
           {/* כלי עריכה + תצוגה */}
           <div className="grid gap-6 lg:grid-cols-2">
@@ -689,30 +746,47 @@ export function StudioMediaEditor({
                 <CardTitle className="text-sm font-light tracking-[0.1em] text-muted-foreground">
                   תצוגה חיה {edited ? "· נערך" : "· מקור"}
                 </CardTitle>
+                {previewUrl && (
+                  <p className="text-[10px] font-light text-muted-foreground">
+                    לחצו על התצוגה להגדלה
+                  </p>
+                )}
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="relative flex aspect-square max-h-[420px] w-full items-center justify-center overflow-hidden border border-border/60 bg-gradient-to-br from-stone-100 to-stone-200">
                   {isImage && previewUrl && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      key={previewUrl}
-                      src={previewUrl}
+                    <MediaPreviewTrigger
+                      url={previewUrl}
+                      type="image"
                       alt="תצוגה מקדימה של החומר המעובד"
-                      className="h-full w-full object-contain"
-                    />
+                      className="absolute inset-0 block h-full w-full"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        key={previewUrl}
+                        src={previewUrl}
+                        alt=""
+                        className="h-full w-full object-contain"
+                      />
+                    </MediaPreviewTrigger>
                   )}
                   {isVideo && previewUrl && (
-                    // eslint-disable-next-line jsx-a11y/media-has-caption
-                    <video
-                      key={previewUrl}
-                      src={previewUrl}
-                      controls
-                      autoPlay
-                      loop
-                      muted
-                      playsInline
-                      className="h-full w-full object-contain"
-                    />
+                    <MediaPreviewTrigger
+                      url={previewUrl}
+                      type="video"
+                      alt="תצוגה מקדימה של הווידאו המעובד"
+                      className="absolute inset-0 block h-full w-full"
+                    >
+                      {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+                      <video
+                        key={previewUrl}
+                        src={previewUrl}
+                        muted
+                        playsInline
+                        preload="metadata"
+                        className="pointer-events-none h-full w-full object-contain"
+                      />
+                    </MediaPreviewTrigger>
                   )}
                 </div>
 
@@ -749,6 +823,20 @@ export function StudioMediaEditor({
                     <Copy aria-hidden className="ml-2 h-4 w-4" strokeWidth={1.5} />
                     העתקת קישור
                   </Button>
+                  {isVideo && (
+                    <Button
+                      disabled={busy !== null}
+                      onClick={handleSaveToLibrary}
+                      className="rounded-none text-xs font-light tracking-[0.1em]"
+                    >
+                      {busy === "library" ? (
+                        <Loader2 aria-hidden className="ml-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <FolderHeart aria-hidden className="ml-2 h-4 w-4" strokeWidth={1.5} />
+                      )}
+                      שמירה לספריית התוכן
+                    </Button>
+                  )}
                 </div>
 
                 {savedUrl && (
@@ -955,12 +1043,26 @@ export function StudioMediaEditor({
             </Card>
           )}
 
-          {isVideo && (
+          {isVideo && workflowStep >= 4 && savedUrl && (
             <Card className="rounded-none border-border/60 shadow-none">
-              <CardContent className="py-4 text-center text-xs font-light text-muted-foreground">
-                <Wand2 aria-hidden className="ml-1 inline h-3.5 w-3.5" />
-                שמרו את הווידאו ב-Cloudinary והורידו אותו לשימוש ברשתות החברתיות
-                ובפרסום.
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-light tracking-[0.1em] text-muted-foreground">
+                  שלב 4 · ספריית התוכן
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="rounded-none border border-emerald-200/80 bg-emerald-50/60 px-3 py-2 text-center text-xs font-light text-emerald-900">
+                  נשמר בהצלחה בספריית התוכן — פרסמו למלאי מאזור הניהול
+                </p>
+                <Button
+                  asChild
+                  className="w-full rounded-none text-xs font-light tracking-[0.15em]"
+                >
+                  <Link href="/workspace/content-library">
+                    <FolderHeart className="ml-2 h-4 w-4" strokeWidth={1.5} />
+                    עבור לספריית התוכן
+                  </Link>
+                </Button>
               </CardContent>
             </Card>
           )}
