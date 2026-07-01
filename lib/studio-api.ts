@@ -170,3 +170,38 @@ export async function studioApiGenerateVideo(
     };
   }
 }
+
+export type SourceEnhancePreset = "complete" | "cleanup" | "enhance";
+
+export async function studioApiEnhanceSource(
+  imageUrl: string,
+  options: {
+    preset?: SourceEnhancePreset;
+    customPrompt?: string;
+    mode?: GenerateImageOptions["mode"];
+    projectId?: number;
+  } = {}
+): Promise<StudioActionResult<{ url: string }>> {
+  try {
+    const response = await fetch("/api/studio/enhance-source", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        imageUrl,
+        preset: options.preset,
+        customPrompt: options.customPrompt,
+        mode: options.mode,
+        projectId: options.projectId,
+      }),
+    });
+    return parseStudioResponse(response);
+  } catch (error) {
+    return {
+      ok: false,
+      error: humanizeStudioError(
+        error instanceof Error ? error.message : "שגיאת רשת"
+      ),
+    };
+  }
+}

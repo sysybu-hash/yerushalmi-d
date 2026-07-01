@@ -128,6 +128,57 @@ async function geminiGenerateImageBuffer(
   );
 }
 
+export type SourceEnhancePreset = "complete" | "cleanup" | "enhance";
+
+const SOURCE_ENHANCE_PROMPTS: Record<SourceEnhancePreset, string> = {
+  complete: [
+    "Edit this jewelry product photo.",
+    "Extend naturally any cropped necklace chain, bracelet, or earring hook.",
+    "Fill missing edges with seamless continuation — same metal color and link style.",
+    "Keep the exact same jewelry piece: same diamonds, prongs, proportions, and design.",
+    "Professional e-commerce product photo, sharp focus, studio lighting.",
+    "Do not invent new jewelry or change the product.",
+  ].join(" "),
+  cleanup: [
+    "Clean up this jewelry product photo for e-commerce.",
+    "Place on a seamless pure white background (#FFFFFF).",
+    "Remove clutter, shadows on backdrop, and color casts.",
+    "Keep the exact same jewelry — same stones, metal, and proportions.",
+    "Sharp macro detail, neutral studio lighting.",
+    "Do not alter the jewelry design.",
+  ].join(" "),
+  enhance: [
+    "Enhance this jewelry product photo for a luxury catalog.",
+    "Improve sharpness, exposure, and micro-contrast on the metal and stones.",
+    "Keep composition and jewelry design identical — no redesign.",
+    "Natural studio lighting, photorealistic, high resolution.",
+  ].join(" "),
+};
+
+export async function geminiEnhanceSourceImage(
+  imageDataUri: string,
+  options: {
+    preset: SourceEnhancePreset;
+    customPrompt?: string;
+  }
+): Promise<Buffer> {
+  const { mimeType, data } = parseDataUri(imageDataUri);
+  const basePrompt = SOURCE_ENHANCE_PROMPTS[options.preset];
+  const extra = options.customPrompt?.trim();
+
+  return geminiGenerateImageBuffer(
+    [
+      {
+        inline_data: { mime_type: mimeType, data },
+      },
+      {
+        text: extra ? `${basePrompt} Additional instructions: ${extra}` : basePrompt,
+      },
+    ],
+    { aspectRatio: "1:1" }
+  );
+}
+
 export async function geminiRemoveBackground(imageDataUri: string): Promise<Buffer> {
   const { mimeType, data } = parseDataUri(imageDataUri);
 

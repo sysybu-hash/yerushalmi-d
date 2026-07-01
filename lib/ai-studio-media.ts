@@ -2,9 +2,11 @@ import { rembgSourceUrl } from "@/lib/cloudinary-url";
 import type { AiBackgroundResolved, AiResolvedProvider, StudioPipelineMode } from "@/lib/ai-engines";
 import { isReplicateConfigured } from "@/lib/ai-engines";
 import {
+  geminiEnhanceSourceImage,
   geminiGenerateLuxuryBackground,
   geminiGenerateVideoFromImage,
   geminiRemoveBackground,
+  type SourceEnhancePreset,
 } from "@/lib/studio-gemini-media";
 import { STUDIO_PRESET_LIGHTING_HINTS, type StudioStylePresetId } from "@/lib/studio-presets";
 import {
@@ -267,4 +269,45 @@ export async function studioGenerateVideo(
   );
 
   return { url: extractUrl(output), provider: "kling" };
+}
+
+export async function studioEnhanceSource(
+  imageUrl: string,
+  options: {
+    preset: SourceEnhancePreset;
+    customPrompt?: string;
+    mode?: StudioPipelineMode;
+    projectId?: number;
+  }
+): Promise<{ url: string }> {
+  await assertStudioQuota("cutout");
+  const usageMode: AiUsageMode = options.mode ?? "catalog";
+  const started = Date.now();
+  let success = false;
+
+  try {
+    const dataUri = await fetchImageDataUri(rembgSourceUrl(imageUrl));
+    const buffer = await geminiEnhanceSourceImage(dataUri, {
+      preset: options.preset,
+      customPrompt: options.customPrompt,
+    });
+    const url = await uploadBufferToCloudinary(
+      buffer,
+      `studio-source-enhance-${Date.now()}.png`,
+      "image"
+    );
+    success = true;
+    return { url };
+  } finally {
+    await trackAiUsage({
+      provider: "gemini",
+      capability: "vision",
+      modelId: "gemini-3.1-flash-image",
+      mode: usageMode,
+      success,
+      durationMs: Date.now() - started,
+      projectId: options.projectId ?? null,
+      metadata: { preset: options.preset },
+    });
+  }
 }

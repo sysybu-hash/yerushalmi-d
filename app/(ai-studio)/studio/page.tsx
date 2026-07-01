@@ -31,6 +31,7 @@ import {
 } from "@/lib/studio-api";
 import type { GenerateImageOptions, GenerateVideoOptions } from "@/lib/studio-types";
 import { StudioMediaEditor } from "@/components/studio/media-editor";
+import { StudioSourcePrep } from "@/components/studio/studio-source-prep";
 import { AiEngineSelector } from "@/components/studio/ai-engine-selector";
 import { StudioPortfolioPanel } from "@/components/studio/studio-portfolio-panel";
 import { StylePresetGrid } from "@/components/studio/style-preset-grid";
@@ -53,6 +54,7 @@ import {
 import {
   DEFAULT_IMAGE_ADJUSTMENTS,
   DEFAULT_VIDEO_ADJUSTMENTS,
+  type ImageAdjustments,
 } from "@/lib/studio-transform";
 import {
   StudioWorkflowStepper,
@@ -111,6 +113,8 @@ function StudioPageContent() {
   const [productTitle, setProductTitle] = React.useState("");
   const [productPrice, setProductPrice] = React.useState("");
   const [productCategory] = React.useState("rings");
+  const [sourcePrepAdj, setSourcePrepAdj] =
+    React.useState<ImageAdjustments>(DEFAULT_IMAGE_ADJUSTMENTS);
 
   const applyForm = React.useCallback((next: StudioFormState) => {
     setState(next.state);
@@ -408,10 +412,24 @@ function StudioPageContent() {
     }
   }
 
+  function replaceActiveSource(url: string) {
+    setState({ status: "uploaded", source: url });
+    setCutoutUrl("");
+    setLastCompositeUrl("");
+    if (mode === "edit" && edit.asset?.type === "image") {
+      setEdit((prev) => ({
+        ...prev,
+        asset: prev.asset ? { ...prev.asset, url } : null,
+        savedUrl: null,
+      }));
+    }
+  }
+
   function setUploadedSource(url: string) {
     setState({ status: "uploaded", source: url });
     setCutoutUrl("");
     setLastCompositeUrl("");
+    setSourcePrepAdj(DEFAULT_IMAGE_ADJUSTMENTS);
     if (mode === "edit") {
       setEdit((prev) => ({
         ...prev,
@@ -421,7 +439,7 @@ function StudioPageContent() {
         savedUrl: null,
       }));
     }
-    setWorkflowStep(2);
+    setWorkflowStep(1);
   }
 
   function handleEditMediaUpload(info: unknown) {
@@ -437,7 +455,7 @@ function StudioPageContent() {
 
     if (type === "image") {
       setUploadedSource(data.secure_url);
-      showToast("תמונה נטענה — בחרו סגנון רקע");
+      showToast("תמונה נטענה — ניתן למטב או להשלים ב-AI לפני יצירה");
       return;
     }
 
@@ -932,7 +950,8 @@ function StudioPageContent() {
           {activeSource ? (
             <div className="space-y-3">
               <p className="text-sm font-light text-emerald-800">
-                ✓ {mode === "edit" ? "חומר" : "צילום"} הועלה — המשיכו לשלב סגנון
+                ✓ {mode === "edit" ? "חומר" : "צילום"} הועלה — ניתן למטב למטה או
+                להמשיך לסגנון
               </p>
               <div className="flex flex-wrap gap-2">
                 <Button
@@ -1003,7 +1022,7 @@ function StudioPageContent() {
                     return;
                   }
                   setUploadedSource(result.info.secure_url as string);
-                  showToast("הצילום הועלה — בחרו סגנון רקע");
+                  showToast("הצילום הועלה — ניתן למטב או להשלים ב-AI לפני יצירה");
                 }
               }}
             >
@@ -1034,6 +1053,19 @@ function StudioPageContent() {
           )}
         </CardContent>
       </Card>
+      )}
+
+      {workflowStep === 1 && activeSource && useAiStudioFlow && (
+        <StudioSourcePrep
+          sourceUrl={activeSource}
+          adjustments={sourcePrepAdj}
+          onAdjustmentsChange={setSourcePrepAdj}
+          onSourceUpdated={replaceActiveSource}
+          showToast={showToast}
+          studioMode={studioMode}
+          projectId={activeProjectId}
+          disabled={isGenerating}
+        />
       )}
 
       {workflowStep >= 2 && (
