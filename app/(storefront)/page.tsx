@@ -129,7 +129,7 @@ export default async function HomePage() {
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(0,0,0,0.12)_100%)]" />
         </div>
 
-        <div className="relative z-10 flex w-full max-w-6xl flex-col items-center justify-center px-2 sm:px-6">
+        <div className="relative z-10 flex w-full max-w-6xl flex-col items-center justify-center px-2 pt-32 sm:px-6 sm:pt-40">
           <p className="text-[11px] font-light tracking-[0.4em] text-gold-light sm:text-xs md:text-sm">
             {settings.heroBadge}
           </p>

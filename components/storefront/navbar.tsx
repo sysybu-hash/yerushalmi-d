@@ -48,7 +48,7 @@ export function Navbar({
 
   React.useEffect(() => {
     function onScroll() {
-      setScrolled(window.scrollY > 24);
+      setScrolled(window.scrollY > 48);
     }
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -59,7 +59,8 @@ export function Navbar({
     setOpen(false);
   }, [pathname]);
 
-  const transparent = isHome && !scrolled;
+  const heroExpanded = isHome && !scrolled;
+  const transparent = heroExpanded;
 
   return (
     <header className="fixed top-0 z-50 w-full">
@@ -78,13 +79,13 @@ export function Navbar({
 
       <div
         className={cn(
-          "transition-all duration-500",
+          "relative transition-all duration-500",
           transparent
             ? "bg-transparent"
             : "border-b border-border/60 bg-background/95 shadow-sm backdrop-blur-md"
         )}
       >
-        <div className="mx-auto flex min-h-[188px] max-w-7xl items-center justify-between px-4 py-3 sm:min-h-[232px] sm:px-8">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-8">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
               <Button
@@ -92,13 +93,13 @@ export function Navbar({
                 size="icon"
                 aria-label="פתיחת תפריט"
                 className={cn(
-                  "h-11 w-11 border transition-colors",
+                  "h-10 w-10 border transition-colors",
                   transparent
                     ? "border-ivory/40 bg-charcoal/35 text-ivory backdrop-blur-sm hover:border-gold-light hover:bg-charcoal/55 hover:text-gold-light"
                     : "border-border/70 bg-background/60 text-foreground hover:border-gold-dark/60 hover:bg-secondary hover:text-gold-dark"
                 )}
               >
-                <Menu className="h-6 w-6" strokeWidth={2} />
+                <Menu className="h-5 w-5" strokeWidth={2} />
               </Button>
             </SheetTrigger>
 
@@ -166,14 +167,21 @@ export function Navbar({
             </SheetContent>
           </Sheet>
 
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+          {/* קומפקטי בגלילה / שאר הדפים */}
+          <div
+            className={cn(
+              "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-500",
+              heroExpanded
+                ? "pointer-events-none opacity-0 scale-95"
+                : "opacity-100"
+            )}
+          >
             <BrandLogo
               logoSrc={logoSrc}
               href="/"
-              size="2xl"
-              tone={transparent ? "light" : "dark"}
+              compact
+              tone="dark"
               priority
-              className="transition-opacity duration-500 group-hover:opacity-90"
             />
           </div>
 
@@ -181,6 +189,20 @@ export function Navbar({
             <CartSheet />
           </div>
         </div>
+
+        {/* גדול בראש ה-hero בלבד — יושב על התמונה, לא מנפח את ה-header */}
+        {heroExpanded && (
+          <div className="pointer-events-none absolute left-1/2 top-full z-10 -translate-x-1/2 -translate-y-[42%] sm:-translate-y-[38%]">
+            <BrandLogo
+              logoSrc={logoSrc}
+              href="/"
+              size="xl"
+              tone="light"
+              priority
+              className="pointer-events-auto transition-transform duration-500 group-hover:scale-[1.02]"
+            />
+          </div>
+        )}
       </div>
     </header>
   );
