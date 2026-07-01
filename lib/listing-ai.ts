@@ -1,11 +1,17 @@
+import type { AiEngineConfig } from "@/lib/ai-engines";
+import { getResolvedAiEngines } from "@/lib/ai-engine-resolve";
+import { generateStructuredText } from "@/lib/ai-text";
 import { fetchImageDataUri } from "@/lib/vision-image";
 import {
   collectReplicateText,
-  extractText,
   MODELS,
   normalizeStudioError,
   replicate,
 } from "@/lib/studio-replicate";
+import {
+  geminiAnalyzeImage,
+  normalizeGeminiError,
+} from "@/lib/studio-gemini";
 
 const VALID_CATEGORIES = [
   "rings",
@@ -33,6 +39,7 @@ export type GenerateListingInput = {
   existingTitle?: string;
   existingDescription?: string;
   mode: "fill" | "refine";
+  engines?: Partial<AiEngineConfig>;
 };
 
 function parseJsonObject(text: string): Record<string, unknown> {
@@ -275,14 +282,38 @@ async function runLlava(imageInput: string): Promise<string> {
   return text;
 }
 
-async function analyzeJewelryImage(imageUrl: string): Promise<JewelryVisualAnalysis> {
+async function runGeminiVision(imageUrl: string): Promise<string> {
   const imageInput = await fetchImageDataUri(imageUrl);
+  try {
+    return await geminiAnalyzeImage(imageInput, JEWELRY_VISION_PROMPT);
+  } catch (error) {
+    throw new Error(
+      normalizeGeminiError(error, "ניתוח התמונה ב-Gemini נכשל")
+    );
+  }
+}
+
+async function analyzeJewelryImage(
+  imageUrl: string,
+  visionEngine: "replicate" | "gemini"
+): Promise<JewelryVisualAnalysis> {
+  const imageInput = await fetchImageDataUri(imageUrl);
+  const runners =
+    visionEngine === "gemini"
+      ? [
+          { label: "Gemini", fn: () => runGeminiVision(imageUrl) },
+          { label: "Moondream", fn: () => runMoondream(imageInput) },
+          { label: "LLaVA", fn: () => runLlava(imageInput) },
+        ]
+      : [
+          { label: "Moondream", fn: () => runMoondream(imageInput) },
+          { label: "LLaVA", fn: () => runLlava(imageInput) },
+          { label: "Gemini", fn: () => runGeminiVision(imageUrl) },
+        ];
+
   const errors: string[] = [];
 
-  for (const run of [
-    { label: "Moondream", fn: () => runMoondream(imageInput) },
-    { label: "LLaVA", fn: () => runLlava(imageInput) },
-  ]) {
+  for (const run of runners) {
     try {
       const raw = await run.fn();
       const parsed = parseVisionAnalysis(raw);
@@ -304,12 +335,15 @@ async function analyzeJewelryImage(imageUrl: string): Promise<JewelryVisualAnaly
   );
 }
 
-async function analyzeJewelryImages(imageUrls: string[]): Promise<JewelryVisualAnalysis> {
+async function analyzeJewelryImages(
+  imageUrls: string[],
+  visionEngine: "replicate" | "gemini"
+): Promise<JewelryVisualAnalysis> {
   const errors: string[] = [];
 
   for (const imageUrl of imageUrls) {
     try {
-      return await analyzeJewelryImage(imageUrl);
+      return await analyzeJewelryImage(imageUrl, visionEngine);
     } catch (error) {
       errors.push(normalizeStudioError(error, "שגיאה לא ידועה"));
     }
@@ -328,6 +362,7 @@ async function generateListingText(input: {
   existingTitle?: string;
   existingDescription?: string;
   mode: "fill" | "refine";
+  textEngine: "replicate" | "gemini";
 }): Promise<GeneratedListingContent> {
   const titleHints =
     input.assetTitles?.filter(Boolean).join(", ") || "אין";
@@ -360,15 +395,11 @@ Output ONLY valid JSON, no markdown, no explanation:
   "type": "natural or lab"
 }`;
 
-  const output = await replicate.run(MODELS.llama, {
-    input: {
-      prompt,
-      max_tokens: 600,
-      temperature: input.mode === "refine" ? 0.2 : 0.3,
-    },
-  });
-
-  const text = extractText(output);
+  const text = await generateStructuredText(
+    prompt,
+    input.textEngine,
+    input.mode === "refine" ? 0.2 : 0.3
+  );
   const result = buildListingFromJson(parseJsonObject(text));
 
   if (detectedCategory && input.mode === "fill") {
@@ -378,9 +409,8 @@ Output ONLY valid JSON, no markdown, no explanation:
   if (
     hasAwkwardHebrewCopy(`${result.title} ${result.description}`)
   ) {
-    const retryOutput = await replicate.run(MODELS.llama, {
-      input: {
-        prompt: `${HEBREW_COPY_RULES}
+    const retryText = await generateStructuredText(
+      `${HEBREW_COPY_RULES}
 
 The previous Hebrew draft was awkward. Rewrite it completely in natural Israeli Hebrew.
 
@@ -389,11 +419,10 @@ Previous description: ${result.description}
 Visual analysis: ${visual}
 
 Output ONLY valid JSON with improved natural Hebrew.`,
-        max_tokens: 600,
-        temperature: 0.15,
-      },
-    });
-    return buildListingFromJson(parseJsonObject(extractText(retryOutput)));
+      input.textEngine,
+      0.15
+    );
+    return buildListingFromJson(parseJsonObject(retryText));
   }
 
   return result;
@@ -403,6 +432,8 @@ export async function generateListingContent(
   input: GenerateListingInput
 ): Promise<GeneratedListingContent> {
   try {
+    const engines = await getResolvedAiEngines(input.engines);
+
     if (input.mode === "refine") {
       if (!input.existingTitle?.trim() && !input.existingDescription?.trim()) {
         throw new Error("יש להזין שם או תיאור לפני שיפור התוכן");
@@ -411,7 +442,10 @@ export async function generateListingContent(
       let visualAnalysis: JewelryVisualAnalysis | undefined;
       if (input.imageUrls.length > 0) {
         try {
-          visualAnalysis = await analyzeJewelryImages(input.imageUrls);
+          visualAnalysis = await analyzeJewelryImages(
+            input.imageUrls,
+            engines.vision
+          );
         } catch {
           visualAnalysis = undefined;
         }
@@ -423,6 +457,7 @@ export async function generateListingContent(
         existingTitle: input.existingTitle,
         existingDescription: input.existingDescription,
         mode: "refine",
+        textEngine: engines.text,
       });
     }
 
@@ -431,7 +466,10 @@ export async function generateListingContent(
       throw new Error("נדרשת לפחות תמונת מוצר אחת למילוי אוטומטי");
     }
 
-    const visualAnalysis = await analyzeJewelryImages(input.imageUrls);
+    const visualAnalysis = await analyzeJewelryImages(
+      input.imageUrls,
+      engines.vision
+    );
 
     return generateListingText({
       visualAnalysis,
@@ -439,6 +477,7 @@ export async function generateListingContent(
       existingTitle: input.existingTitle,
       existingDescription: input.existingDescription,
       mode: "fill",
+      textEngine: engines.text,
     });
   } catch (error) {
     throw new Error(

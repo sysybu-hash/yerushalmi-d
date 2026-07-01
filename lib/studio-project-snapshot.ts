@@ -1,4 +1,10 @@
-import type { StudioPipelineStepId, StudioStylePresetId, StudioWorkspaceUploadModeId } from "@/lib/studio-presets";
+import type { AiEngineConfig } from "@/lib/ai-engines";
+import { DEFAULT_AI_ENGINES } from "@/lib/ai-engines";
+import type {
+  StudioPipelineStepId,
+  StudioStylePresetId,
+  StudioWorkspaceUploadModeId,
+} from "@/lib/studio-presets";
 import type { SettingKey } from "@/lib/site-settings";
 import {
   DEFAULT_IMAGE_ADJUSTMENTS,
@@ -82,6 +88,7 @@ export type StudioProjectSnapshot = {
   productOriginalPrice: string;
   productType: "natural" | "lab";
   productCategory: string;
+  aiEngines: AiEngineConfig;
   edit: StudioEditSnapshot;
 };
 
@@ -102,6 +109,10 @@ export function normalizeSnapshot(
         ...DEFAULT_VIDEO_ADJUSTMENTS,
         ...raw.edit?.videoAdj,
       },
+    },
+    aiEngines: {
+      ...DEFAULT_AI_ENGINES,
+      ...raw.aiEngines,
     },
   };
 }
@@ -125,6 +136,7 @@ export const EMPTY_STUDIO_SNAPSHOT: StudioProjectSnapshot = {
   productOriginalPrice: "",
   productType: "natural",
   productCategory: "rings",
+  aiEngines: DEFAULT_AI_ENGINES,
   edit: EMPTY_EDIT_SNAPSHOT,
 };
 

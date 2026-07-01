@@ -82,6 +82,12 @@ export const SETTING_DEFAULTS = {
   businessAddress: 'בורסת היהלומים, רמת גן',
   invoiceVatRate: "18",
   invoiceFooterNote: "תודה שבחרתם בירושלמי יהלומים — כולל אחריות מלאה ותעודה גימולוגית.",
+
+  /* מנועי AI — ברירת מחדל לכל האתר */
+  aiEngineVision: "auto",
+  aiEngineText: "auto",
+  aiEngineCutout: "auto",
+  aiEngineVideo: "auto",
 } as const;
 
 export type SettingKey = keyof typeof SETTING_DEFAULTS;

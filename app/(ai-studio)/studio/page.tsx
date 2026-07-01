@@ -30,6 +30,7 @@ import {
 } from "@/lib/studio-api";
 import type { GenerateImageOptions, GenerateVideoOptions } from "@/lib/studio-types";
 import { StudioMediaEditor } from "@/components/studio/media-editor";
+import { AiEngineSelector } from "@/components/studio/ai-engine-selector";
 import { StudioPortfolioPanel } from "@/components/studio/studio-portfolio-panel";
 import { StylePresetGrid } from "@/components/studio/style-preset-grid";
 import { StudioTipsPanel } from "@/components/studio/studio-tips-panel";
@@ -43,6 +44,10 @@ import {
   type StudioClientState,
   type StudioEditSnapshot,
 } from "@/lib/studio-project-snapshot";
+import {
+  DEFAULT_AI_ENGINES,
+  type AiEngineConfig,
+} from "@/lib/ai-engines";
 import {
   DEFAULT_IMAGE_ADJUSTMENTS,
   DEFAULT_VIDEO_ADJUSTMENTS,
@@ -92,6 +97,8 @@ function StudioPageContent() {
   const [workflowStep, setWorkflowStep] =
     React.useState<StudioWorkflowStep>(1);
   const [edit, setEdit] = React.useState<StudioEditSnapshot>(EMPTY_EDIT_SNAPSHOT);
+  const [aiEngines, setAiEngines] =
+    React.useState<AiEngineConfig>(DEFAULT_AI_ENGINES);
 
   const applyForm = React.useCallback((next: StudioFormState) => {
     setState(next.state);
@@ -104,6 +111,7 @@ function StudioPageContent() {
     setVideoDuration(next.videoDuration);
     setVideoMode(next.videoMode);
     setEdit(next.edit);
+    setAiEngines(next.aiEngines);
   }, []);
 
   const showToastRef = React.useRef<(message: string) => void>(() => {});
@@ -148,6 +156,7 @@ function StudioPageContent() {
       productType: "natural",
       productCategory: "rings",
       edit,
+      aiEngines,
     },
     applyForm,
     showToast: stableShowToast,
@@ -204,6 +213,7 @@ function StudioPageContent() {
     return {
       customPrompt,
       stylePreset,
+      engines: aiEngines,
     };
   }
 
@@ -214,6 +224,7 @@ function StudioPageContent() {
       duration: videoDuration,
       mode: videoMode,
       stylePreset,
+      engines: aiEngines,
     };
   }
 
@@ -224,7 +235,9 @@ function StudioPageContent() {
     | { ok: false; error: string }
   > {
     setState({ status: "generating", source: sourceUrl, kind: "image", step: "cutout" });
-    const cutout = await studioApiRemoveBackground(sourceUrl);
+    const cutout = await studioApiRemoveBackground(sourceUrl, {
+      engines: aiEngines,
+    });
     if (!cutout.ok) return cutout;
 
     setState({ status: "generating", source: sourceUrl, kind: "image", step: "background" });
@@ -817,6 +830,22 @@ function StudioPageContent() {
               ))}
             </div>
           </div>
+
+          <Separator className="bg-border/40" />
+
+          <details className="rounded-none border border-border/40 bg-muted/20 px-3 py-2">
+            <summary className="cursor-pointer text-xs font-light tracking-[0.08em] text-muted-foreground">
+              מנועי AI — אוטומטי / Replicate / Gemini
+            </summary>
+            <div className="mt-4">
+              <AiEngineSelector
+                value={aiEngines}
+                onChange={setAiEngines}
+                disabled={!activeSource || isGenerating}
+                compact
+              />
+            </div>
+          </details>
 
           <Separator className="bg-border/40" />
 

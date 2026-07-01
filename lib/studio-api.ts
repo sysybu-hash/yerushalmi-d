@@ -1,5 +1,6 @@
 import type { StudioActionResult } from "@/lib/studio-action";
 import type { GenerateImageOptions, GenerateVideoOptions } from "@/lib/studio-types";
+import type { AiEngineConfig } from "@/lib/ai-engines";
 
 const GENERIC_PRODUCTION_ERROR =
   "An error occurred in the Server Components render";
@@ -68,14 +69,15 @@ async function parseStudioResponse<T>(
 }
 
 export async function studioApiRemoveBackground(
-  imageUrl: string
+  imageUrl: string,
+  options: { engines?: Partial<AiEngineConfig> } = {}
 ): Promise<StudioActionResult<{ url: string }>> {
   try {
     const response = await fetch("/api/studio/remove-background", {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ imageUrl }),
+      body: JSON.stringify({ imageUrl, engines: options.engines }),
     });
     return parseStudioResponse(response);
   } catch (error) {

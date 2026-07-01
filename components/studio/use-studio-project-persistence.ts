@@ -20,6 +20,7 @@ import {
 } from "@/lib/studio-project-snapshot";
 import type { StudioWorkflowStep } from "@/components/studio/studio-workflow-stepper";
 import type { StudioStylePresetId, StudioWorkspaceUploadModeId } from "@/lib/studio-presets";
+import type { AiEngineConfig } from "@/lib/ai-engines";
 import type { SettingKey } from "@/lib/site-settings";
 
 export type StudioFormState = {
@@ -40,6 +41,7 @@ export type StudioFormState = {
   productOriginalPrice: string;
   productType: "natural" | "lab";
   productCategory: string;
+  aiEngines: AiEngineConfig;
   edit: StudioEditSnapshot;
 };
 
@@ -70,6 +72,7 @@ export function formToSnapshot(form: StudioFormState): StudioProjectSnapshot {
     productOriginalPrice: form.productOriginalPrice,
     productType: form.productType,
     productCategory: form.productCategory,
+    aiEngines: form.aiEngines,
     edit: form.edit,
   });
 }
@@ -94,6 +97,7 @@ export function snapshotToForm(snapshot: StudioProjectSnapshot): StudioFormState
     productOriginalPrice: normalized.productOriginalPrice,
     productType: normalized.productType,
     productCategory: normalized.productCategory,
+    aiEngines: normalized.aiEngines,
     edit: normalized.edit,
   };
 }

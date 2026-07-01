@@ -7,6 +7,10 @@ import { CheckCircle2, Loader2, Save } from "lucide-react";
 import { saveSiteSettings } from "@/app/(workspace)/workspace/settings/actions";
 import type { SiteSettings } from "@/lib/site-settings";
 import { COLLECTION_SETTING_KEYS } from "@/lib/site-settings";
+import {
+  AI_CAPABILITY_LABELS,
+  AI_ENGINE_OPTIONS,
+} from "@/lib/ai-engines";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -41,6 +45,39 @@ function SubmitButton() {
         </>
       )}
     </Button>
+  );
+}
+
+function EngineSelectField({
+  name,
+  capability,
+  defaultValue,
+}: {
+  name: keyof SiteSettings;
+  capability: keyof typeof AI_CAPABILITY_LABELS;
+  defaultValue: string;
+}) {
+  const meta = AI_CAPABILITY_LABELS[capability];
+
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={name} className="font-light">
+        {meta.label}
+      </Label>
+      <select
+        id={name}
+        name={name}
+        defaultValue={defaultValue}
+        className="flex h-10 w-full rounded-none border border-input bg-background px-3 py-2 text-sm font-light ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      >
+        {AI_ENGINE_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <p className="text-xs font-light text-muted-foreground">{meta.hint}</p>
+    </div>
   );
 }
 
@@ -122,6 +159,7 @@ const SECTION_NAV = [
   { id: "about", label: "אודות" },
   { id: "contact", label: "יצירת קשר" },
   { id: "business", label: "עסק/חשבוניות" },
+  { id: "ai-engines", label: "מנועי AI" },
   { id: "footer", label: "פוטר" },
 ] as const;
 
@@ -398,6 +436,39 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
           defaultValue={settings.invoiceFooterNote}
           textarea
         />
+      </SectionCard>
+
+      <SectionCard
+        id="settings-ai-engines"
+        title="מנועי AI"
+        description="ברירת מחדל לכל האתר — סטודיו, מילוי אוטומטי במוצרים וספריית תוכן. ניתן לדרוס לכל פרויקט בסטודיו."
+      >
+        <div className="grid gap-5 sm:grid-cols-2">
+          <EngineSelectField
+            name="aiEngineVision"
+            capability="vision"
+            defaultValue={settings.aiEngineVision}
+          />
+          <EngineSelectField
+            name="aiEngineText"
+            capability="text"
+            defaultValue={settings.aiEngineText}
+          />
+          <EngineSelectField
+            name="aiEngineCutout"
+            capability="cutout"
+            defaultValue={settings.aiEngineCutout}
+          />
+          <EngineSelectField
+            name="aiEngineVideo"
+            capability="video"
+            defaultValue={settings.aiEngineVideo}
+          />
+        </div>
+        <p className="text-xs font-light text-muted-foreground">
+          מצב אוטומטי בוחר Gemini לזיהוי תמונה וטקסט כש־GEMINI_API_KEY מוגדר;
+          אחרת Replicate. הסרת רקע ווידאו תמיד דרך Replicate.
+        </p>
       </SectionCard>
 
       <SectionCard id="settings-footer" title="פוטר">

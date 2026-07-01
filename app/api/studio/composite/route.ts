@@ -30,6 +30,7 @@ export async function POST(request: Request) {
     const data = await pipelineCompositeImage(body.cutoutUrl.trim(), {
       customPrompt: body.customPrompt,
       stylePreset: body.stylePreset,
+      engines: body.engines,
     });
     return studioJsonOk(data);
   } catch (error) {

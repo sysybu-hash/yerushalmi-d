@@ -8,19 +8,19 @@ import {
   type StudioStylePresetId,
 } from "@/lib/studio-presets";
 export { pipelineRemoveBackground } from "@/lib/studio-pipeline-remove-bg";
+import { assertEngineAvailable, resolveEngine } from "@/lib/ai-engines";
+import { getResolvedAiEngines } from "@/lib/ai-engine-resolve";
+import { translatePrompt } from "@/lib/ai-text";
 import {
   extractUrl,
   MODELS,
   replicate,
-  translateToEnglish,
   uploadBufferToCloudinary,
 } from "@/lib/studio-replicate";
 import type { GenerateVideoOptions } from "@/lib/studio-types";
+import type { GenerateImageOptions } from "@/lib/studio-types";
 
-export type StudioImageOptions = {
-  customPrompt?: string;
-  stylePreset?: StudioStylePresetId;
-};
+export type StudioImageOptions = GenerateImageOptions;
 
 function assertCloudinaryUrl(imageUrl: string) {
   if (!imageUrl.startsWith("https://res.cloudinary.com/")) {
@@ -41,12 +41,13 @@ function assertRemoteAssetUrl(url: string) {
 
 async function buildLightingHints(
   customPrompt?: string,
-  stylePreset: StudioStylePresetId = "luxury-marble"
+  stylePreset: StudioStylePresetId = "luxury-marble",
+  textEngine: "replicate" | "gemini" = "replicate"
 ) {
   const presetHints = STUDIO_PRESET_LIGHTING_HINTS[stylePreset];
   const trimmed = customPrompt?.trim();
   if (!trimmed) return presetHints;
-  const translated = await translateToEnglish(trimmed);
+  const translated = await translatePrompt(trimmed, textEngine);
   return translated ? `${presetHints}, ${translated}` : presetHints;
 }
 
@@ -64,7 +65,12 @@ export async function pipelineCompositeImage(
     ]);
 
   const preset = options.stylePreset ?? "luxury-marble";
-  const lightingHints = await buildLightingHints(options.customPrompt, preset);
+  const engines = await getResolvedAiEngines(options.engines);
+  const lightingHints = await buildLightingHints(
+    options.customPrompt,
+    preset,
+    engines.text
+  );
   const backgroundBuffer = await generatePresetBackground({
     preset,
     lightingHints,
@@ -92,8 +98,12 @@ export async function pipelineGenerateVideo(
   assertStudioEnv();
   assertCloudinaryUrl(imageUrl);
 
+  const engines = await getResolvedAiEngines(options.engines);
+  const videoEngine = resolveEngine("video", engines.preferences.video);
+  assertEngineAvailable("video", videoEngine);
+
   const englishCustom = options.customPrompt?.trim()
-    ? await translateToEnglish(options.customPrompt)
+    ? await translatePrompt(options.customPrompt, engines.text)
     : "";
 
   const preset = options.stylePreset ?? "luxury-marble";
