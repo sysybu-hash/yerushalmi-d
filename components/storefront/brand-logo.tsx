@@ -3,22 +3,28 @@ import Link from "next/link";
 
 import { cn } from "@/lib/utils";
 
+/** יהלום בלבד — PNG שקוף (בלי מלבן שחור) */
+export const BRAND_MARK_SRC = "/logo-diamond.png";
+
 const LOGO_SIZES = {
-  sm: "h-11 w-11 sm:h-12 sm:w-12",
-  md: "h-14 w-14 sm:h-[4.25rem] sm:w-[4.25rem]",
-  lg: "h-20 w-20 sm:h-24 sm:w-24",
+  sm: "h-14 w-14",
+  md: "h-20 w-20 sm:h-24 sm:w-24",
+  lg: "h-24 w-24 sm:h-32 sm:w-32",
+  xl: "h-[5.75rem] w-[5.75rem] sm:h-36 sm:w-36",
 } as const;
 
 const TEXT_SIZES = {
-  sm: "text-sm sm:text-base tracking-[0.14em]",
-  md: "text-base sm:text-lg tracking-[0.16em]",
-  lg: "text-xl sm:text-2xl tracking-[0.18em]",
+  sm: "text-sm tracking-[0.12em]",
+  md: "text-base sm:text-lg tracking-[0.14em]",
+  lg: "text-lg sm:text-xl tracking-[0.16em]",
+  xl: "text-lg sm:text-xl tracking-[0.18em]",
 } as const;
 
 export type BrandLogoProps = {
+  /** נשמר לתאימות — המיתוג משתמש תמיד ב-BRAND_MARK_SRC */
   logoSrc?: string;
   size?: keyof typeof LOGO_SIZES;
-  /** light = על רקע כהה (ivory + gold) */
+  /** light = על רקע כהה (screen מסתיר שחור) */
   tone?: "light" | "dark";
   className?: string;
   href?: string;
@@ -26,7 +32,6 @@ export type BrandLogoProps = {
 };
 
 export function BrandLogo({
-  logoSrc = "/logo-mark.png",
   size = "md",
   tone = "light",
   className,
@@ -38,26 +43,29 @@ export function BrandLogo({
   const content = (
     <span
       className={cn(
-        "inline-flex flex-col items-center gap-2 text-center",
+        "inline-flex flex-col items-center gap-2.5 text-center sm:gap-3",
         className
       )}
     >
-      {logoSrc ? (
+      <span className={cn("relative shrink-0", LOGO_SIZES[size])}>
         <Image
-          src={logoSrc}
-          alt="Yerushalmi Diamonds"
-          width={96}
-          height={96}
+          src={BRAND_MARK_SRC}
+          alt=""
+          aria-hidden
+          width={900}
+          height={600}
           priority={priority}
           className={cn(
-            "shrink-0 object-contain drop-shadow-[0_4px_24px_rgba(255,255,255,0.12)]",
-            LOGO_SIZES[size]
+            "h-full w-full object-contain",
+            isLight &&
+              "drop-shadow-[0_0_36px_rgba(34,211,238,0.5)]",
+            !isLight && "brightness-95 contrast-105"
           )}
         />
-      ) : null}
+      </span>
       <span
         className={cn(
-          "font-brand font-medium leading-none",
+          "font-brand font-medium leading-none whitespace-nowrap",
           TEXT_SIZES[size],
           isLight ? "text-ivory" : "text-foreground"
         )}
