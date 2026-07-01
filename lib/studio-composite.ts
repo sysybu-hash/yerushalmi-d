@@ -5,9 +5,25 @@ import { STUDIO_CANVAS_SIZE, type StudioStylePresetId } from "@/lib/studio-prese
 const MIN_OPAQUE_RATIO = 0.008;
 const MAX_OPAQUE_RATIO = 0.92;
 const MIN_BBOX_RATIO = 0.01;
-const JEWELRY_CANVAS_RATIO = 0.78;
-const VERTICAL_OFFSET_RATIO = 0.048;
-const HORIZONTAL_OFFSET_RATIO = 0.022;
+const JEWELRY_CANVAS_RATIO = 0.72;
+const HORIZONTAL_OFFSET_RATIO = 0.012;
+
+/** קו משטח תצוגה — איפה תחתית התכשיט "נשענת" (יחס לגובה קנבס) */
+const PRESET_SURFACE_Y: Partial<Record<StudioStylePresetId, number>> = {
+  "luxury-marble": 0.64,
+  "black-velvet": 0.6,
+  "white-studio": 0.56,
+  "gold-bokeh": 0.62,
+  lifestyle: 0.66,
+  "rose-gold-glow": 0.6,
+  "midnight-blue": 0.61,
+  "jerusalem-stone": 0.63,
+  "concrete-minimal": 0.57,
+  "botanical-soft": 0.58,
+  "mirror-glass": 0.59,
+  "royal-purple": 0.6,
+  "sunset-amber": 0.61,
+};
 
 const NO_REFLECTION_PRESETS = new Set<StudioStylePresetId>([
   "white-studio",
@@ -204,6 +220,51 @@ async function hasSoftAlphaMatte(buffer: Buffer): Promise<boolean> {
   return opaque > 0 && partial / opaque > 0.012;
 }
 
+function computeJewelryPlacement(
+  canvasSize: number,
+  jWidth: number,
+  jHeight: number,
+  preset: StudioStylePresetId
+) {
+  const surfaceY = PRESET_SURFACE_Y[preset] ?? 0.6;
+  const surfacePx = Math.round(canvasSize * surfaceY);
+  const top = surfacePx - jHeight;
+  const left = Math.round(
+    (canvasSize - jWidth) / 2 + canvasSize * HORIZONTAL_OFFSET_RATIO
+  );
+  return clampCompositePosition(canvasSize, jWidth, jHeight, left, top);
+}
+
+/** מרכך חיתוך חד בראש שרשרת — fade באלפא */
+async function softenTopChainFade(
+  jewelryPng: Buffer,
+  jWidth: number,
+  jHeight: number
+): Promise<Buffer> {
+  if (jHeight <= jWidth * 1.12) return jewelryPng;
+
+  const sharp = await loadSharp();
+  const fadeH = Math.max(12, Math.round(jHeight * 0.14));
+  const gradient = Buffer.from(
+    `<svg width="${jWidth}" height="${jHeight}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="white" stop-opacity="0"/>
+          <stop offset="${Math.round((fadeH / jHeight) * 100)}%" stop-color="white" stop-opacity="1"/>
+          <stop offset="100%" stop-color="white" stop-opacity="1"/>
+        </linearGradient>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#fade)"/>
+    </svg>`
+  );
+
+  return sharp(jewelryPng)
+    .ensureAlpha()
+    .composite([{ input: gradient, blend: "dest-in" }])
+    .png()
+    .toBuffer();
+}
+
 async function refineCutoutEdges(
   jewelryPng: Buffer,
   skipFeather: boolean
@@ -238,9 +299,9 @@ async function createContactShadow(
   const shadowLeft = Math.round(left + (jWidth - shadowW) / 2);
   const shadowTop = Math.min(
     canvasSize - shadowH - 2,
-    top + jHeight - Math.round(jHeight * 0.06)
+    top + jHeight - Math.round(jHeight * 0.01)
   );
-  const opacity = dramatic ? 0.42 : 0.28;
+  const opacity = dramatic ? 0.52 : 0.36;
 
   const ellipse = Buffer.from(
     `<svg width="${shadowW}" height="${shadowH}">
@@ -432,7 +493,7 @@ export async function compositeProductImage(
   const jewelryMaxWidth = Math.round(canvasSize * JEWELRY_CANVAS_RATIO);
 
   let jewelryPng = await sharp(jewelryInput)
-    .trim({ threshold: 8 })
+    .trim({ threshold: 6 })
     .resize({
       width: jewelryMaxWidth,
       height: jewelryMaxWidth,
@@ -447,6 +508,11 @@ export async function compositeProductImage(
   jewelryPng = await harmonizeJewelry(jewelryPng, stylePreset);
   jewelryPng = await sharpenJewelryLayer(jewelryPng);
 
+  const jMeta = await sharp(jewelryPng).metadata();
+  const jWidth = jMeta.width ?? jewelryMaxWidth;
+  const jHeight = jMeta.height ?? jewelryMaxWidth;
+  jewelryPng = await softenTopChainFade(jewelryPng, jWidth, jHeight);
+
   const background = await sharp(backgroundBuffer)
     .resize(canvasSize, canvasSize, {
       fit: "cover",
@@ -457,15 +523,11 @@ export async function compositeProductImage(
     .png({ compressionLevel: 2 })
     .toBuffer();
 
-  const jMeta = await sharp(jewelryPng).metadata();
-  const jWidth = jMeta.width ?? jewelryMaxWidth;
-  const jHeight = jMeta.height ?? jewelryMaxWidth;
-  const jewelryPos = clampCompositePosition(
+  const jewelryPos = computeJewelryPlacement(
     canvasSize,
     jWidth,
     jHeight,
-    Math.round((canvasSize - jWidth) / 2 + canvasSize * HORIZONTAL_OFFSET_RATIO),
-    Math.round((canvasSize - jHeight) / 2 - canvasSize * VERTICAL_OFFSET_RATIO)
+    stylePreset
   );
   const left = jewelryPos.left;
   const top = jewelryPos.top;
