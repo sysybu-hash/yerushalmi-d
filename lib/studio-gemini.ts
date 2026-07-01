@@ -1,4 +1,5 @@
-const GEMINI_MODEL = "gemini-2.0-flash";
+/** מודלים לפי סדר עדיפות — הראשון הזמין משמש לכל הבקשות */
+const GEMINI_MODELS = ["gemini-3.5-flash", "gemini-2.5-flash"] as const;
 
 type GeminiPart =
   | { text: string }
@@ -40,17 +41,24 @@ export function normalizeGeminiError(error: unknown, fallback: string): string {
       if (/429|quota|rate limit/i.test(message)) {
         return "חריגה ממכסת Gemini — נסו שוב מאוחר יותר או בחרו Replicate";
       }
+      if (/no longer available|has been shut down|not found/i.test(message)) {
+        return "מודל Gemini לא זמין — המערכת תנסה גרסה חלופית אוטומטית";
+      }
       return message;
     }
   }
   return fallback;
 }
 
-async function geminiGenerate(parts: GeminiPart[], temperature = 0.2): Promise<string> {
+async function geminiGenerateWithModel(
+  model: string,
+  parts: GeminiPart[],
+  temperature: number
+): Promise<string> {
   const key = getGeminiApiKey();
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(key)}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -58,10 +66,10 @@ async function geminiGenerate(parts: GeminiPart[], temperature = 0.2): Promise<s
         contents: [{ role: "user", parts }],
         generationConfig: {
           temperature,
-          maxOutputTokens: 1200,
+          maxOutputTokens: 8192,
         },
       }),
-      signal: AbortSignal.timeout(60_000),
+      signal: AbortSignal.timeout(90_000),
     }
   );
 
@@ -79,6 +87,32 @@ async function geminiGenerate(parts: GeminiPart[], temperature = 0.2): Promise<s
   }
 
   return text;
+}
+
+function isRetirableGeminiModelError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return /no longer available|has been shut down|not found|404/i.test(
+    error.message
+  );
+}
+
+async function geminiGenerate(parts: GeminiPart[], temperature = 0.2): Promise<string> {
+  let lastError: Error | null = null;
+
+  for (const model of GEMINI_MODELS) {
+    try {
+      return await geminiGenerateWithModel(model, parts, temperature);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      if (isRetirableGeminiModelError(error)) continue;
+      throw error;
+    }
+  }
+
+  throw (
+    lastError ??
+    new Error("אין מודל Gemini זמין — בדקו את GEMINI_API_KEY או בחרו Replicate")
+  );
 }
 
 export async function geminiGenerateText(

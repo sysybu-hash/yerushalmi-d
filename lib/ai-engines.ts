@@ -24,12 +24,12 @@ export const AI_ENGINE_OPTIONS: {
   {
     value: "replicate",
     label: "Replicate",
-    description: "Moondream, LLaVA, Bria, Kling, Llama",
+    description: "Moondream2, LLaVA, Bria, Kling 3, Llama 3.3",
   },
   {
     value: "gemini",
     label: "Google Gemini",
-    description: "Gemini Flash — זיהוי תמונה וטקסט בעברית",
+    description: "Gemini 3.5 Flash — זיהוי תמונה וטקסט בעברית",
   },
 ];
 
@@ -51,7 +51,7 @@ export const AI_CAPABILITY_LABELS: Record<
   },
   video: {
     label: "יצירת וידאו",
-    hint: "Kling (Replicate) — Gemini לא נתמך כרגע",
+    hint: "Kling 3 (Replicate) — Gemini לא נתמך כרגע",
   },
 };
 

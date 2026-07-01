@@ -642,7 +642,7 @@ function StudioPageContent() {
                   ✓ נשמר בספריית התוכן — פרסמו למלאי מאזור הניהול
                   {state.kind === "video" && state.videoProvider === "kling" && (
                     <span className="mt-1 block text-muted-foreground">
-                      וידאו Kling Pro — מצלמה קבועה, תנועת אור עדינה
+                      וידאו Kling 3 Pro — מצלמה קבועה, תנועת אור עדינה
                     </span>
                   )}
                 </p>
@@ -884,7 +884,7 @@ function StudioPageContent() {
 
           <details className="rounded-none border border-border/40 bg-muted/20 px-3 py-2">
             <summary className="cursor-pointer text-xs font-light tracking-[0.08em] text-muted-foreground">
-              הגדרות וידאו Kling (ברירת מחדל: Pro 1080p) — אווירה לפי הסגנון שנבחר
+              הגדרות וידאו Kling 3 (ברירת מחדל: Pro 1080p) — אווירה לפי הסגנון שנבחר
             </summary>
             <div className="mt-4 space-y-4">
               <div className="grid gap-5 sm:grid-cols-2">

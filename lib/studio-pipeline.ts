@@ -121,6 +121,7 @@ export async function pipelineGenerateVideo(
         options.negativePrompt?.trim() || DEFAULT_VIDEO_NEGATIVE_PROMPT,
       duration: options.duration ?? 5,
       mode: options.mode ?? "pro",
+      generate_audio: false,
     },
   });
 

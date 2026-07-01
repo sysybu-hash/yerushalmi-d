@@ -14,11 +14,11 @@ export const MODELS = {
   sdxl:
     "stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
   svd: "stability-ai/stable-video-diffusion:3f0457e4619daac51203dedb472816fd4af51f3149fa7a9e0b5ffcf1b8172438",
-  kling: "kwaivgi/kling-v2.1",
-  llama: "meta/meta-llama-3-8b-instruct",
-  /** Moondream2 — מודל ראייה מהיר ואמין לזיהוי תכשיטים */
-  moondream:
-    "lucataco/moondream2:392a53ac3f36d630d2d07ce0e78142acaccc338d6caeeb8ca552fe5baca2781e",
+  kling: "kwaivgi/kling-v3-video",
+  /** Llama 3.3 70B — טקסט ותרגום בעברית */
+  llama: "lucataco/ollama-llama3.3-70b",
+  /** Moondream2 (2024-07-23) — זיהוי תמונה מהיר */
+  moondream: "lucataco/moondream2",
   /** LLaVA 1.5 13B — גיבוי לניתוח תמונה */
   llava:
     "yorickvp/llava-13b:80537f9eead1a5bfa72d5ac6ea6414379be41d4d4f6679fd776e9535d1eb58bb",
