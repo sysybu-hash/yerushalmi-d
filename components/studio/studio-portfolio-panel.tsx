@@ -132,6 +132,7 @@ export function StudioPortfolioPanel({
                           fill
                           sizes="56px"
                           className="object-cover"
+                          unoptimized
                         />
                       ) : (
                         <div className="flex h-full items-center justify-center text-muted-foreground">

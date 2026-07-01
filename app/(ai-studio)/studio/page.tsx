@@ -760,6 +760,7 @@ function StudioPageContent() {
                           fill
                           sizes="(max-width: 1024px) 50vw, 30vw"
                           className="object-contain"
+                          unoptimized
                         />
                       </MediaPreviewTrigger>
                     ) : (
@@ -795,6 +796,7 @@ function StudioPageContent() {
                           fill
                           sizes="(max-width: 1024px) 50vw, 30vw"
                           className="bg-stone-900/5 object-contain"
+                          unoptimized
                         />
                       </MediaPreviewTrigger>
                     )}

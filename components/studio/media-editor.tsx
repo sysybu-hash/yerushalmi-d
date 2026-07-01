@@ -399,6 +399,7 @@ export function StudioMediaEditor({
                     fill
                     sizes="112px"
                     className="object-contain"
+                    unoptimized
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center">
