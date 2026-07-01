@@ -9,7 +9,8 @@ import type { SiteSettings } from "@/lib/site-settings";
 import { COLLECTION_SETTING_KEYS } from "@/lib/site-settings";
 import {
   AI_CAPABILITY_LABELS,
-  AI_ENGINE_OPTIONS,
+  engineOptionsForCapability,
+  type AiCapability,
 } from "@/lib/ai-engines";
 import { Button } from "@/components/ui/button";
 import {
@@ -54,10 +55,17 @@ function EngineSelectField({
   defaultValue,
 }: {
   name: keyof SiteSettings;
-  capability: keyof typeof AI_CAPABILITY_LABELS;
+  capability: AiCapability;
   defaultValue: string;
 }) {
   const meta = AI_CAPABILITY_LABELS[capability];
+  const options = engineOptionsForCapability(capability);
+  const normalizedDefault =
+    capability === "cutout" || capability === "video"
+      ? defaultValue === "gemini"
+        ? "auto"
+        : defaultValue
+      : defaultValue;
 
   return (
     <div className="space-y-2">
@@ -67,10 +75,10 @@ function EngineSelectField({
       <select
         id={name}
         name={name}
-        defaultValue={defaultValue}
+        defaultValue={normalizedDefault}
         className="flex h-10 w-full rounded-none border border-input bg-background px-3 py-2 text-sm font-light ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       >
-        {AI_ENGINE_OPTIONS.map((option) => (
+        {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
           </option>

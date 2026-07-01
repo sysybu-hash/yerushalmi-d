@@ -1,5 +1,5 @@
 import type { AiEngineConfig } from "@/lib/ai-engines";
-import { DEFAULT_AI_ENGINES } from "@/lib/ai-engines";
+import { DEFAULT_AI_ENGINES, mergeAiEngineConfig } from "@/lib/ai-engines";
 import type {
   StudioPipelineStepId,
   StudioStylePresetId,
@@ -110,10 +110,7 @@ export function normalizeSnapshot(
         ...raw.edit?.videoAdj,
       },
     },
-    aiEngines: {
-      ...DEFAULT_AI_ENGINES,
-      ...raw.aiEngines,
-    },
+    aiEngines: mergeAiEngineConfig(DEFAULT_AI_ENGINES, raw.aiEngines),
   };
 }
 

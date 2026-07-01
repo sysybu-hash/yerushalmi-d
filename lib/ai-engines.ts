@@ -33,6 +33,29 @@ export const AI_ENGINE_OPTIONS: {
   },
 ];
 
+/** cutout ו-video תמיד דרך Replicate — Gemini לא מוצע */
+export function engineOptionsForCapability(
+  capability: AiCapability
+): typeof AI_ENGINE_OPTIONS {
+  if (capability === "cutout" || capability === "video") {
+    return AI_ENGINE_OPTIONS.filter((option) => option.value !== "gemini");
+  }
+  return AI_ENGINE_OPTIONS;
+}
+
+function normalizeCapabilityPreference(
+  capability: AiCapability,
+  provider: AiEngineProvider
+): AiEngineProvider {
+  if (
+    (capability === "cutout" || capability === "video") &&
+    provider === "gemini"
+  ) {
+    return "auto";
+  }
+  return provider;
+}
+
 export const AI_CAPABILITY_LABELS: Record<
   AiCapability,
   { label: string; hint: string }
@@ -84,16 +107,16 @@ export function resolveEngine(
   capability: AiCapability,
   preference: AiEngineProvider | undefined
 ): AiResolvedProvider {
-  const pref = preference ?? "auto";
+  const pref = normalizeCapabilityPreference(capability, preference ?? "auto");
+
+  if (capability === "cutout" || capability === "video") {
+    return "replicate";
+  }
 
   if (pref === "replicate") return "replicate";
   if (pref === "gemini") return "gemini";
 
-  if (capability === "vision" || capability === "text") {
-    if (isGeminiConfigured()) return "gemini";
-    return "replicate";
-  }
-
+  if (isGeminiConfigured()) return "gemini";
   return "replicate";
 }
 
@@ -112,26 +135,22 @@ export function assertEngineAvailable(
       "מנוע Replicate לא מוגדר — הוסיפו REPLICATE_API_TOKEN ב-Vercel"
     );
   }
-
-  if (
-    resolved === "gemini" &&
-    (capability === "cutout" || capability === "video")
-  ) {
-    throw new Error(
-      capability === "cutout"
-        ? "הסרת רקע זמינה כרגע רק ב-Replicate — בחרו Replicate או אוטומטי"
-        : "יצירת וידאו זמינה כרגע רק ב-Replicate — בחרו Replicate או אוטומטי"
-    );
-  }
 }
 
 export function mergeAiEngineConfig(
   ...layers: Array<Partial<AiEngineConfig> | undefined>
 ): AiEngineConfig {
-  return layers.reduce<AiEngineConfig>(
+  const merged = layers.reduce<AiEngineConfig>(
     (acc, layer) => ({ ...acc, ...layer }),
     { ...DEFAULT_AI_ENGINES }
   );
+
+  return {
+    vision: merged.vision,
+    text: merged.text,
+    cutout: normalizeCapabilityPreference("cutout", merged.cutout),
+    video: normalizeCapabilityPreference("video", merged.video),
+  };
 }
 
 export function aiEnginesFromSiteSettings(settings: {

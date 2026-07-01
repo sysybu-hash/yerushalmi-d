@@ -3,8 +3,8 @@
 import type { AiCapability, AiEngineConfig, AiEngineProvider } from "@/lib/ai-engines";
 import {
   AI_CAPABILITY_LABELS,
-  AI_ENGINE_OPTIONS,
   DEFAULT_AI_ENGINES,
+  engineOptionsForCapability,
 } from "@/lib/ai-engines";
 import { Label } from "@/components/ui/label";
 import {
@@ -38,6 +38,12 @@ export function AiEngineSelector({
     <div className={compact ? "space-y-3" : "space-y-4"}>
       {capabilities.map((capability) => {
         const meta = AI_CAPABILITY_LABELS[capability];
+        const rawValue = value[capability] ?? DEFAULT_AI_ENGINES[capability];
+        const selectedValue =
+          (capability === "cutout" || capability === "video") &&
+          rawValue === "gemini"
+            ? "auto"
+            : rawValue;
         return (
           <div key={capability} className="space-y-1.5">
             <Label className="text-xs font-light text-muted-foreground">
@@ -45,7 +51,7 @@ export function AiEngineSelector({
             </Label>
             <Select
               dir="rtl"
-              value={value[capability] ?? DEFAULT_AI_ENGINES[capability]}
+              value={selectedValue}
               onValueChange={(next) =>
                 updateCapability(capability, next as AiEngineProvider)
               }
@@ -55,7 +61,7 @@ export function AiEngineSelector({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {AI_ENGINE_OPTIONS.map((option) => (
+                {engineOptionsForCapability(capability).map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>
