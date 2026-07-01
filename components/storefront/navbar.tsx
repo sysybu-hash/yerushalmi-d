@@ -84,7 +84,7 @@ export function Navbar({
             : "border-b border-border/60 bg-background/95 shadow-sm backdrop-blur-md"
         )}
       >
-        <div className="mx-auto flex min-h-[156px] max-w-7xl items-center justify-between px-4 py-3 sm:min-h-[184px] sm:px-8">
+        <div className="mx-auto flex min-h-[188px] max-w-7xl items-center justify-between px-4 py-3 sm:min-h-[232px] sm:px-8">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
               <Button
@@ -170,7 +170,7 @@ export function Navbar({
             <BrandLogo
               logoSrc={logoSrc}
               href="/"
-              size="xl"
+              size="2xl"
               tone={transparent ? "light" : "dark"}
               priority
               className="transition-opacity duration-500 group-hover:opacity-90"

@@ -9,15 +9,17 @@ export const BRAND_MARK_SRC = "/logo-diamond.png";
 const LOGO_SIZES = {
   sm: "h-14 w-14",
   md: "h-20 w-20 sm:h-24 sm:w-24",
-  lg: "h-24 w-24 sm:h-32 sm:w-32",
-  xl: "h-[5.75rem] w-[5.75rem] sm:h-36 sm:w-36",
+  lg: "h-28 w-28 sm:h-36 sm:w-36",
+  xl: "h-32 w-32 sm:h-44 sm:w-44",
+  "2xl": "h-36 w-36 sm:h-[12rem] sm:w-[12rem]",
 } as const;
 
 const TEXT_SIZES = {
   sm: "text-sm tracking-[0.12em]",
   md: "text-base sm:text-lg tracking-[0.14em]",
   lg: "text-lg sm:text-xl tracking-[0.16em]",
-  xl: "text-lg sm:text-xl tracking-[0.18em]",
+  xl: "text-xl sm:text-2xl tracking-[0.18em]",
+  "2xl": "text-xl sm:text-2xl tracking-[0.2em]",
 } as const;
 
 export type BrandLogoProps = {
@@ -43,7 +45,7 @@ export function BrandLogo({
   const content = (
     <span
       className={cn(
-        "inline-flex flex-col items-center gap-2.5 text-center sm:gap-3",
+        "inline-flex flex-col items-center gap-3 text-center sm:gap-3.5",
         className
       )}
     >
@@ -58,7 +60,7 @@ export function BrandLogo({
           className={cn(
             "h-full w-full object-contain",
             isLight &&
-              "drop-shadow-[0_0_36px_rgba(34,211,238,0.5)]",
+              "drop-shadow-[0_0_48px_rgba(34,211,238,0.55)]",
             !isLight && "brightness-95 contrast-105"
           )}
         />
