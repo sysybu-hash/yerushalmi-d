@@ -12,6 +12,10 @@ const HORIZONTAL_OFFSET_RATIO = 0.022;
 const NO_REFLECTION_PRESETS = new Set<StudioStylePresetId>([
   "white-studio",
   "concrete-minimal",
+  "black-velvet",
+  "midnight-blue",
+  "royal-purple",
+  "gold-bokeh",
 ]);
 
 const PRESET_HARMONIZE: Partial<
@@ -211,7 +215,7 @@ async function refineCutoutEdges(
   const alpha = await sharp(jewelryPng)
     .ensureAlpha()
     .extractChannel(3)
-    .blur(0.3)
+    .blur(0.15)
     .png()
     .toBuffer();
 
@@ -379,17 +383,31 @@ async function harmonizeJewelry(
   preset: StudioStylePresetId
 ): Promise<Buffer> {
   const tune = PRESET_HARMONIZE[preset];
-  if (!tune) return jewelryPng;
-
   const sharp = await loadSharp();
   let pipeline = sharp(jewelryPng).ensureAlpha();
-  if (tune.brightness != null) {
+  if (tune?.brightness != null) {
     pipeline = pipeline.modulate({ brightness: tune.brightness });
   }
-  if (tune.saturation != null) {
+  if (tune?.saturation != null) {
     pipeline = pipeline.modulate({ saturation: tune.saturation });
   }
   return pipeline.png().toBuffer();
+}
+
+/** חידוד עדין לתכשיט — RGB בלבד, שומר על אלפא */
+async function sharpenJewelryLayer(jewelryPng: Buffer): Promise<Buffer> {
+  const sharp = await loadSharp();
+  const rgb = await sharp(jewelryPng)
+    .removeAlpha()
+    .sharpen({ sigma: 0.85, m1: 1.15, m2: 0.45, x1: 2, y2: 10, y3: 20 })
+    .png()
+    .toBuffer();
+  const alpha = await sharp(jewelryPng)
+    .ensureAlpha()
+    .extractChannel(3)
+    .png()
+    .toBuffer();
+  return sharp(rgb).joinChannel(alpha).png({ compressionLevel: 2 }).toBuffer();
 }
 
 /** הרכבת תכשיט מקורי על רקע עם צל מגע והשתקפות עדינה */
@@ -422,11 +440,12 @@ export async function compositeProductImage(
       kernel: "lanczos3",
       withoutEnlargement: false,
     })
-    .png({ compressionLevel: 6 })
+    .png({ compressionLevel: 2 })
     .toBuffer();
 
   jewelryPng = await refineCutoutEdges(jewelryPng, skipFeather);
   jewelryPng = await harmonizeJewelry(jewelryPng, stylePreset);
+  jewelryPng = await sharpenJewelryLayer(jewelryPng);
 
   const background = await sharp(backgroundBuffer)
     .resize(canvasSize, canvasSize, {
@@ -434,7 +453,8 @@ export async function compositeProductImage(
       position: "centre",
       kernel: "lanczos3",
     })
-    .png({ compressionLevel: 6 })
+    .sharpen({ sigma: 0.25, m1: 0.45, m2: 0.12 })
+    .png({ compressionLevel: 2 })
     .toBuffer();
 
   const jMeta = await sharp(jewelryPng).metadata();
@@ -481,6 +501,7 @@ export async function compositeProductImage(
 
   return sharp(background)
     .composite(composites)
-    .png({ compressionLevel: 6 })
+    .sharpen({ sigma: 0.4, m1: 0.55, m2: 0.18, x1: 2, y2: 10, y3: 20 })
+    .png({ compressionLevel: 2 })
     .toBuffer();
 }

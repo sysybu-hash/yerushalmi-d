@@ -133,7 +133,7 @@ function linearBackdrop(
 }
 
 async function polishLuxuryBackground(image: Sharp): Promise<Buffer> {
-  return image.blur(0.3).png({ compressionLevel: 6 }).toBuffer();
+  return image.sharpen({ sigma: 0.2, m1: 0.35, m2: 0.1 }).png({ compressionLevel: 2 }).toBuffer();
 }
 
 function subtleGrain(size: number, opacity: number): Buffer {
