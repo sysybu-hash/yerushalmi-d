@@ -158,6 +158,29 @@ export async function normalizeJewelryCutout(buffer: Buffer): Promise<Buffer> {
   return current;
 }
 
+function clampCompositePosition(
+  canvasSize: number,
+  overlayW: number,
+  overlayH: number,
+  left: number,
+  top: number
+) {
+  const maxLeft = Math.max(0, canvasSize - overlayW);
+  const maxTop = Math.max(0, canvasSize - overlayH);
+  return {
+    left: Math.max(0, Math.min(left, maxLeft)),
+    top: Math.max(0, Math.min(top, maxTop)),
+  };
+}
+
+async function readImageSize(buffer: Buffer) {
+  const sharp = await loadSharp();
+  const meta = await sharp(buffer).metadata();
+  return {
+    width: meta.width ?? 0,
+    height: meta.height ?? 0,
+  };
+}
 async function hasSoftAlphaMatte(buffer: Buffer): Promise<boolean> {
   const sharp = await loadSharp();
   const { data } = await sharp(buffer)
@@ -239,6 +262,15 @@ async function createContactShadow(
     .png()
     .toBuffer();
 
+  const fadedSize = await readImageSize(faded);
+  const shadowPos = clampCompositePosition(
+    canvasSize,
+    fadedSize.width,
+    fadedSize.height,
+    shadowLeft,
+    shadowTop
+  );
+
   const canvas = await sharp({
     create: {
       width: canvasSize,
@@ -247,7 +279,13 @@ async function createContactShadow(
       background: { r: 0, g: 0, b: 0, alpha: 0 },
     },
   } as SharpOptions)
-    .composite([{ input: faded, left: shadowLeft, top: shadowTop }])
+    .composite([
+      {
+        input: faded,
+        left: shadowPos.left,
+        top: shadowPos.top,
+      },
+    ])
     .png()
     .toBuffer();
 
@@ -264,7 +302,23 @@ async function createFloorReflection(
   opacity: number
 ): Promise<Buffer> {
   const sharp = await loadSharp();
-  const reflectH = Math.min(Math.round(jHeight * 0.35), canvasSize - top - jHeight);
+  const reflectH = Math.max(
+    0,
+    Math.min(Math.round(jHeight * 0.35), canvasSize - top - jHeight)
+  );
+
+  if (reflectH < 8) {
+    return sharp({
+      create: {
+        width: canvasSize,
+        height: canvasSize,
+        channels: 4,
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      },
+    } as SharpOptions)
+      .png()
+      .toBuffer();
+  }
 
   const flipped = await sharp(jewelryPng)
     .flip()
@@ -273,8 +327,10 @@ async function createFloorReflection(
     .png()
     .toBuffer();
 
+  const flippedSize = await readImageSize(flipped);
+
   const gradient = Buffer.from(
-    `<svg width="${jWidth}" height="${reflectH}">
+    `<svg width="${flippedSize.width}" height="${flippedSize.height}">
       <defs>
         <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stop-color="white" stop-opacity="${opacity}"/>
@@ -290,6 +346,15 @@ async function createFloorReflection(
     .png()
     .toBuffer();
 
+  const maskedSize = await readImageSize(masked);
+  const reflectPos = clampCompositePosition(
+    canvasSize,
+    maskedSize.width,
+    maskedSize.height,
+    left,
+    top + jHeight - Math.round(reflectH * 0.15)
+  );
+
   return sharp({
     create: {
       width: canvasSize,
@@ -301,8 +366,8 @@ async function createFloorReflection(
     .composite([
       {
         input: masked,
-        left,
-        top: top + jHeight - Math.round(reflectH * 0.15),
+        left: reflectPos.left,
+        top: reflectPos.top,
       },
     ])
     .png()
@@ -375,14 +440,15 @@ export async function compositeProductImage(
   const jMeta = await sharp(jewelryPng).metadata();
   const jWidth = jMeta.width ?? jewelryMaxWidth;
   const jHeight = jMeta.height ?? jewelryMaxWidth;
-  const left = Math.max(
-    0,
-    Math.round((canvasSize - jWidth) / 2 + canvasSize * HORIZONTAL_OFFSET_RATIO)
-  );
-  const top = Math.max(
-    0,
+  const jewelryPos = clampCompositePosition(
+    canvasSize,
+    jWidth,
+    jHeight,
+    Math.round((canvasSize - jWidth) / 2 + canvasSize * HORIZONTAL_OFFSET_RATIO),
     Math.round((canvasSize - jHeight) / 2 - canvasSize * VERTICAL_OFFSET_RATIO)
   );
+  const left = jewelryPos.left;
+  const top = jewelryPos.top;
 
   const shadowLayer = await createContactShadow(
     jewelryPng,
