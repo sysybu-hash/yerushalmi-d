@@ -91,26 +91,71 @@ export async function validateJewelryCutout(buffer: Buffer): Promise<void> {
     );
   }
 
-  if (metrics.opaqueRatio > MAX_OPAQUE_RATIO) {
-    throw new Error(
-      "נראה שהרקע לא הוסר כראוי — ודאו שהתכשיט בולט על רקע אחיד ולא תופס את כל המסך."
-    );
-  }
-
   if (
     metrics.bboxWidthRatio < MIN_BBOX_RATIO ||
     metrics.bboxHeightRatio < MIN_BBOX_RATIO
   ) {
     throw new Error(
-      "התכשיט קטן מדי בתמונה — התקרבו או חתכו כך שהתכשיט יתפוס לפחות 15% מהפריים."
+      "התכשיט קטן מדי בתמונה — התקרבו או חתכו כך שהתכשיט יתפוס יותר שטח בפריים."
     );
+  }
+}
+
+/** הסרת רקע לבן/אפור אחיד — fallback כש-Bria משאיר רקע אטום */
+async function stripLightBackground(
+  buffer: Buffer,
+  tolerance = 34
+): Promise<Buffer> {
+  const sharp = await loadSharp();
+  const { data, info } = await sharp(buffer)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  const out = Buffer.from(data);
+  for (let i = 0; i < out.length; i += 4) {
+    const r = out[i];
+    const g = out[i + 1];
+    const b = out[i + 2];
+    const min = Math.min(r, g, b);
+    const max = Math.max(r, g, b);
+    const spread = max - min;
+
+    if (min >= 255 - tolerance && spread <= Math.max(6, tolerance / 2)) {
+      out[i + 3] = 0;
+      continue;
+    }
+
+    if (min >= 210 - tolerance && spread <= tolerance) {
+      const lift = (min - (210 - tolerance)) / (45 + tolerance);
+      out[i + 3] = Math.min(out[i + 3], Math.round(255 * Math.min(1, lift * 1.4)));
+    }
   }
 
-  if (metrics.edgeDensity > 0.35) {
-    throw new Error(
-      "קצוות ה-cutout נראים שבורים — נסו רקע אחיד יותר או תאורה רכה ללא צללים חדים."
-    );
+  return sharp(out, {
+    raw: { width: info.width, height: info.height, channels: 4 },
+  })
+    .png()
+    .toBuffer();
+}
+
+/** מכין PNG עם אלפא תקין — AI ואז fallback פרוצדורלי לרקע אחיד */
+export async function normalizeJewelryCutout(buffer: Buffer): Promise<Buffer> {
+  let current = buffer;
+  let metrics = await analyzeCutout(current);
+
+  if (metrics.opaqueRatio > MAX_OPAQUE_RATIO) {
+    current = await stripLightBackground(current, 34);
+    metrics = await analyzeCutout(current);
   }
+
+  if (metrics.opaqueRatio > MAX_OPAQUE_RATIO) {
+    current = await stripLightBackground(current, 52);
+    metrics = await analyzeCutout(current);
+  }
+
+  await validateJewelryCutout(current);
+  return current;
 }
 
 async function hasSoftAlphaMatte(buffer: Buffer): Promise<boolean> {
@@ -296,8 +341,9 @@ export async function compositeProductImage(
     throw new Error("לא ניתן להוריד את תמונת התכשיט");
   }
 
-  const jewelryInput = Buffer.from(await jewelryRes.arrayBuffer());
-  await validateJewelryCutout(jewelryInput);
+  const jewelryInput = await normalizeJewelryCutout(
+    Buffer.from(await jewelryRes.arrayBuffer())
+  );
 
   const skipFeather = await hasSoftAlphaMatte(jewelryInput);
   const jewelryMaxWidth = Math.round(canvasSize * JEWELRY_CANVAS_RATIO);

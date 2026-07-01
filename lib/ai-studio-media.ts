@@ -14,7 +14,7 @@ import {
   uploadBufferToCloudinary,
 } from "@/lib/studio-replicate";
 import { fetchImageDataUri } from "@/lib/vision-image";
-import { validateJewelryCutout } from "@/lib/studio-composite";
+import { normalizeJewelryCutout } from "@/lib/studio-composite";
 import { assertStudioQuota, trackAiUsage } from "@/lib/ai-usage";
 import type { AiUsageMode } from "@/lib/ai-usage";
 
@@ -50,12 +50,8 @@ export async function studioRemoveBackground(
     let success = false;
     try {
       const dataUri = await fetchImageDataUri(rembgSourceUrl(imageUrl));
-      const buffer = await geminiRemoveBackground(dataUri);
-      try {
-        await validateJewelryCutout(buffer);
-      } catch (validationError) {
-        console.warn("gemini_cutout_validation", validationError);
-      }
+      const rawBuffer = await geminiRemoveBackground(dataUri);
+      const buffer = await normalizeJewelryCutout(rawBuffer);
       const url = await uploadBufferToCloudinary(
         buffer,
         `studio-cutout-gemini-${Date.now()}.png`,
@@ -99,7 +95,9 @@ export async function studioRemoveBackground(
     throw new Error("לא ניתן להוריד את תוצאת ה-cutout מ-Replicate");
   }
 
-  const buffer = Buffer.from(await cutoutResponse.arrayBuffer());
+  const buffer = await normalizeJewelryCutout(
+    Buffer.from(await cutoutResponse.arrayBuffer())
+  );
   const url = await uploadBufferToCloudinary(
     buffer,
     `studio-cutout-bria-${Date.now()}.png`,
