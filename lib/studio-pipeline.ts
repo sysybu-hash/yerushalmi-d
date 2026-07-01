@@ -8,17 +8,27 @@ import {
   type StudioStylePresetId,
 } from "@/lib/studio-presets";
 export { pipelineRemoveBackground } from "@/lib/studio-pipeline-remove-bg";
-import { assertEngineAvailable, resolveEngine } from "@/lib/ai-engines";
-import { getResolvedAiEngines } from "@/lib/ai-engine-resolve";
-import { translatePrompt } from "@/lib/ai-text";
+import { pipelineRemoveBackground } from "@/lib/studio-pipeline-remove-bg";
 import {
-  extractUrl,
-  MODELS,
-  replicate,
-  uploadBufferToCloudinary,
-} from "@/lib/studio-replicate";
-import type { GenerateVideoOptions } from "@/lib/studio-types";
-import type { GenerateImageOptions } from "@/lib/studio-types";
+  assertBackgroundEngineAvailable,
+  assertEngineAvailable,
+  resolveEngine,
+} from "@/lib/ai-engines";
+import { getResolvedAiEngines } from "@/lib/ai-engine-resolve";
+import {
+  studioGenerateBackground,
+  studioGenerateVideo,
+} from "@/lib/ai-studio-media";
+import { translatePrompt } from "@/lib/ai-text";
+import { uploadBufferToCloudinary } from "@/lib/studio-replicate";
+import {
+  setCachedComposite,
+} from "@/lib/studio-cutout-cache";
+import type {
+  GenerateImageOptions,
+  GenerateVideoOptions,
+  StudioGenerateResult,
+} from "@/lib/studio-types";
 
 export type StudioImageOptions = GenerateImageOptions;
 
@@ -51,6 +61,51 @@ async function buildLightingHints(
   return translated ? `${presetHints}, ${translated}` : presetHints;
 }
 
+async function resolveBackgroundBuffer(
+  preset: StudioStylePresetId,
+  lightingHints: string,
+  options: GenerateImageOptions
+) {
+  const studioMode = options.mode ?? "catalog";
+  const useAiBackground = Boolean(options.useAiBackground);
+  const engines = await getResolvedAiEngines(
+    options.engines,
+    studioMode,
+    useAiBackground
+  );
+
+  if (engines.background === "procedural") {
+    const { generatePresetBackground } = await import("@/lib/studio-backgrounds");
+    return generatePresetBackground({
+      preset,
+      lightingHints,
+      size: STUDIO_CANVAS_SIZE,
+    });
+  }
+
+  assertBackgroundEngineAvailable(engines.background);
+
+  try {
+    return await studioGenerateBackground(
+      {
+        preset,
+        lightingHints,
+        size: STUDIO_CANVAS_SIZE,
+        highQuality: options.highQualityBackground,
+        projectId: options.projectId,
+      },
+      engines.background
+    );
+  } catch {
+    const { generatePresetBackground } = await import("@/lib/studio-backgrounds");
+    return generatePresetBackground({
+      preset,
+      lightingHints,
+      size: STUDIO_CANVAS_SIZE,
+    });
+  }
+}
+
 export async function pipelineCompositeImage(
   cutoutUrl: string,
   options: StudioImageOptions = {}
@@ -58,29 +113,31 @@ export async function pipelineCompositeImage(
   assertStudioEnv();
   assertRemoteAssetUrl(cutoutUrl);
 
-  const [{ generatePresetBackground }, { compositeProductImage }] =
-    await Promise.all([
-      import("@/lib/studio-backgrounds"),
-      import("@/lib/studio-composite"),
-    ]);
+  const { compositeProductImage } = await import("@/lib/studio-composite");
 
   const preset = options.stylePreset ?? "luxury-marble";
-  const engines = await getResolvedAiEngines(options.engines);
+  const studioMode = options.mode ?? "catalog";
+  const engines = await getResolvedAiEngines(
+    options.engines,
+    studioMode,
+    Boolean(options.useAiBackground)
+  );
   const lightingHints = await buildLightingHints(
     options.customPrompt,
     preset,
     engines.text
   );
-  const backgroundBuffer = await generatePresetBackground({
+  const backgroundBuffer = await resolveBackgroundBuffer(
     preset,
     lightingHints,
-    size: STUDIO_CANVAS_SIZE,
-  });
+    options
+  );
 
   const buffer = await compositeProductImage(
     cutoutUrl,
     backgroundBuffer,
-    STUDIO_CANVAS_SIZE
+    STUDIO_CANVAS_SIZE,
+    preset
   );
   const url = await uploadBufferToCloudinary(
     buffer,
@@ -91,6 +148,39 @@ export async function pipelineCompositeImage(
   return { url };
 }
 
+export async function pipelineGenerateImage(
+  sourceUrl: string,
+  options: StudioImageOptions = {}
+): Promise<StudioGenerateResult> {
+  assertStudioEnv();
+  assertCloudinaryUrl(sourceUrl);
+
+  const studioMode = options.mode ?? "catalog";
+  const preset = options.stylePreset ?? "luxury-marble";
+  const steps: StudioGenerateResult["steps"] = [];
+
+
+  steps.push({ id: "cutout", label: "מבודד את התכשיט המקורי" });
+  const cutout = await pipelineRemoveBackground(sourceUrl, options.engines, {
+    mode: studioMode,
+    projectId: options.projectId,
+    cutoutUrl: options.cutoutUrl,
+  });
+
+  steps.push({ id: "background", label: "בונה רקע יוקרתי" });
+  steps.push({ id: "composite", label: "מרכיב — אותו תכשיט, רקע חדש" });
+
+  const composite = await pipelineCompositeImage(cutout.url, options);
+  setCachedComposite(sourceUrl, cutout.url, composite.url);
+
+  return {
+    cutoutUrl: cutout.url,
+    imageUrl: composite.url,
+    steps,
+    cachedCutout: cutout.cached,
+  };
+}
+
 export async function pipelineGenerateVideo(
   imageUrl: string,
   options: GenerateVideoOptions = {}
@@ -98,8 +188,13 @@ export async function pipelineGenerateVideo(
   assertStudioEnv();
   assertCloudinaryUrl(imageUrl);
 
-  const engines = await getResolvedAiEngines(options.engines);
-  const videoEngine = resolveEngine("video", engines.preferences.video);
+  const studioMode = options.studioMode ?? "marketing";
+  const engines = await getResolvedAiEngines(
+    options.engines,
+    studioMode,
+    false
+  );
+  const videoEngine = resolveEngine("video", engines.preferences.video, studioMode);
   assertEngineAvailable("video", videoEngine);
 
   const englishCustom = options.customPrompt?.trim()
@@ -113,17 +208,17 @@ export async function pipelineGenerateVideo(
     .filter(Boolean)
     .join(", ");
 
-  const output = await replicate.run(MODELS.kling, {
-    input: {
-      start_image: imageUrl,
+  return studioGenerateVideo(
+    imageUrl,
+    {
       prompt,
-      negative_prompt:
+      negativePrompt:
         options.negativePrompt?.trim() || DEFAULT_VIDEO_NEGATIVE_PROMPT,
       duration: options.duration ?? 5,
       mode: options.mode ?? "pro",
-      generate_audio: false,
+      projectId: options.projectId,
+      studioMode,
     },
-  });
-
-  return { url: extractUrl(output), provider: "kling" as const };
+    videoEngine
+  );
 }

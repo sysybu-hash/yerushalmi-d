@@ -4,7 +4,8 @@ import {
   studioJsonOk,
   studioRouteGuard,
 } from "@/lib/studio-route";
-import type { AiEngineConfig } from "@/lib/ai-engines";
+import { QuotaExceededError } from "@/lib/ai-usage";
+import type { AiEngineConfig, StudioPipelineMode } from "@/lib/ai-engines";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,6 +19,9 @@ export async function POST(request: Request) {
     const body = (await request.json()) as {
       imageUrl?: string;
       engines?: Partial<AiEngineConfig>;
+      mode?: StudioPipelineMode;
+      projectId?: number;
+      cutoutUrl?: string;
     };
     if (!body.imageUrl?.trim()) {
       return studioJsonError(
@@ -29,10 +33,18 @@ export async function POST(request: Request) {
 
     const data = await pipelineRemoveBackground(
       body.imageUrl.trim(),
-      body.engines
+      body.engines,
+      {
+        mode: body.mode,
+        projectId: body.projectId,
+        cutoutUrl: body.cutoutUrl,
+      }
     );
     return studioJsonOk(data);
   } catch (error) {
+    if (error instanceof QuotaExceededError) {
+      return studioJsonError(error, error.message, 429);
+    }
     return studioJsonError(
       error,
       "הסרת הרקע נכשלה — ודאו ש-REPLICATE_API_TOKEN מוגדר ב-Vercel."

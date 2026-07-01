@@ -8,8 +8,10 @@ import { saveSiteSettings } from "@/app/(workspace)/workspace/settings/actions";
 import type { SiteSettings } from "@/lib/site-settings";
 import { COLLECTION_SETTING_KEYS } from "@/lib/site-settings";
 import {
+  AI_BACKGROUND_LABEL,
+  AI_BACKGROUND_OPTIONS,
   AI_CAPABILITY_LABELS,
-  engineOptionsForCapability,
+  AI_ENGINE_OPTIONS,
   type AiCapability,
 } from "@/lib/ai-engines";
 import { Button } from "@/components/ui/button";
@@ -59,13 +61,6 @@ function EngineSelectField({
   defaultValue: string;
 }) {
   const meta = AI_CAPABILITY_LABELS[capability];
-  const options = engineOptionsForCapability(capability);
-  const normalizedDefault =
-    capability === "cutout" || capability === "video"
-      ? defaultValue === "gemini"
-        ? "auto"
-        : defaultValue
-      : defaultValue;
 
   return (
     <div className="space-y-2">
@@ -75,16 +70,47 @@ function EngineSelectField({
       <select
         id={name}
         name={name}
-        defaultValue={normalizedDefault}
+        defaultValue={defaultValue}
         className="flex h-10 w-full rounded-none border border-input bg-background px-3 py-2 text-sm font-light ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       >
-        {options.map((option) => (
+        {AI_ENGINE_OPTIONS.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
           </option>
         ))}
       </select>
       <p className="text-xs font-light text-muted-foreground">{meta.hint}</p>
+    </div>
+  );
+}
+
+function BackgroundEngineSelectField({
+  name,
+  defaultValue,
+}: {
+  name: keyof SiteSettings;
+  defaultValue: string;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={name} className="font-light">
+        {AI_BACKGROUND_LABEL.label}
+      </Label>
+      <select
+        id={name}
+        name={name}
+        defaultValue={defaultValue}
+        className="flex h-10 w-full rounded-none border border-input bg-background px-3 py-2 text-sm font-light ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      >
+        {AI_BACKGROUND_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <p className="text-xs font-light text-muted-foreground">
+        {AI_BACKGROUND_LABEL.hint}
+      </p>
     </div>
   );
 }
@@ -467,15 +493,40 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
             capability="cutout"
             defaultValue={settings.aiEngineCutout}
           />
+          <BackgroundEngineSelectField
+            name="aiEngineBackground"
+            defaultValue={settings.aiEngineBackground}
+          />
           <EngineSelectField
             name="aiEngineVideo"
             capability="video"
             defaultValue={settings.aiEngineVideo}
           />
         </div>
+        <div className="grid gap-5 sm:grid-cols-3">
+          <TextField
+            name="studioDailyImageLimit"
+            label="מכסה יומית — תמונות AI (0 = ללא הגבלה)"
+            defaultValue={settings.studioDailyImageLimit}
+          />
+          <TextField
+            name="studioDailyVideoLimit"
+            label="מכסה יומית — וידאו"
+            defaultValue={settings.studioDailyVideoLimit}
+          />
+          <TextField
+            name="studioUsdToIlsRate"
+            label="שער $ → ₪ לדשבורד עלויות"
+            defaultValue={settings.studioUsdToIlsRate}
+          />
+        </div>
         <p className="text-xs font-light text-muted-foreground">
-          מצב אוטומטי בוחר Gemini לזיהוי תמונה וטקסט כש־GEMINI_API_KEY מוגדר;
-          אחרת Replicate. הסרת רקע ווידאו תמיד דרך Replicate.
+          אוטומטי: cutout → Bria (Replicate), רקע → פרוצדורלי, טקסט/ראייה → Gemini
+          אם מוגדר. מעקב שימושים ב
+          <a href="/workspace/ai-usage" className="text-gold-dark underline">
+            דשבורד עלויות AI
+          </a>
+          .
         </p>
       </SectionCard>
 

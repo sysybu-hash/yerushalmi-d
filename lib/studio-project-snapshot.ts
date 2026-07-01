@@ -60,12 +60,18 @@ export type StudioClientState =
       step?: StudioPipelineStepId;
     }
   | {
+      status: "cutout-preview";
+      source: string;
+      cutoutUrl: string;
+      kind: "image";
+    }
+  | {
       status: "done";
       source: string;
       kind: "image" | "video";
       result: string;
       savedUrl?: string;
-      videoProvider?: "kling" | "svd";
+      videoProvider?: "kling" | "veo" | "svd";
     }
   | { status: "error"; source: string; message: string };
 
@@ -89,6 +95,10 @@ export type StudioProjectSnapshot = {
   productType: "natural" | "lab";
   productCategory: string;
   aiEngines: AiEngineConfig;
+  studioMode: "catalog" | "marketing";
+  useAiBackground: boolean;
+  highQualityBackground: boolean;
+  cutoutUrl: string;
   edit: StudioEditSnapshot;
 };
 
@@ -111,6 +121,10 @@ export function normalizeSnapshot(
       },
     },
     aiEngines: mergeAiEngineConfig(DEFAULT_AI_ENGINES, raw.aiEngines),
+    studioMode: raw.studioMode === "marketing" ? "marketing" : "catalog",
+    useAiBackground: Boolean(raw.useAiBackground),
+    highQualityBackground: Boolean(raw.highQualityBackground),
+    cutoutUrl: raw.cutoutUrl ?? "",
   };
 }
 
@@ -134,6 +148,10 @@ export const EMPTY_STUDIO_SNAPSHOT: StudioProjectSnapshot = {
   productType: "natural",
   productCategory: "rings",
   aiEngines: DEFAULT_AI_ENGINES,
+  studioMode: "catalog",
+  useAiBackground: false,
+  highQualityBackground: false,
+  cutoutUrl: "",
   edit: EMPTY_EDIT_SNAPSHOT,
 };
 

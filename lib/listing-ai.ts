@@ -6,8 +6,9 @@ import {
   collectReplicateText,
   MODELS,
   normalizeStudioError,
-  replicate,
+  runTrackedReplicate,
 } from "@/lib/studio-replicate";
+import { trackAiUsage } from "@/lib/ai-usage";
 import {
   geminiAnalyzeImage,
   normalizeGeminiError,
@@ -249,12 +250,14 @@ function categoryFromJewelryType(jewelryType?: string): ListingAiCategory | unde
 }
 
 async function runMoondream(imageInput: string): Promise<string> {
-  const output = await replicate.run(MODELS.moondream, {
-    input: {
+  const output = await runTrackedReplicate(
+    MODELS.moondream,
+    {
       image: imageInput,
       prompt: JEWELRY_VISION_PROMPT,
     },
-  });
+    { capability: "vision", mode: "listing" }
+  );
 
   const text = await collectReplicateText(output);
   if (!text) {
@@ -265,14 +268,16 @@ async function runMoondream(imageInput: string): Promise<string> {
 }
 
 async function runLlava(imageInput: string): Promise<string> {
-  const output = await replicate.run(MODELS.llava, {
-    input: {
+  const output = await runTrackedReplicate(
+    MODELS.llava,
+    {
       image: imageInput,
       prompt: LLAVA_JSON_PROMPT,
       max_tokens: 500,
       temperature: 0.1,
     },
-  });
+    { capability: "vision", mode: "listing" }
+  );
 
   const text = await collectReplicateText(output);
   if (!text) {
@@ -284,12 +289,25 @@ async function runLlava(imageInput: string): Promise<string> {
 
 async function runGeminiVision(imageUrl: string): Promise<string> {
   const imageInput = await fetchImageDataUri(imageUrl);
+  const started = Date.now();
+  let success = false;
   try {
-    return await geminiAnalyzeImage(imageInput, JEWELRY_VISION_PROMPT);
+    const text = await geminiAnalyzeImage(imageInput, JEWELRY_VISION_PROMPT);
+    success = true;
+    return text;
   } catch (error) {
     throw new Error(
       normalizeGeminiError(error, "ניתוח התמונה ב-Gemini נכשל")
     );
+  } finally {
+    await trackAiUsage({
+      provider: "gemini",
+      capability: "vision",
+      modelId: "gemini-3.5-flash",
+      mode: "listing",
+      success,
+      durationMs: Date.now() - started,
+    });
   }
 }
 
@@ -300,15 +318,10 @@ async function analyzeJewelryImage(
   const imageInput = await fetchImageDataUri(imageUrl);
   const runners =
     visionEngine === "gemini"
-      ? [
-          { label: "Gemini", fn: () => runGeminiVision(imageUrl) },
-          { label: "Moondream", fn: () => runMoondream(imageInput) },
-          { label: "LLaVA", fn: () => runLlava(imageInput) },
-        ]
+      ? [{ label: "Gemini", fn: () => runGeminiVision(imageUrl) }]
       : [
           { label: "Moondream", fn: () => runMoondream(imageInput) },
           { label: "LLaVA", fn: () => runLlava(imageInput) },
-          { label: "Gemini", fn: () => runGeminiVision(imageUrl) },
         ];
 
   const errors: string[] = [];

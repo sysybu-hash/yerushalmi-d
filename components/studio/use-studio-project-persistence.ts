@@ -42,6 +42,10 @@ export type StudioFormState = {
   productType: "natural" | "lab";
   productCategory: string;
   aiEngines: AiEngineConfig;
+  studioMode: "catalog" | "marketing";
+  useAiBackground: boolean;
+  highQualityBackground: boolean;
+  cutoutUrl: string;
   edit: StudioEditSnapshot;
 };
 
@@ -73,6 +77,10 @@ export function formToSnapshot(form: StudioFormState): StudioProjectSnapshot {
     productType: form.productType,
     productCategory: form.productCategory,
     aiEngines: form.aiEngines,
+    studioMode: form.studioMode,
+    useAiBackground: form.useAiBackground,
+    highQualityBackground: form.highQualityBackground,
+    cutoutUrl: form.cutoutUrl,
     edit: form.edit,
   });
 }
@@ -98,6 +106,10 @@ export function snapshotToForm(snapshot: StudioProjectSnapshot): StudioFormState
     productType: normalized.productType,
     productCategory: normalized.productCategory,
     aiEngines: normalized.aiEngines,
+    studioMode: normalized.studioMode,
+    useAiBackground: normalized.useAiBackground,
+    highQualityBackground: normalized.highQualityBackground,
+    cutoutUrl: normalized.cutoutUrl,
     edit: normalized.edit,
   };
 }

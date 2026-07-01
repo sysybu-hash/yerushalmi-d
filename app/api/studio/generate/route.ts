@@ -1,4 +1,4 @@
-import { pipelineCompositeImage } from "@/lib/studio-pipeline";
+import { pipelineGenerateImage } from "@/lib/studio-pipeline";
 import {
   studioJsonError,
   studioJsonOk,
@@ -9,7 +9,7 @@ import type { GenerateImageOptions } from "@/lib/studio-types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 export async function POST(request: Request) {
   const denied = await studioRouteGuard();
@@ -17,26 +17,28 @@ export async function POST(request: Request) {
 
   try {
     const body = (await request.json()) as {
-      cutoutUrl?: string;
+      sourceUrl?: string;
     } & GenerateImageOptions;
 
-    if (!body.cutoutUrl?.trim()) {
+    if (!body.sourceUrl?.trim()) {
       return studioJsonError(
-        new Error("חסרה תמונת cutout"),
-        "חסרה תמונת cutout",
+        new Error("חסרה כתובת תמונת מקור"),
+        "חסרה כתובת תמונת מקור",
         400
       );
     }
 
-    const data = await pipelineCompositeImage(body.cutoutUrl.trim(), {
+    const data = await pipelineGenerateImage(body.sourceUrl.trim(), {
       customPrompt: body.customPrompt,
       stylePreset: body.stylePreset,
       engines: body.engines,
       mode: body.mode,
+      cutoutUrl: body.cutoutUrl,
       useAiBackground: body.useAiBackground,
       highQualityBackground: body.highQualityBackground,
       projectId: body.projectId,
     });
+
     return studioJsonOk(data);
   } catch (error) {
     if (error instanceof QuotaExceededError) {
@@ -44,7 +46,7 @@ export async function POST(request: Request) {
     }
     return studioJsonError(
       error,
-      "הרכבת התמונה נכשלה — נסו צילום עם רקע אחיד."
+      "יצירת התמונה נכשלה — נסו שוב עם תמונת מקור ברזולוציה גבוהה."
     );
   }
 }

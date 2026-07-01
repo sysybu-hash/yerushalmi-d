@@ -1,10 +1,17 @@
 "use client";
 
-import type { AiCapability, AiEngineConfig, AiEngineProvider } from "@/lib/ai-engines";
+import type {
+  AiBackgroundProvider,
+  AiCapability,
+  AiEngineConfig,
+  AiEngineProvider,
+} from "@/lib/ai-engines";
 import {
+  AI_BACKGROUND_LABEL,
+  AI_BACKGROUND_OPTIONS,
   AI_CAPABILITY_LABELS,
+  AI_ENGINE_OPTIONS,
   DEFAULT_AI_ENGINES,
-  engineOptionsForCapability,
 } from "@/lib/ai-engines";
 import { Label } from "@/components/ui/label";
 import {
@@ -19,6 +26,7 @@ type AiEngineSelectorProps = {
   value: AiEngineConfig;
   onChange: (next: AiEngineConfig) => void;
   capabilities?: AiCapability[];
+  showBackground?: boolean;
   disabled?: boolean;
   compact?: boolean;
 };
@@ -27,6 +35,7 @@ export function AiEngineSelector({
   value,
   onChange,
   capabilities = ["vision", "text", "cutout", "video"],
+  showBackground = true,
   disabled = false,
   compact = false,
 }: AiEngineSelectorProps) {
@@ -34,16 +43,14 @@ export function AiEngineSelector({
     onChange({ ...value, [capability]: provider });
   }
 
+  function updateBackground(provider: AiBackgroundProvider) {
+    onChange({ ...value, background: provider });
+  }
+
   return (
     <div className={compact ? "space-y-3" : "space-y-4"}>
       {capabilities.map((capability) => {
         const meta = AI_CAPABILITY_LABELS[capability];
-        const rawValue = value[capability] ?? DEFAULT_AI_ENGINES[capability];
-        const selectedValue =
-          (capability === "cutout" || capability === "video") &&
-          rawValue === "gemini"
-            ? "auto"
-            : rawValue;
         return (
           <div key={capability} className="space-y-1.5">
             <Label className="text-xs font-light text-muted-foreground">
@@ -51,7 +58,7 @@ export function AiEngineSelector({
             </Label>
             <Select
               dir="rtl"
-              value={selectedValue}
+              value={value[capability] ?? DEFAULT_AI_ENGINES[capability]}
               onValueChange={(next) =>
                 updateCapability(capability, next as AiEngineProvider)
               }
@@ -61,7 +68,7 @@ export function AiEngineSelector({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {engineOptionsForCapability(capability).map((option) => (
+                {AI_ENGINE_OPTIONS.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>
@@ -76,6 +83,38 @@ export function AiEngineSelector({
           </div>
         );
       })}
+
+      {showBackground && (
+        <div className="space-y-1.5">
+          <Label className="text-xs font-light text-muted-foreground">
+            {AI_BACKGROUND_LABEL.label}
+          </Label>
+          <Select
+            dir="rtl"
+            value={value.background ?? DEFAULT_AI_ENGINES.background}
+            onValueChange={(next) =>
+              updateBackground(next as AiBackgroundProvider)
+            }
+            disabled={disabled}
+          >
+            <SelectTrigger className="rounded-none bg-background">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {AI_BACKGROUND_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {!compact && (
+            <p className="text-[10px] font-light text-muted-foreground">
+              {AI_BACKGROUND_LABEL.hint}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

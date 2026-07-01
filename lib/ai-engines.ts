@@ -1,13 +1,27 @@
 export type AiEngineProvider = "auto" | "replicate" | "gemini";
+export type AiBackgroundProvider =
+  | "auto"
+  | "procedural"
+  | "replicate"
+  | "gemini";
 export type AiResolvedProvider = "replicate" | "gemini";
+export type AiBackgroundResolved = "procedural" | "replicate" | "gemini";
 export type AiCapability = "vision" | "text" | "cutout" | "video";
+export type StudioPipelineMode = "catalog" | "marketing";
 
-export type AiEngineConfig = Record<AiCapability, AiEngineProvider>;
+export type AiEngineConfig = {
+  vision: AiEngineProvider;
+  text: AiEngineProvider;
+  cutout: AiEngineProvider;
+  background: AiBackgroundProvider;
+  video: AiEngineProvider;
+};
 
 export const DEFAULT_AI_ENGINES: AiEngineConfig = {
   vision: "auto",
   text: "auto",
   cutout: "auto",
+  background: "auto",
   video: "auto",
 };
 
@@ -24,37 +38,41 @@ export const AI_ENGINE_OPTIONS: {
   {
     value: "replicate",
     label: "Replicate",
-    description: "Moondream2, LLaVA, Bria, Kling 3, Llama 3.3",
+    description: "Moondream2, Bria, Flux, Kling 3, Llama 3.3",
   },
   {
     value: "gemini",
     label: "Google Gemini",
-    description: "Gemini 3.5 Flash — זיהוי תמונה וטקסט בעברית",
+    description: "Nano Banana 2, Gemini 3.5, Veo 3.1 — ראייה, טקסט, תמונה ווידאו",
   },
 ];
 
-/** cutout ו-video תמיד דרך Replicate — Gemini לא מוצע */
-export function engineOptionsForCapability(
-  capability: AiCapability
-): typeof AI_ENGINE_OPTIONS {
-  if (capability === "cutout" || capability === "video") {
-    return AI_ENGINE_OPTIONS.filter((option) => option.value !== "gemini");
-  }
-  return AI_ENGINE_OPTIONS;
-}
-
-function normalizeCapabilityPreference(
-  capability: AiCapability,
-  provider: AiEngineProvider
-): AiEngineProvider {
-  if (
-    (capability === "cutout" || capability === "video") &&
-    provider === "gemini"
-  ) {
-    return "auto";
-  }
-  return provider;
-}
+export const AI_BACKGROUND_OPTIONS: {
+  value: AiBackgroundProvider;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: "auto",
+    label: "אוטומטי (פרוצדורלי בקטלוג)",
+    description: "רקע פרוצדורלי בקטלוג — ללא עלות API",
+  },
+  {
+    value: "procedural",
+    label: "פרוצדורלי (ללא AI)",
+    description: "Sharp/SVG — עקבי, מהיר, ללא עלות",
+  },
+  {
+    value: "replicate",
+    label: "Replicate (Flux / SDXL)",
+    description: "רקע AI — +1 קריאת API",
+  },
+  {
+    value: "gemini",
+    label: "Gemini (Nano Banana)",
+    description: "רקע AI גנרטיבי — +1 קריאת API",
+  },
+];
 
 export const AI_CAPABILITY_LABELS: Record<
   AiCapability,
@@ -62,24 +80,36 @@ export const AI_CAPABILITY_LABELS: Record<
 > = {
   vision: {
     label: "זיהוי תמונה",
-    hint: "ניתוח תכשיטים למילוי אוטומטי",
+    hint: "Gemini 3.5 או Moondream2 — ניתוח תכשיטים",
   },
   text: {
     label: "טקסט ותיאורים",
-    hint: "שמות מוצר, תיאורים, תרגום פרומפטים",
+    hint: "Gemini 3.5 או Llama 3.3 — שמות, תיאורים, תרגום",
   },
   cutout: {
     label: "הסרת רקע",
-    hint: "Bria RMBG (Replicate) — Gemini לא נתמך",
+    hint: "Bria RMBG (אוטומטי) או Nano Banana 2 (Gemini)",
   },
   video: {
     label: "יצירת וידאו",
-    hint: "Kling 3 (Replicate) — Gemini לא נתמך כרגע",
+    hint: "Veo 3.1 (Gemini) או Kling 3 (Replicate) — מצב שיווק",
   },
+};
+
+export const AI_BACKGROUND_LABEL = {
+  label: "רקע",
+  hint: "פרוצדורלי לקטלוג · Flux/SDXL/Gemini במצב שיווק",
 };
 
 const VALID_PROVIDERS = new Set<AiEngineProvider>([
   "auto",
+  "replicate",
+  "gemini",
+]);
+
+const VALID_BACKGROUND_PROVIDERS = new Set<AiBackgroundProvider>([
+  "auto",
+  "procedural",
   "replicate",
   "gemini",
 ]);
@@ -94,6 +124,16 @@ export function parseAiEngineProvider(
   return "auto";
 }
 
+export function parseAiBackgroundProvider(
+  value: string | null | undefined
+): AiBackgroundProvider {
+  const raw = value?.trim().toLowerCase();
+  if (raw && VALID_BACKGROUND_PROVIDERS.has(raw as AiBackgroundProvider)) {
+    return raw as AiBackgroundProvider;
+  }
+  return "auto";
+}
+
 export function isGeminiConfigured(): boolean {
   return Boolean(process.env.GEMINI_API_KEY?.trim());
 }
@@ -102,26 +142,56 @@ export function isReplicateConfigured(): boolean {
   return Boolean(process.env.REPLICATE_API_TOKEN?.trim());
 }
 
-/** מנוע בפועל לאחר החלת מצב אוטומטי */
+/** מנוע בפועל לאחר החלת מצב אוטומטי — מודע ל-capability */
 export function resolveEngine(
   capability: AiCapability,
-  preference: AiEngineProvider | undefined
+  preference: AiEngineProvider | undefined,
+  studioMode: StudioPipelineMode = "catalog"
 ): AiResolvedProvider {
-  const pref = normalizeCapabilityPreference(capability, preference ?? "auto");
-
-  if (capability === "cutout" || capability === "video") {
-    return "replicate";
-  }
+  const pref = preference ?? "auto";
 
   if (pref === "replicate") return "replicate";
   if (pref === "gemini") return "gemini";
 
-  if (isGeminiConfigured()) return "gemini";
-  return "replicate";
+  switch (capability) {
+    case "cutout":
+      return "replicate";
+    case "video":
+      if (studioMode === "catalog") return "replicate";
+      return isGeminiConfigured() ? "gemini" : "replicate";
+    case "vision":
+    case "text":
+      return isGeminiConfigured() ? "gemini" : "replicate";
+    default:
+      return isReplicateConfigured() ? "replicate" : "gemini";
+  }
+}
+
+/** מנוע רקע — פרוצדורלי כברירת מחדל בקטלוג */
+export function resolveBackgroundEngine(
+  preference: AiBackgroundProvider | undefined,
+  studioMode: StudioPipelineMode = "catalog",
+  useAiBackground = false
+): AiBackgroundResolved {
+  if (studioMode === "catalog" && !useAiBackground) {
+    return "procedural";
+  }
+
+  const pref = preference ?? "auto";
+
+  if (pref === "procedural") return "procedural";
+  if (pref === "replicate") return "replicate";
+  if (pref === "gemini") return "gemini";
+
+  if (useAiBackground) {
+    return isGeminiConfigured() ? "gemini" : "replicate";
+  }
+
+  return "procedural";
 }
 
 export function assertEngineAvailable(
-  capability: AiCapability,
+  _capability: AiCapability,
   resolved: AiResolvedProvider
 ): void {
   if (resolved === "gemini" && !isGeminiConfigured()) {
@@ -137,32 +207,43 @@ export function assertEngineAvailable(
   }
 }
 
+export function assertBackgroundEngineAvailable(
+  resolved: AiBackgroundResolved
+): void {
+  if (resolved === "procedural") return;
+  if (resolved === "gemini" && !isGeminiConfigured()) {
+    throw new Error(
+      "מנוע Gemini לא מוגדר לרקע — בחרו פרוצדורלי או Replicate"
+    );
+  }
+  if (resolved === "replicate" && !isReplicateConfigured()) {
+    throw new Error(
+      "מנוע Replicate לא מוגדר לרקע — בחרו פרוצדורלי"
+    );
+  }
+}
+
 export function mergeAiEngineConfig(
   ...layers: Array<Partial<AiEngineConfig> | undefined>
 ): AiEngineConfig {
-  const merged = layers.reduce<AiEngineConfig>(
+  return layers.reduce<AiEngineConfig>(
     (acc, layer) => ({ ...acc, ...layer }),
     { ...DEFAULT_AI_ENGINES }
   );
-
-  return {
-    vision: merged.vision,
-    text: merged.text,
-    cutout: normalizeCapabilityPreference("cutout", merged.cutout),
-    video: normalizeCapabilityPreference("video", merged.video),
-  };
 }
 
 export function aiEnginesFromSiteSettings(settings: {
   aiEngineVision?: string;
   aiEngineText?: string;
   aiEngineCutout?: string;
+  aiEngineBackground?: string;
   aiEngineVideo?: string;
 }): AiEngineConfig {
   return {
     vision: parseAiEngineProvider(settings.aiEngineVision),
     text: parseAiEngineProvider(settings.aiEngineText),
     cutout: parseAiEngineProvider(settings.aiEngineCutout),
+    background: parseAiBackgroundProvider(settings.aiEngineBackground),
     video: parseAiEngineProvider(settings.aiEngineVideo),
   };
 }

@@ -9,6 +9,7 @@ import {
   timestamp,
   varchar,
   jsonb,
+  boolean,
 } from "drizzle-orm/pg-core";
 import type { StudioProjectSnapshot } from "@/lib/studio-project-snapshot";
 
@@ -210,6 +211,23 @@ export const studioProjects = pgTable("studio_projects", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+/** מעקב שימושי API — סטודיו ומילוי אוטומטי */
+export const aiUsageEvents = pgTable("ai_usage_events", {
+  id: serial("id").primaryKey(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  provider: varchar("provider", { length: 20 }).notNull(),
+  capability: varchar("capability", { length: 20 }).notNull(),
+  modelId: varchar("model_id", { length: 200 }).notNull(),
+  mode: varchar("mode", { length: 20 }).notNull().default("catalog"),
+  success: boolean("success").notNull(),
+  durationMs: integer("duration_ms"),
+  estimatedCostUsd: numeric("estimated_cost_usd", { precision: 10, scale: 6 }),
+  billedUnits: numeric("billed_units", { precision: 12, scale: 4 }),
+  cached: boolean("cached").notNull().default(false),
+  projectId: integer("project_id").references(() => studioProjects.id),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+});
+
 // יחסים — מאפשרים שליפת הזמנה עם פריטיה בשאילתה אחת (db.query)
 export const ordersRelations = relations(orders, ({ many }) => ({
   items: many(orderItems),
@@ -242,3 +260,5 @@ export type AiMediaAsset = typeof aiMediaAssets.$inferSelect;
 export type NewAiMediaAsset = typeof aiMediaAssets.$inferInsert;
 export type StudioProject = typeof studioProjects.$inferSelect;
 export type NewStudioProject = typeof studioProjects.$inferInsert;
+export type AiUsageEvent = typeof aiUsageEvents.$inferSelect;
+export type NewAiUsageEvent = typeof aiUsageEvents.$inferInsert;

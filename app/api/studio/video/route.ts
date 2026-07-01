@@ -4,6 +4,7 @@ import {
   studioJsonOk,
   studioRouteGuard,
 } from "@/lib/studio-route";
+import { QuotaExceededError } from "@/lib/ai-usage";
 import type { GenerateVideoOptions } from "@/lib/studio-types";
 
 export const runtime = "nodejs";
@@ -30,6 +31,9 @@ export async function POST(request: Request) {
     const data = await pipelineGenerateVideo(body.imageUrl.trim(), body);
     return studioJsonOk(data);
   } catch (error) {
+    if (error instanceof QuotaExceededError) {
+      return studioJsonError(error, error.message, 429);
+    }
     console.error("Studio video failed:", error);
     return studioJsonError(
       error,

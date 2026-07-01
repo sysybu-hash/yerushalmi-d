@@ -87,7 +87,13 @@ export const SETTING_DEFAULTS = {
   aiEngineVision: "auto",
   aiEngineText: "auto",
   aiEngineCutout: "auto",
+  aiEngineBackground: "auto",
   aiEngineVideo: "auto",
+
+  /* מכסות סטודיו AI — 0 = ללא הגבלה */
+  studioDailyImageLimit: "0",
+  studioDailyVideoLimit: "5",
+  studioUsdToIlsRate: "3.7",
 } as const;
 
 export type SettingKey = keyof typeof SETTING_DEFAULTS;

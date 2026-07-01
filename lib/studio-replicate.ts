@@ -1,4 +1,11 @@
 import Replicate from "replicate";
+import {
+  assertStudioQuota,
+  extractReplicatePredictTime,
+  trackAiUsage,
+  type AiUsageCapability,
+  type AiUsageMode,
+} from "@/lib/ai-usage";
 
 export const replicate = new Replicate({
   auth: process.env.REPLICATE_API_TOKEN,
@@ -141,6 +148,46 @@ export async function translateToEnglish(text: string): Promise<string> {
 
   const translated = extractText(output);
   return translated || trimmed;
+}
+
+export async function runTrackedReplicate(
+  modelId: string,
+  input: Record<string, unknown>,
+  options: {
+    capability: AiUsageCapability;
+    mode?: AiUsageMode;
+    projectId?: number;
+    metadata?: Record<string, unknown>;
+  }
+): Promise<unknown> {
+  await assertStudioQuota(options.capability);
+  const started = Date.now();
+  let success = false;
+  let billedUnits: number | null = null;
+
+  try {
+    const output = await replicate.run(modelId as `${string}/${string}`, {
+      input,
+    });
+    success = true;
+    billedUnits = extractReplicatePredictTime(output);
+    return output;
+  } catch (error) {
+    success = false;
+    throw error;
+  } finally {
+    await trackAiUsage({
+      provider: "replicate",
+      capability: options.capability,
+      modelId,
+      mode: options.mode ?? "catalog",
+      success,
+      durationMs: Date.now() - started,
+      billedUnits,
+      projectId: options.projectId ?? null,
+      metadata: options.metadata,
+    });
+  }
 }
 
 export async function uploadBufferToCloudinary(

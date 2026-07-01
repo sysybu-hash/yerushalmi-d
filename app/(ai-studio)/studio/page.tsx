@@ -21,6 +21,7 @@ import {
 import {
   saveAssetToCloudinary,
   saveToMediaLibrary,
+  publishProductToCatalog,
 } from "./actions";
 import {
   humanizeStudioError,
@@ -47,6 +48,7 @@ import {
 import {
   DEFAULT_AI_ENGINES,
   type AiEngineConfig,
+  type StudioPipelineMode,
 } from "@/lib/ai-engines";
 import {
   DEFAULT_IMAGE_ADJUSTMENTS,
@@ -99,6 +101,16 @@ function StudioPageContent() {
   const [edit, setEdit] = React.useState<StudioEditSnapshot>(EMPTY_EDIT_SNAPSHOT);
   const [aiEngines, setAiEngines] =
     React.useState<AiEngineConfig>(DEFAULT_AI_ENGINES);
+  const [studioMode, setStudioMode] =
+    React.useState<StudioPipelineMode>("catalog");
+  const [useAiBackground, setUseAiBackground] = React.useState(false);
+  const [highQualityBackground, setHighQualityBackground] =
+    React.useState(false);
+  const [cutoutUrl, setCutoutUrl] = React.useState("");
+  const [lastCompositeUrl, setLastCompositeUrl] = React.useState("");
+  const [productTitle, setProductTitle] = React.useState("");
+  const [productPrice, setProductPrice] = React.useState("");
+  const [productCategory, setProductCategory] = React.useState("rings");
 
   const applyForm = React.useCallback((next: StudioFormState) => {
     setState(next.state);
@@ -112,6 +124,10 @@ function StudioPageContent() {
     setVideoMode(next.videoMode);
     setEdit(next.edit);
     setAiEngines(next.aiEngines);
+    setStudioMode(next.studioMode);
+    setUseAiBackground(next.useAiBackground);
+    setHighQualityBackground(next.highQualityBackground);
+    setCutoutUrl(next.cutoutUrl);
   }, []);
 
   const showToastRef = React.useRef<(message: string) => void>(() => {});
@@ -157,6 +173,10 @@ function StudioPageContent() {
       productCategory: "rings",
       edit,
       aiEngines,
+      studioMode,
+      useAiBackground,
+      highQualityBackground,
+      cutoutUrl,
     },
     applyForm,
     showToast: stableShowToast,
@@ -214,6 +234,12 @@ function StudioPageContent() {
       customPrompt,
       stylePreset,
       engines: aiEngines,
+      mode: studioMode,
+      cutoutUrl: cutoutUrl || undefined,
+      useAiBackground: studioMode === "marketing" && useAiBackground,
+      highQualityBackground:
+        studioMode === "marketing" && useAiBackground && highQualityBackground,
+      projectId: activeProjectId ?? undefined,
     };
   }
 
@@ -225,27 +251,132 @@ function StudioPageContent() {
       mode: videoMode,
       stylePreset,
       engines: aiEngines,
+      studioMode: "marketing",
+      skipImagePipeline: Boolean(lastCompositeUrl),
+      projectId: activeProjectId ?? undefined,
     };
   }
 
-  async function generateImagePipeline(
+  async function runCutoutStep(
     sourceUrl: string
-  ): Promise<
-    | { ok: true; url: string }
-    | { ok: false; error: string }
-  > {
-    setState({ status: "generating", source: sourceUrl, kind: "image", step: "cutout" });
+  ): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+    if (cutoutUrl) {
+      return { ok: true, url: cutoutUrl };
+    }
+
+    setState({
+      status: "generating",
+      source: sourceUrl,
+      kind: "image",
+      step: "cutout",
+    });
     const cutout = await studioApiRemoveBackground(sourceUrl, {
       engines: aiEngines,
+      mode: studioMode,
+      projectId: activeProjectId ?? undefined,
     });
     if (!cutout.ok) return cutout;
 
-    setState({ status: "generating", source: sourceUrl, kind: "image", step: "background" });
-    setState({ status: "generating", source: sourceUrl, kind: "image", step: "composite" });
-    const composite = await studioApiCompositeImage(cutout.data.url, aiOptions());
+    setCutoutUrl(cutout.data.url);
+    setState({
+      status: "cutout-preview",
+      source: sourceUrl,
+      cutoutUrl: cutout.data.url,
+      kind: "image",
+    });
+    return { ok: true, url: cutout.data.url };
+  }
+
+  async function runCompositeStep(
+    sourceUrl: string,
+    resolvedCutoutUrl: string
+  ): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+    setState({
+      status: "generating",
+      source: sourceUrl,
+      kind: "image",
+      step: "background",
+    });
+    setState({
+      status: "generating",
+      source: sourceUrl,
+      kind: "image",
+      step: "composite",
+    });
+
+    const composite = await studioApiCompositeImage(resolvedCutoutUrl, aiOptions());
     if (!composite.ok) return composite;
 
+    setLastCompositeUrl(composite.data.url);
     return { ok: true, url: composite.data.url };
+  }
+
+  async function generateImagePipeline(
+    sourceUrl: string,
+    skipCutoutPreview = false
+  ): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+    if (!skipCutoutPreview && !cutoutUrl) {
+      const cutout = await runCutoutStep(sourceUrl);
+      if (!cutout.ok) return cutout;
+      return {
+        ok: false,
+        error: "__CUTOUT_PREVIEW__",
+      };
+    }
+
+    const resolvedCutout = cutoutUrl || sourceUrl;
+    return runCompositeStep(sourceUrl, resolvedCutout);
+  }
+
+  async function generateVariantPresets() {
+    if (!cutoutUrl || !activeSource) return;
+    const presets: StudioStylePresetId[] = [
+      "black-velvet",
+      "white-studio",
+      "jerusalem-stone",
+    ].filter((p) => p !== stylePreset) as StudioStylePresetId[];
+
+    setWorkflowStep(3);
+    for (const preset of presets.slice(0, 2)) {
+      const composite = await studioApiCompositeImage(cutoutUrl, {
+        ...aiOptions(),
+        stylePreset: preset,
+      });
+      if (composite.ok) {
+        await persistToContentLibrary("image", activeSource, composite.data.url);
+        showToast(`וריאנט ${preset} נשמר בספרייה`);
+      }
+    }
+  }
+
+  async function publishResultToCatalog() {
+    if (!resultUrl) return;
+    const price = Number(productPrice);
+    if (!productTitle.trim()) {
+      showToast("הזינו שם מוצר");
+      return;
+    }
+    if (!productPrice || Number.isNaN(price) || price < 0) {
+      showToast("הזינו מחיר תקין");
+      return;
+    }
+    setBusy("catalog");
+    try {
+      const { productId } = await publishProductToCatalog({
+        title: productTitle,
+        price,
+        category: productCategory,
+        type: "natural",
+        imageUrl: resultUrl,
+      });
+      showToast(`המוצר נוסף למלאי (#${productId})`);
+    } catch (error) {
+      showToast(
+        error instanceof Error ? error.message : "הוספה למלאי נכשלה"
+      );
+    } finally {
+      setBusy(null);
+    }
   }
 
   async function persistToContentLibrary(
@@ -265,6 +396,8 @@ function StudioPageContent() {
 
   function setUploadedSource(url: string) {
     setState({ status: "uploaded", source: url });
+    setCutoutUrl("");
+    setLastCompositeUrl("");
     if (mode === "edit") {
       setEdit((prev) => ({
         ...prev,
@@ -320,6 +453,11 @@ function StudioPageContent() {
         setState({ status: "generating", source: activeSource, kind: "image" });
         const pipeline = await generateImagePipeline(activeSource);
         if (!pipeline.ok) {
+          if (pipeline.error === "__CUTOUT_PREVIEW__") {
+            setWorkflowStep(3);
+            showToast("בדקו את ה-cutout ולחצו המשך");
+            return;
+          }
           failGeneration(activeSource, pipeline.error);
           return;
         }
@@ -340,14 +478,24 @@ function StudioPageContent() {
         return;
       }
 
-      showToast("יוצרים תמונת בסיס נקייה לווידאו...");
-      setState({ status: "generating", source: activeSource, kind: "image", step: "cutout" });
-      const pipeline = await generateImagePipeline(activeSource);
-      if (!pipeline.ok) {
-        failGeneration(activeSource, pipeline.error);
+      if (!window.confirm("יצירת וידאו היא פעולה יקרה (+1 קריאת API). להמשיך?")) {
         return;
       }
-      const frameUrl = pipeline.url;
+
+      let frameUrl = lastCompositeUrl;
+      if (!frameUrl) {
+        showToast("יוצרים תמונת בסיס לווידאו...");
+        const pipeline = await generateImagePipeline(activeSource, true);
+        if (!pipeline.ok) {
+          if (pipeline.error === "__CUTOUT_PREVIEW__") {
+            showToast("השלימו cutout לפני וידאו");
+            return;
+          }
+          failGeneration(activeSource, pipeline.error);
+          return;
+        }
+        frameUrl = pipeline.url;
+      }
 
       setState({ status: "generating", source: activeSource, kind: "video" });
       const video = await studioApiGenerateVideo(frameUrl, videoOptions());
@@ -379,6 +527,30 @@ function StudioPageContent() {
     }
   }
 
+  async function continueAfterCutoutPreview() {
+    if (state.status !== "cutout-preview" || !cutoutUrl) return;
+    const sourceUrl = state.source;
+    const pipeline = await runCompositeStep(sourceUrl, cutoutUrl);
+    if (!pipeline.ok) {
+      failGeneration(sourceUrl, pipeline.error);
+      return;
+    }
+    const savedUrl = await persistToContentLibrary(
+      "image",
+      sourceUrl,
+      pipeline.url
+    );
+    setState({
+      status: "done",
+      source: sourceUrl,
+      kind: "image",
+      result: pipeline.url,
+      savedUrl,
+    });
+    setWorkflowStep(4);
+    showToast("נשמר בהצלחה בספריית התוכן");
+  }
+
   async function handleCopyUrl() {
     if (!resultUrl) return;
     await navigator.clipboard.writeText(resultUrl);
@@ -405,6 +577,7 @@ function StudioPageContent() {
   }
 
   const isGenerating = state.status === "generating";
+  const isCutoutPreview = state.status === "cutout-preview";
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 pb-10">
@@ -483,6 +656,38 @@ function StudioPageContent() {
           עריכה ומיטוב חומר קיים
         </button>
       </div>
+
+      {useAiStudioFlow && (
+        <div className="flex flex-wrap justify-center gap-2">
+          <button
+            type="button"
+            aria-pressed={studioMode === "catalog"}
+            onClick={() => {
+              setStudioMode("catalog");
+              setUseAiBackground(false);
+            }}
+            className={`border px-4 py-2 text-xs font-light tracking-[0.1em] transition-colors ${
+              studioMode === "catalog"
+                ? "border-emerald-600 bg-emerald-50 text-emerald-900"
+                : "border-border/60 text-muted-foreground hover:border-emerald-400"
+            }`}
+          >
+            מצב קטלוג — 1 קריאת API
+          </button>
+          <button
+            type="button"
+            aria-pressed={studioMode === "marketing"}
+            onClick={() => setStudioMode("marketing")}
+            className={`border px-4 py-2 text-xs font-light tracking-[0.1em] transition-colors ${
+              studioMode === "marketing"
+                ? "border-gold bg-gold/15 text-gold-dark"
+                : "border-border/60 text-muted-foreground hover:border-gold/50"
+            }`}
+          >
+            מצב שיווק — AI רקע / וידאו
+          </button>
+        </div>
+      )}
 
       {mode === "edit" && !useAiStudioFlow && (
         <StudioMediaEditor
@@ -611,6 +816,43 @@ function StudioPageContent() {
                   </div>
                 </div>
               </div>
+              {isCutoutPreview && cutoutUrl && (
+                <div className="space-y-3 rounded-none border border-gold/40 bg-gold/5 p-3">
+                  <p className="text-[11px] font-light text-gold-dark">
+                    בדקו שהתכשיט נשמר במלואו (אבנים, שיניים, מתכת)
+                  </p>
+                  <div className="relative mx-auto aspect-square max-w-[240px] overflow-hidden border border-border/60 bg-gradient-to-br from-stone-200 to-stone-300">
+                    <Image
+                      src={cutoutUrl}
+                      alt="תצוגת cutout"
+                      fill
+                      sizes="240px"
+                      className="object-contain"
+                      unoptimized
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Button
+                      type="button"
+                      onClick={continueAfterCutoutPreview}
+                      className="flex-1 rounded-none text-xs font-light"
+                    >
+                      המשך להרכבה
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setCutoutUrl("");
+                        if (activeSource) void runCutoutStep(activeSource);
+                      }}
+                      className="flex-1 rounded-none text-xs font-light"
+                    >
+                      נסה cutout שוב
+                    </Button>
+                  </div>
+                </div>
+              )}
               {state.status === "generating" && state.kind === "image" && state.step && (
                 <ul className="space-y-1 text-[11px] font-light text-muted-foreground">
                   {STUDIO_PIPELINE_STEPS.map((step, index) => {
@@ -640,9 +882,13 @@ function StudioPageContent() {
               {state.status === "done" && (
                 <p className="text-center text-[11px] font-light text-emerald-800">
                   ✓ נשמר בספריית התוכן — פרסמו למלאי מאזור הניהול
-                  {state.kind === "video" && state.videoProvider === "kling" && (
+                  {state.kind === "video" &&
+                    (state.videoProvider === "kling" ||
+                      state.videoProvider === "veo") && (
                     <span className="mt-1 block text-muted-foreground">
-                      וידאו Kling 3 Pro — מצלמה קבועה, תנועת אור עדינה
+                      וידאו{" "}
+                      {state.videoProvider === "veo" ? "Veo 3.1" : "Kling 3 Pro"}{" "}
+                      — מצלמה קבועה, תנועת אור עדינה
                     </span>
                   )}
                 </p>
@@ -843,9 +1089,41 @@ function StudioPageContent() {
                 onChange={setAiEngines}
                 disabled={!activeSource || isGenerating}
                 compact
+                showBackground={studioMode === "marketing"}
               />
             </div>
           </details>
+
+          {studioMode === "marketing" && (
+            <div className="space-y-3 rounded-none border border-amber-200/80 bg-amber-50/40 p-3">
+              <label className="flex items-center gap-2 text-xs font-light">
+                <input
+                  type="checkbox"
+                  checked={useAiBackground}
+                  onChange={(e) => setUseAiBackground(e.target.checked)}
+                  disabled={!activeSource || isGenerating}
+                />
+                רקע AI (+1 קריאת API)
+              </label>
+              {useAiBackground && (
+                <label className="flex items-center gap-2 text-xs font-light">
+                  <input
+                    type="checkbox"
+                    checked={highQualityBackground}
+                    onChange={(e) => setHighQualityBackground(e.target.checked)}
+                    disabled={!activeSource || isGenerating}
+                  />
+                  איכות גבוהה (SDXL) — יקר יותר
+                </label>
+              )}
+            </div>
+          )}
+
+          {studioMode === "catalog" && (
+            <p className="text-[11px] font-light text-emerald-800">
+              קטלוג: Bria cutout + רקע פרוצדורלי + צל — ללא עלות API נוספת.
+            </p>
+          )}
 
           <Separator className="bg-border/40" />
 
@@ -882,6 +1160,7 @@ function StudioPageContent() {
             </span>
           </p>
 
+          {studioMode === "marketing" && (
           <details className="rounded-none border border-border/40 bg-muted/20 px-3 py-2">
             <summary className="cursor-pointer text-xs font-light tracking-[0.08em] text-muted-foreground">
               הגדרות וידאו Kling 3 (ברירת מחדל: Pro 1080p) — אווירה לפי הסגנון שנבחר
@@ -971,10 +1250,11 @@ function StudioPageContent() {
               </div>
             </div>
           </details>
+          )}
 
           <div className="flex flex-col gap-3 pt-2">
             <Button
-              disabled={!activeSource || isGenerating}
+              disabled={!activeSource || isGenerating || isCutoutPreview}
               onClick={() => generate("image")}
               className="w-full rounded-none text-xs font-light tracking-[0.15em]"
             >
@@ -985,8 +1265,9 @@ function StudioPageContent() {
               )}
               עצב בסגנון יוקרתי
             </Button>
+            {studioMode === "marketing" && (
             <Button
-              disabled={!activeSource || isGenerating}
+              disabled={!activeSource || isGenerating || isCutoutPreview}
               onClick={() => generate("video")}
               variant="outline"
               className="w-full rounded-none text-xs font-light tracking-[0.15em]"
@@ -996,8 +1277,20 @@ function StudioPageContent() {
               ) : (
                 <Clapperboard className="ml-2 h-4 w-4" strokeWidth={1.5} />
               )}
-              הפוך לווידאו מנצנץ
+              הפוך לווידאו מנצנץ (+1 API)
             </Button>
+            )}
+            {cutoutUrl && (
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={isGenerating}
+                onClick={() => void generateVariantPresets()}
+                className="w-full rounded-none text-xs font-light"
+              >
+                עוד סגנונות מאותו cutout (ללא cutout נוסף)
+              </Button>
+            )}
             {activeSource && (
               <Button
                 variant="ghost"
@@ -1028,8 +1321,39 @@ function StudioPageContent() {
               </CardHeader>
               <CardContent className="space-y-5">
                 <p className="rounded-none border border-emerald-200/80 bg-emerald-50/60 px-3 py-2 text-center text-xs font-light text-emerald-900">
-                  נשמר בהצלחה בספריית התוכן — פרסמו למלאי מאזור הניהול
+                  נשמר בהצלחה בספריית התוכן
                 </p>
+
+                {state.kind === "image" && (
+                  <div className="space-y-3 rounded-none border border-border/60 p-4">
+                    <p className="text-xs font-light text-muted-foreground">
+                      הוספה מהירה למלאי
+                    </p>
+                    <input
+                      type="text"
+                      value={productTitle}
+                      onChange={(e) => setProductTitle(e.target.value)}
+                      placeholder="שם המוצר"
+                      className="flex h-10 w-full rounded-none border border-input bg-background px-3 text-sm font-light"
+                    />
+                    <input
+                      type="number"
+                      value={productPrice}
+                      onChange={(e) => setProductPrice(e.target.value)}
+                      placeholder="מחיר (₪)"
+                      className="flex h-10 w-full rounded-none border border-input bg-background px-3 text-sm font-light"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={busy !== null}
+                      onClick={() => void publishResultToCatalog()}
+                      className="w-full rounded-none text-xs font-light"
+                    >
+                      הוסף למלאי
+                    </Button>
+                  </div>
+                )}
 
                 <div className="flex flex-wrap gap-3">
                   <Button

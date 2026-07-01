@@ -207,7 +207,8 @@ export function styleSuffix(presetId: StudioStylePresetId) {
 
 export const STUDIO_PIPELINE_STEPS = [
   { id: "cutout", label: "מבודד את התכשיט המקורי" },
-  { id: "background", label: "בונה רקע יוקרתי (ללא AI)" },
+  { id: "cutout-preview", label: "בדיקת cutout" },
+  { id: "background", label: "בונה רקע יוקרתי" },
   { id: "composite", label: "מרכיב — אותו תכשיט, רקע חדש" },
 ] as const;
 

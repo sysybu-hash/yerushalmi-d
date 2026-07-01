@@ -1,5 +1,9 @@
 import type { StudioActionResult } from "@/lib/studio-action";
-import type { GenerateImageOptions, GenerateVideoOptions } from "@/lib/studio-types";
+import type {
+  GenerateImageOptions,
+  GenerateVideoOptions,
+  StudioGenerateResult,
+} from "@/lib/studio-types";
 import type { AiEngineConfig } from "@/lib/ai-engines";
 
 const GENERIC_PRODUCTION_ERROR =
@@ -70,14 +74,25 @@ async function parseStudioResponse<T>(
 
 export async function studioApiRemoveBackground(
   imageUrl: string,
-  options: { engines?: Partial<AiEngineConfig> } = {}
-): Promise<StudioActionResult<{ url: string }>> {
+  options: {
+    engines?: Partial<AiEngineConfig>;
+    mode?: GenerateImageOptions["mode"];
+    projectId?: number;
+    cutoutUrl?: string;
+  } = {}
+): Promise<StudioActionResult<{ url: string; cached?: boolean }>> {
   try {
     const response = await fetch("/api/studio/remove-background", {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ imageUrl, engines: options.engines }),
+      body: JSON.stringify({
+        imageUrl,
+        engines: options.engines,
+        mode: options.mode,
+        projectId: options.projectId,
+        cutoutUrl: options.cutoutUrl,
+      }),
     });
     return parseStudioResponse(response);
   } catch (error) {
@@ -112,10 +127,32 @@ export async function studioApiCompositeImage(
   }
 }
 
+export async function studioApiGenerateImage(
+  sourceUrl: string,
+  options: GenerateImageOptions = {}
+): Promise<StudioActionResult<StudioGenerateResult>> {
+  try {
+    const response = await fetch("/api/studio/generate", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sourceUrl, ...options }),
+    });
+    return parseStudioResponse(response);
+  } catch (error) {
+    return {
+      ok: false,
+      error: humanizeStudioError(
+        error instanceof Error ? error.message : "שגיאת רשת"
+      ),
+    };
+  }
+}
+
 export async function studioApiGenerateVideo(
   imageUrl: string,
   options: GenerateVideoOptions = {}
-): Promise<StudioActionResult<{ url: string; provider: "kling" }>> {
+): Promise<StudioActionResult<{ url: string; provider: "kling" | "veo" }>> {
   try {
     const response = await fetch("/api/studio/video", {
       method: "POST",

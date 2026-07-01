@@ -84,7 +84,7 @@ export async function generateLuxuryImage(
 export async function generateJewelryVideo(
   imageUrl: string,
   options: GenerateVideoOptions = {}
-): Promise<StudioActionResult<{ url: string; provider: "kling" }>> {
+): Promise<StudioActionResult<{ url: string; provider: "kling" | "veo" }>> {
   return runStudioAction(async () => {
     await requireAdmin();
     return pipelineGenerateVideo(imageUrl, options);
