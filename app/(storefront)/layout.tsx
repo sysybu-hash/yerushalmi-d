@@ -5,6 +5,7 @@ import { Footer } from "@/components/storefront/footer";
 import { Navbar } from "@/components/storefront/navbar";
 import { WhatsAppButton } from "@/components/storefront/whatsapp-button";
 import { storeNavLinks } from "@/lib/categories";
+import { SITE_HEADER_OFFSET_CLASS } from "@/lib/site-layout";
 import { getSiteSettings } from "@/lib/site-settings";
 import { getSiteUrl } from "@/lib/site-url";
 
@@ -61,7 +62,7 @@ export default async function StorefrontLayout({
         navLinks={navLinks}
       />
       {/* פיצוי על ה-header הקבוע; דף הבית מבטל אותו עם margin שלילי ל-Hero */}
-      <main id="main-content" className="pt-[104px]">
+      <main id="main-content" className={SITE_HEADER_OFFSET_CLASS}>
         {children}
       </main>
       <Footer settings={settings} navLinks={navLinks} />

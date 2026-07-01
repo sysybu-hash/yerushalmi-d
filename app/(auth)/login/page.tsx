@@ -3,8 +3,9 @@
 import * as React from "react";
 import Link from "next/link";
 import { useFormState, useFormStatus } from "react-dom";
-import { ArrowRight, Eye, EyeOff, Gem, Loader2, XCircle } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, Loader2, XCircle } from "lucide-react";
 
+import { BrandLogo } from "@/components/storefront/brand-logo";
 import { login, type LoginState } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,18 +45,8 @@ export default function LoginPage() {
       />
 
       <div className="relative w-full max-w-sm border border-stone-700/60 bg-stone-950/60 p-10 text-stone-50 backdrop-blur-sm">
-        <div className="text-center">
-          <Gem
-            aria-hidden
-            className="mx-auto h-8 w-8 text-stone-300"
-            strokeWidth={0.75}
-          />
-          <h1 className="mt-4 font-serif text-2xl font-light tracking-[0.15em]">
-            ירושלמי
-          </h1>
-          <p className="mt-1 text-[9px] uppercase tracking-[0.5em] text-stone-400">
-            Diamonds
-          </p>
+        <div className="flex justify-center">
+          <BrandLogo size="lg" tone="light" priority />
         </div>
 
         <Separator className="my-8 bg-stone-700/60" />

@@ -1,7 +1,7 @@
-import Image from "next/image";
 import Link from "next/link";
 import { MapPin, MessageCircle, Phone } from "lucide-react";
 
+import { BrandLogo } from "@/components/storefront/brand-logo";
 import type { StoreNavLink } from "@/components/storefront/navbar";
 import type { SiteSettings } from "@/lib/site-settings";
 
@@ -21,19 +21,13 @@ export function Footer({
       <div className="mx-auto max-w-7xl px-4 py-16 sm:px-8">
         <div className="grid gap-12 text-center sm:grid-cols-3 sm:text-right">
           <div>
-            <Image
-              src={settings.logoImage}
-              alt="ירושלמי יהלומים"
-              width={56}
-              height={56}
-              className="mx-auto h-12 w-12 object-contain sm:mx-0"
+            <BrandLogo
+              logoSrc={settings.logoImage}
+              href="/"
+              size="lg"
+              tone="light"
+              className="mx-auto sm:mx-0 sm:items-start sm:text-right"
             />
-            <p className="mt-4 font-serif text-xl font-medium tracking-[0.14em]">
-              ירושלמי
-            </p>
-            <p className="mt-1 text-[9px] uppercase tracking-[0.5em] text-gold">
-              יהלומים
-            </p>
             <p className="mt-4 text-xs font-light leading-relaxed text-ivory/60">
               {settings.contactNote}
             </p>

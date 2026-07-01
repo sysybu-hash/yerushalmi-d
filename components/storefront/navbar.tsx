@@ -1,11 +1,11 @@
 "use client";
 
 import * as React from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, Phone, UserRound } from "lucide-react";
 
+import { BrandLogo } from "@/components/storefront/brand-logo";
 import { CartSheet } from "@/components/storefront/cart-sheet";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -13,7 +13,6 @@ import {
   Sheet,
   SheetContent,
   SheetHeader,
-  SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
@@ -85,7 +84,7 @@ export function Navbar({
             : "border-b border-border/60 bg-background/95 shadow-sm backdrop-blur-md"
         )}
       >
-        <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-4 sm:px-8">
+        <div className="mx-auto flex min-h-[100px] max-w-7xl items-center justify-between px-4 py-2 sm:min-h-[104px] sm:px-8">
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
               <Button
@@ -107,13 +106,8 @@ export function Navbar({
               side="right"
               className="flex w-[340px] flex-col border-l-0 bg-charcoal p-0 text-ivory sm:w-[400px]"
             >
-              <SheetHeader className="px-8 pb-5 pt-12 text-right">
-                <SheetTitle className="font-serif text-2xl font-medium tracking-[0.12em] text-ivory">
-                  ירושלמי
-                </SheetTitle>
-                <p className="text-[10px] uppercase tracking-[0.45em] text-gold">
-                  יהלומים
-                </p>
+              <SheetHeader className="px-8 pb-5 pt-12 text-center">
+                <BrandLogo logoSrc={logoSrc} size="md" tone="light" />
               </SheetHeader>
 
               <Separator className="bg-ivory/10" />
@@ -172,40 +166,16 @@ export function Navbar({
             </SheetContent>
           </Sheet>
 
-          <Link
-            href="/"
-            aria-label="ירושלמי יהלומים — דף הבית"
-            className="group absolute left-1/2 flex -translate-x-1/2 items-center gap-2.5 text-center"
-          >
-            {logoSrc ? (
-              <Image
-                src={logoSrc}
-                alt="ירושלמי יהלומים"
-                width={44}
-                height={44}
-                priority
-                className="h-9 w-9 shrink-0 object-contain sm:h-11 sm:w-11"
-              />
-            ) : null}
-            <span className="block">
-              <span
-                className={cn(
-                  "block font-serif text-xl font-medium leading-none tracking-[0.14em] transition-colors duration-500 sm:text-2xl",
-                  transparent ? "text-ivory" : "text-foreground"
-                )}
-              >
-                ירושלמי
-              </span>
-              <span
-                className={cn(
-                  "mt-1 block text-[9px] uppercase tracking-[0.5em] transition-colors duration-500",
-                  transparent ? "text-gold-light" : "text-gold-dark"
-                )}
-              >
-                יהלומים
-              </span>
-            </span>
-          </Link>
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+            <BrandLogo
+              logoSrc={logoSrc}
+              href="/"
+              size="md"
+              tone={transparent ? "light" : "dark"}
+              priority
+              className="transition-opacity duration-500 group-hover:opacity-90"
+            />
+          </div>
 
           <div className={cn(transparent ? "text-ivory" : "text-foreground")}>
             <CartSheet />

@@ -3,6 +3,10 @@ import { MapPin, MessageCircle, Phone } from "lucide-react";
 
 import { ContactForm } from "@/components/storefront/contact-form";
 import { Button } from "@/components/ui/button";
+import {
+  SITE_HEADER_HERO_PADDING_CLASS,
+  SITE_HEADER_NEGATIVE_OFFSET_CLASS,
+} from "@/lib/site-layout";
 import { getSiteSettings } from "@/lib/site-settings";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +18,9 @@ export default async function ContactPage() {
 
   return (
     <>
-      <section className="relative -mt-[104px] flex min-h-[40vh] flex-col items-center justify-center bg-charcoal px-4 pt-[104px] text-center">
+      <section
+        className={`relative ${SITE_HEADER_NEGATIVE_OFFSET_CLASS} flex min-h-[40vh] flex-col items-center justify-center bg-charcoal px-4 ${SITE_HEADER_HERO_PADDING_CLASS} text-center`}
+      >
         <div
           aria-hidden
           className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(180,154,94,0.18),transparent_55%)]"

@@ -11,6 +11,10 @@ import {
   getCategoryBannerImage,
   isCollectionSlug,
 } from "@/lib/categories";
+import {
+  SITE_HEADER_HERO_PADDING_CLASS,
+  SITE_HEADER_NEGATIVE_OFFSET_CLASS,
+} from "@/lib/site-layout";
 import { ProductCard } from "@/components/storefront/product-card";
 
 export const dynamic = "force-dynamic";
@@ -45,7 +49,9 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
 
   return (
     <>
-      <section className="relative -mt-[104px] flex min-h-[48vh] flex-col items-center justify-center overflow-hidden bg-charcoal px-4 pt-[104px] text-center">
+      <section
+        className={`relative ${SITE_HEADER_NEGATIVE_OFFSET_CLASS} flex min-h-[48vh] flex-col items-center justify-center overflow-hidden bg-charcoal px-4 ${SITE_HEADER_HERO_PADDING_CLASS} text-center`}
+      >
         {image ? (
           <Image
             src={image}

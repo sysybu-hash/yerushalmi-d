@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Frank_Ruhl_Libre, Heebo } from "next/font/google";
+import { Cormorant_Garamond, Frank_Ruhl_Libre, Heebo } from "next/font/google";
 import { getSiteUrl } from "@/lib/site-url";
 import "./globals.css";
 
@@ -12,6 +12,12 @@ const serif = Frank_Ruhl_Libre({
 const sans = Heebo({
   subsets: ["hebrew", "latin"],
   variable: "--font-sans",
+});
+
+const brand = Cormorant_Garamond({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-brand",
 });
 
 export const metadata: Metadata = {
@@ -43,7 +49,7 @@ export default function RootLayout({
   return (
     <html lang="he" dir="rtl">
       <body
-        className={`${serif.variable} ${sans.variable} font-sans antialiased`}
+        className={`${serif.variable} ${sans.variable} ${brand.variable} font-sans antialiased`}
       >
         {children}
       </body>

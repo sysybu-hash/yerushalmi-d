@@ -17,6 +17,7 @@ import { db } from "@/db";
 import { products } from "@/db/schema";
 import { getSiteSettings } from "@/lib/site-settings";
 import { homepageCategories, collectionLabel, STOREFRONT_CATALOG_SLUGS } from "@/lib/categories";
+import { SITE_HEADER_NEGATIVE_OFFSET_CLASS } from "@/lib/site-layout";
 import { Button } from "@/components/ui/button";
 import { ProductCard } from "@/components/storefront/product-card";
 import {
@@ -109,7 +110,7 @@ export default async function HomePage() {
   return (
     <>
       {/* 1. Hero — מבטל את ה-padding של ה-layout ויושב מאחורי ה-header */}
-      <section className="relative -mt-[104px] flex min-h-[100dvh] flex-col items-center justify-center bg-charcoal px-4 py-28 text-center sm:px-8">
+      <section className={`relative ${SITE_HEADER_NEGATIVE_OFFSET_CLASS} flex min-h-[100dvh] flex-col items-center justify-center bg-charcoal px-4 py-28 text-center sm:px-8`}>
         {/* overflow-hidden רק על הרקע — לא על כל הסקציה, כדי לא לחסום גלילה במובייל */}
         <div aria-hidden className="absolute inset-0 overflow-hidden">
           {settings.heroImage ? (

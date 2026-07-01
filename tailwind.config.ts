@@ -11,7 +11,8 @@ const config: Config = {
   	extend: {
   		fontFamily: {
   			sans: ['var(--font-sans)', 'sans-serif'],
-  			serif: ['var(--font-serif)', 'serif']
+  			serif: ['var(--font-serif)', 'serif'],
+  			brand: ['var(--font-brand)', 'serif'],
   		},
   		letterSpacing: {
   			luxury: '0.25em'
