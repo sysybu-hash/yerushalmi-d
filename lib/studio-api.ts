@@ -114,7 +114,7 @@ export async function studioApiCompositeImage(
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cutoutUrl, ...options }),
+      body: JSON.stringify({ ...options, cutoutUrl }),
     });
     return parseStudioResponse(response);
   } catch (error) {
@@ -136,7 +136,7 @@ export async function studioApiGenerateImage(
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sourceUrl, ...options }),
+      body: JSON.stringify({ ...options, sourceUrl }),
     });
     return parseStudioResponse(response);
   } catch (error) {

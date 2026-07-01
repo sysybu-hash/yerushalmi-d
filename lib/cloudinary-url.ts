@@ -25,10 +25,10 @@ export function visionAnalysisUrl(cloudinaryUrl: string): string {
   );
 }
 
-/** גרסה מותאמת ל-Bria RMBG — PNG מלא לשמירת נצנוץ יהלומים וקצוות אלפא */
+/** גרסה מותאמת ל-Bria RMBG — מגדילה תמונות קטנות, מקטינה גדולות, PNG מלא */
 export function rembgSourceUrl(cloudinaryUrl: string): string {
   return withCloudinaryTransform(
     cloudinaryUrl,
-    `w_${REMBG_MAX_PX},h_${REMBG_MAX_PX},c_limit,q_100,f_png`
+    `w_${REMBG_MAX_PX},q_100,f_png`
   );
 }

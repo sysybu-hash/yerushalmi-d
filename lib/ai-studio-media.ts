@@ -1,5 +1,5 @@
-import type { AiBackgroundResolved, AiResolvedProvider, StudioPipelineMode } from "@/lib/ai-engines";
 import { rembgSourceUrl } from "@/lib/cloudinary-url";
+import type { AiBackgroundResolved, AiResolvedProvider, StudioPipelineMode } from "@/lib/ai-engines";
 import {
   geminiGenerateLuxuryBackground,
   geminiGenerateVideoFromImage,
@@ -49,9 +49,13 @@ export async function studioRemoveBackground(
     const started = Date.now();
     let success = false;
     try {
-      const dataUri = await fetchImageDataUri(imageUrl);
+      const dataUri = await fetchImageDataUri(rembgSourceUrl(imageUrl));
       const buffer = await geminiRemoveBackground(dataUri);
-      await validateJewelryCutout(buffer);
+      try {
+        await validateJewelryCutout(buffer);
+      } catch (validationError) {
+        console.warn("gemini_cutout_validation", validationError);
+      }
       const url = await uploadBufferToCloudinary(
         buffer,
         `studio-cutout-gemini-${Date.now()}.png`,
@@ -87,7 +91,22 @@ export async function studioRemoveBackground(
     }
   );
 
-  return { url: extractUrl(output) };
+  const remoteUrl = extractUrl(output);
+  const cutoutResponse = await fetch(remoteUrl, {
+    signal: AbortSignal.timeout(60_000),
+  });
+  if (!cutoutResponse.ok) {
+    throw new Error("לא ניתן להוריד את תוצאת ה-cutout מ-Replicate");
+  }
+
+  const buffer = Buffer.from(await cutoutResponse.arrayBuffer());
+  const url = await uploadBufferToCloudinary(
+    buffer,
+    `studio-cutout-bria-${Date.now()}.png`,
+    "image"
+  );
+
+  return { url };
 }
 
 function buildBackgroundPrompt(

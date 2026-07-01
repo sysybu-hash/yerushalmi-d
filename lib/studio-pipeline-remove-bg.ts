@@ -3,7 +3,6 @@ import type { AiEngineConfig } from "@/lib/ai-engines";
 import { studioRemoveBackground } from "@/lib/ai-studio-media";
 import { getResolvedAiEngines } from "@/lib/ai-engine-resolve";
 import { assertStudioEnv } from "@/lib/studio-env";
-import { validateSourceImageResolution } from "@/lib/studio-source-validation";
 import {
   getCachedCutout,
   setCachedCutout,
@@ -21,7 +20,6 @@ export async function pipelineRemoveBackground(
   options: {
     mode?: StudioPipelineMode;
     projectId?: number;
-    skipResolutionCheck?: boolean;
     cutoutUrl?: string;
   } = {}
 ) {
@@ -42,10 +40,6 @@ export async function pipelineRemoveBackground(
   const cached = getCachedCutout(imageUrl);
   if (cached) {
     return { url: cached, cached: true };
-  }
-
-  if (!options.skipResolutionCheck) {
-    await validateSourceImageResolution(imageUrl);
   }
 
   let cutoutEngine = resolveEngine("cutout", engines.preferences.cutout, studioMode);

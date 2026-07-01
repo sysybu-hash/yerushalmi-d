@@ -4,7 +4,7 @@ import { STUDIO_CANVAS_SIZE, type StudioStylePresetId } from "@/lib/studio-prese
 
 const MIN_OPAQUE_RATIO = 0.008;
 const MAX_OPAQUE_RATIO = 0.92;
-const MIN_BBOX_RATIO = 0.015;
+const MIN_BBOX_RATIO = 0.01;
 const JEWELRY_CANVAS_RATIO = 0.78;
 const VERTICAL_OFFSET_RATIO = 0.048;
 const HORIZONTAL_OFFSET_RATIO = 0.022;

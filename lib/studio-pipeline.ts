@@ -57,8 +57,12 @@ async function buildLightingHints(
   const presetHints = STUDIO_PRESET_LIGHTING_HINTS[stylePreset];
   const trimmed = customPrompt?.trim();
   if (!trimmed) return presetHints;
-  const translated = await translatePrompt(trimmed, textEngine);
-  return translated ? `${presetHints}, ${translated}` : presetHints;
+  try {
+    const translated = await translatePrompt(trimmed, textEngine);
+    return translated ? `${presetHints}, ${translated}` : presetHints;
+  } catch {
+    return presetHints;
+  }
 }
 
 async function resolveBackgroundBuffer(

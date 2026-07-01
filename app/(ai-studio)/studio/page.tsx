@@ -275,7 +275,10 @@ function StudioPageContent() {
       mode: studioMode,
       projectId: activeProjectId ?? undefined,
     });
-    if (!cutout.ok) return cutout;
+    if (!cutout.ok) {
+      failGeneration(sourceUrl, cutout.error);
+      return cutout;
+    }
 
     setCutoutUrl(cutout.data.url);
     setState({
@@ -304,8 +307,14 @@ function StudioPageContent() {
       step: "composite",
     });
 
-    const composite = await studioApiCompositeImage(resolvedCutoutUrl, aiOptions());
-    if (!composite.ok) return composite;
+    const composite = await studioApiCompositeImage(resolvedCutoutUrl, {
+      ...aiOptions(),
+      cutoutUrl: resolvedCutoutUrl,
+    });
+    if (!composite.ok) {
+      failGeneration(sourceUrl, composite.error);
+      return composite;
+    }
 
     setLastCompositeUrl(composite.data.url);
     return { ok: true, url: composite.data.url };
@@ -315,16 +324,20 @@ function StudioPageContent() {
     sourceUrl: string,
     skipCutoutPreview = false
   ): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
-    if (!skipCutoutPreview && !cutoutUrl) {
+    let resolvedCutout = cutoutUrl;
+
+    if (!resolvedCutout) {
       const cutout = await runCutoutStep(sourceUrl);
       if (!cutout.ok) return cutout;
-      return {
-        ok: false,
-        error: "__CUTOUT_PREVIEW__",
-      };
+      resolvedCutout = cutout.url;
+      if (!skipCutoutPreview) {
+        return {
+          ok: false,
+          error: "__CUTOUT_PREVIEW__",
+        };
+      }
     }
 
-    const resolvedCutout = cutoutUrl || sourceUrl;
     return runCompositeStep(sourceUrl, resolvedCutout);
   }
 
@@ -340,6 +353,7 @@ function StudioPageContent() {
     for (const preset of presets.slice(0, 2)) {
       const composite = await studioApiCompositeImage(cutoutUrl, {
         ...aiOptions(),
+        cutoutUrl,
         stylePreset: preset,
       });
       if (composite.ok) {
@@ -800,6 +814,11 @@ function StudioPageContent() {
                           className="pointer-events-none h-full w-full object-contain"
                         />
                       </MediaPreviewTrigger>
+                    )}
+                    {activeSource && isCutoutPreview && (
+                      <p className="px-4 text-center text-xs font-light text-gold-dark">
+                        בדקו את ה-cutout למטה ולחצו «המשך להרכבה»
+                      </p>
                     )}
                     {activeSource && state.status === "error" && (
                       <p className="px-4 text-center text-xs font-light text-destructive">

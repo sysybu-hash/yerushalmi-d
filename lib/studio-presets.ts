@@ -104,9 +104,6 @@ export const STUDIO_CANVAS_SIZE = 2048;
 /** רזולוציית קלט ל-Bria RMBG — מקסימום לפני cutout, תואם קנבס 2048 */
 export const REMBG_MAX_PX = 2048;
 
-/** מינימום מומלץ לצילום מקור (פיקסלים בצד הקצר) */
-export const STUDIO_MIN_SOURCE_PX = 1200;
-
 /** רמזי תאורה לפי preset — משולבים עם הנחיות המשתמש */
 export const STUDIO_PRESET_LIGHTING_HINTS: Record<
   StudioStylePresetId,
