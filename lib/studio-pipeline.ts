@@ -156,9 +156,7 @@ export async function pipelineGenerateImage(
   assertCloudinaryUrl(sourceUrl);
 
   const studioMode = options.mode ?? "catalog";
-  const preset = options.stylePreset ?? "luxury-marble";
   const steps: StudioGenerateResult["steps"] = [];
-
 
   steps.push({ id: "cutout", label: "מבודד את התכשיט המקורי" });
   const cutout = await pipelineRemoveBackground(sourceUrl, options.engines, {

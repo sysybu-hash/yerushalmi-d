@@ -110,7 +110,7 @@ function StudioPageContent() {
   const [lastCompositeUrl, setLastCompositeUrl] = React.useState("");
   const [productTitle, setProductTitle] = React.useState("");
   const [productPrice, setProductPrice] = React.useState("");
-  const [productCategory, setProductCategory] = React.useState("rings");
+  const [productCategory] = React.useState("rings");
 
   const applyForm = React.useCallback((next: StudioFormState) => {
     setState(next.state);
