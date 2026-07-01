@@ -257,7 +257,7 @@ export async function geminiGenerateVideoFromImage(options: {
               },
             ],
             parameters: {
-              aspectRatio: "1:1",
+              aspectRatio: "16:9",
               durationSeconds,
               resolution,
             },
