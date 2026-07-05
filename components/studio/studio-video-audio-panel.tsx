@@ -24,8 +24,6 @@ export function StudioVideoAudioPanel({
   onChange,
   disabled,
 }: StudioVideoAudioPanelProps) {
-  const styles = STUDIO_AUDIO_STYLES.filter((s) => s.id !== "none");
-
   function patch(partial: Partial<VideoAdjustments>) {
     onChange({ ...adjustments, ...partial });
   }
