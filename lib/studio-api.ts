@@ -171,6 +171,38 @@ export async function studioApiGenerateVideo(
   }
 }
 
+export type VideoEnhancePreset = "stabilize" | "sharpen" | "color" | "catalog";
+
+export async function studioApiEnhanceVideo(
+  videoUrl: string,
+  options: {
+    preset?: VideoEnhancePreset;
+    mode?: GenerateImageOptions["mode"];
+    projectId?: number;
+  } = {}
+): Promise<StudioActionResult<{ url: string }>> {
+  try {
+    const response = await fetch("/api/studio/enhance-video", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        videoUrl,
+        preset: options.preset,
+        mode: options.mode,
+        projectId: options.projectId,
+      }),
+    });
+    return parseStudioResponse(response);
+  } catch (error) {
+    return {
+      ok: false,
+      error: humanizeStudioError(
+        error instanceof Error ? error.message : "שגיאת רשת"
+      ),
+    };
+  }
+}
 export type SourceEnhancePreset = "complete" | "cleanup" | "enhance";
 
 export async function studioApiEnhanceSource(

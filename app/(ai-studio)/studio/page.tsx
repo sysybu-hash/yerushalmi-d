@@ -32,6 +32,8 @@ import {
 import type { GenerateImageOptions, GenerateVideoOptions } from "@/lib/studio-types";
 import { StudioMediaEditor } from "@/components/studio/media-editor";
 import { StudioSourcePrep } from "@/components/studio/studio-source-prep";
+import { StudioVideoPrep } from "@/components/studio/studio-video-prep";
+import { StudioVideoAudioPanel } from "@/components/studio/studio-video-audio-panel";
 import { AiEngineSelector } from "@/components/studio/ai-engine-selector";
 import { StudioPortfolioPanel } from "@/components/studio/studio-portfolio-panel";
 import { StylePresetGrid } from "@/components/studio/style-preset-grid";
@@ -55,6 +57,7 @@ import {
   DEFAULT_IMAGE_ADJUSTMENTS,
   DEFAULT_VIDEO_ADJUSTMENTS,
   type ImageAdjustments,
+  type VideoAdjustments,
 } from "@/lib/studio-transform";
 import {
   StudioWorkflowStepper,
@@ -115,6 +118,8 @@ function StudioPageContent() {
   const [productCategory] = React.useState("rings");
   const [sourcePrepAdj, setSourcePrepAdj] =
     React.useState<ImageAdjustments>(DEFAULT_IMAGE_ADJUSTMENTS);
+  const [videoPostAdj, setVideoPostAdj] =
+    React.useState<VideoAdjustments>(DEFAULT_VIDEO_ADJUSTMENTS);
 
   const applyForm = React.useCallback((next: StudioFormState) => {
     setState(next.state);
@@ -730,6 +735,8 @@ function StudioPageContent() {
           onUpload={handleEditMediaUpload}
           workflowStep={workflowStep}
           onWorkflowStepChange={setWorkflowStep}
+          studioMode={studioMode}
+          projectId={activeProjectId}
         />
       )}
 
@@ -1305,6 +1312,14 @@ function StudioPageContent() {
           </details>
           )}
 
+          {studioMode === "marketing" && (
+            <StudioVideoAudioPanel
+              adjustments={videoPostAdj}
+              onChange={setVideoPostAdj}
+              disabled={!activeSource || isGenerating}
+            />
+          )}
+
           <div className="flex flex-col gap-3 pt-2">
             <Button
               disabled={!activeSource || isGenerating || isCutoutPreview}
@@ -1363,6 +1378,30 @@ function StudioPageContent() {
         </CardContent>
       </Card>
       )}
+
+      {workflowStep >= 4 &&
+        state.status === "done" &&
+        state.kind === "video" &&
+        resultUrl && (
+          <StudioVideoPrep
+            videoUrl={resultUrl}
+            adjustments={videoPostAdj}
+            onAdjustmentsChange={setVideoPostAdj}
+            onVideoUpdated={(url) => {
+              setState((prev) =>
+                prev.status === "done" && prev.kind === "video"
+                  ? { ...prev, result: url, savedUrl: url }
+                  : prev
+              );
+              setVideoPostAdj(DEFAULT_VIDEO_ADJUSTMENTS);
+            }}
+            showToast={showToast}
+            studioMode={studioMode}
+            projectId={activeProjectId}
+            disabled={isGenerating}
+            title="מיטוב הווידאו לאחר יצירה"
+          />
+        )}
 
       {/* שלב 4 — ספריית תוכן */}
       {workflowStep >= 4 && state.status === "done" && activeSource && (

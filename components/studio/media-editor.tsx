@@ -31,6 +31,12 @@ import {
   type StudioWorkflowStep,
 } from "@/components/studio/studio-workflow-stepper";
 import { StudioTipsPanel } from "@/components/studio/studio-tips-panel";
+import { StudioAiEnhancePanel } from "@/components/studio/studio-ai-enhance-panel";
+import {
+  AdjustSlider,
+  ToggleChip,
+} from "@/components/studio/studio-adjust-ui";
+import { StudioVideoAudioPanel } from "@/components/studio/studio-video-audio-panel";
 import { Button } from "@/components/ui/button";
 import { MediaPreviewTrigger } from "@/components/ui/media-preview";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -57,76 +63,14 @@ import {
   DEFAULT_IMAGE_ADJUSTMENTS,
   DEFAULT_VIDEO_ADJUSTMENTS,
   JEWELRY_CATALOG_IMAGE_ADJUSTMENTS,
+  JEWELRY_CATALOG_VIDEO_ADJUSTMENTS,
   buildTransformedUrl,
   hasImageEdits,
   hasVideoEdits,
   type AspectId,
   type MediaResourceType,
 } from "@/lib/studio-transform";
-
-/** סליידר נגיש פשוט עם תווית ערך */
-function AdjustSlider({
-  label,
-  value,
-  onChange,
-  disabled,
-}: {
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between">
-        <Label className="text-xs font-light text-muted-foreground">
-          {label}
-        </Label>
-        <span className="text-xs tabular-nums text-foreground/70">{value}</span>
-      </div>
-      <input
-        type="range"
-        min={-50}
-        max={50}
-        step={5}
-        value={value}
-        disabled={disabled}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-border accent-gold-dark disabled:cursor-not-allowed disabled:opacity-50"
-        aria-label={label}
-      />
-    </div>
-  );
-}
-
-function ToggleChip({
-  label,
-  active,
-  onClick,
-  disabled,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      disabled={disabled}
-      onClick={onClick}
-      className={
-        "border px-3 py-1.5 text-[12px] font-light transition-colors disabled:cursor-not-allowed disabled:opacity-40 " +
-        (active
-          ? "border-gold bg-gold/15 text-gold-dark"
-          : "border-border/60 text-muted-foreground hover:border-gold/50 hover:text-foreground")
-      }
-    >
-      {label}
-    </button>
-  );
-}
+import type { StudioPipelineMode } from "@/lib/ai-engines";
 
 export function StudioMediaEditor({
   showToast,
@@ -136,6 +80,8 @@ export function StudioMediaEditor({
   onUpload,
   workflowStep = 1,
   onWorkflowStepChange,
+  studioMode = "catalog",
+  projectId,
 }: {
   showToast: (message: string) => void;
   edit: StudioEditSnapshot;
@@ -148,6 +94,8 @@ export function StudioMediaEditor({
   onUpload?: (info: unknown) => void;
   workflowStep?: StudioWorkflowStep;
   onWorkflowStepChange?: (step: StudioWorkflowStep) => void;
+  studioMode?: StudioPipelineMode;
+  projectId?: number | null;
 }) {
   const [busy, setBusy] = React.useState<string | null>(null);
 
@@ -189,6 +137,16 @@ export function StudioMediaEditor({
 
   function resetAdjustments() {
     patchEdit({
+      imageAdj: DEFAULT_IMAGE_ADJUSTMENTS,
+      videoAdj: DEFAULT_VIDEO_ADJUSTMENTS,
+      savedUrl: null,
+    });
+  }
+
+  function handleAssetEnhanced(url: string) {
+    if (!asset) return;
+    patchEdit({
+      asset: { ...asset, url },
       imageAdj: DEFAULT_IMAGE_ADJUSTMENTS,
       videoAdj: DEFAULT_VIDEO_ADJUSTMENTS,
       savedUrl: null,
@@ -628,11 +586,44 @@ export function StudioMediaEditor({
                         }
                       />
                     </div>
+
+                    <Separator className="bg-border/40" />
+
+                    {asset && (
+                      <StudioAiEnhancePanel
+                        mediaType="image"
+                        sourceUrl={asset.url}
+                        onEnhanced={handleAssetEnhanced}
+                        showToast={showToast}
+                        studioMode={studioMode}
+                        projectId={projectId}
+                        disabled={busy !== null}
+                      />
+                    )}
                   </>
                 )}
 
                 {isVideo && (
                   <>
+                    <div className="space-y-2">
+                      <Label className="font-light">פריסטים מהירים</Label>
+                      <div className="flex flex-wrap gap-2">
+                        <ToggleChip
+                          label="קטלוג + מוזיקת יוקרה"
+                          active={
+                            videoAdj.audioStyle === "luxury" &&
+                            videoAdj.autoEnhance &&
+                            videoAdj.sharpen
+                          }
+                          onClick={() =>
+                            patchEdit({
+                              videoAdj: JEWELRY_CATALOG_VIDEO_ADJUSTMENTS,
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1.5">
                         <Label className="text-xs font-light text-muted-foreground">
@@ -693,11 +684,63 @@ export function StudioMediaEditor({
 
                     <div className="flex flex-wrap gap-2">
                       <ToggleChip
+                        label="שיפור אוטומטי"
+                        active={videoAdj.autoEnhance}
+                        onClick={() =>
+                          patchEdit({
+                            videoAdj: {
+                              ...videoAdj,
+                              autoEnhance: !videoAdj.autoEnhance,
+                            },
+                          })
+                        }
+                      />
+                      <ToggleChip
+                        label="איזון צבע"
+                        active={videoAdj.autoColor}
+                        onClick={() =>
+                          patchEdit({
+                            videoAdj: {
+                              ...videoAdj,
+                              autoColor: !videoAdj.autoColor,
+                            },
+                          })
+                        }
+                      />
+                      <ToggleChip
+                        label="חידוד"
+                        active={videoAdj.sharpen}
+                        onClick={() =>
+                          patchEdit({
+                            videoAdj: {
+                              ...videoAdj,
+                              sharpen: !videoAdj.sharpen,
+                            },
+                          })
+                        }
+                      />
+                      <ToggleChip
+                        label="הפחתת רעש"
+                        active={videoAdj.denoise}
+                        onClick={() =>
+                          patchEdit({
+                            videoAdj: {
+                              ...videoAdj,
+                              denoise: !videoAdj.denoise,
+                            },
+                          })
+                        }
+                      />
+                      <ToggleChip
                         label="השתקת אודיו"
                         active={videoAdj.mute}
                         onClick={() =>
                           patchEdit({
-                            videoAdj: { ...videoAdj, mute: !videoAdj.mute },
+                            videoAdj: {
+                              ...videoAdj,
+                              mute: !videoAdj.mute,
+                              audioStyle: videoAdj.mute ? "original" : "none",
+                            },
                           })
                         }
                       />
@@ -722,7 +765,36 @@ export function StudioMediaEditor({
                           })
                         }
                       />
+                      <AdjustSlider
+                        label="ניגודיות"
+                        value={videoAdj.contrast}
+                        onChange={(v) =>
+                          patchEdit({
+                            videoAdj: { ...videoAdj, contrast: v },
+                          })
+                        }
+                      />
                     </div>
+
+                    <StudioVideoAudioPanel
+                      adjustments={videoAdj}
+                      onChange={(videoAdj) => patchEdit({ videoAdj })}
+                      disabled={busy !== null}
+                    />
+
+                    <Separator className="bg-border/40" />
+
+                    {asset && (
+                      <StudioAiEnhancePanel
+                        mediaType="video"
+                        sourceUrl={asset.url}
+                        onEnhanced={handleAssetEnhanced}
+                        showToast={showToast}
+                        studioMode={studioMode}
+                        projectId={projectId}
+                        disabled={busy !== null}
+                      />
+                    )}
                   </>
                 )}
 
