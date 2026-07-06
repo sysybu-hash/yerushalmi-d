@@ -222,7 +222,8 @@ export async function geminiGenerateLuxuryBackground(prompt: string): Promise<Bu
       text: [
         "Professional luxury jewelry product photography background.",
         "Empty scene — NO jewelry, NO hands, NO people, NO text, NO watermark.",
-        "Photorealistic, high-end catalog, square composition.",
+        "Seamless smooth surface, photorealistic, high-end catalog, square composition.",
+        "NO dotted lines, NO grid patterns, NO blur patches, NO rectangular smudges, NO visible seams.",
         prompt,
       ].join(" "),
     },

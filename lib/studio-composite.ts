@@ -25,15 +25,6 @@ const PRESET_SURFACE_Y: Partial<Record<StudioStylePresetId, number>> = {
   "sunset-amber": 0.61,
 };
 
-const NO_REFLECTION_PRESETS = new Set<StudioStylePresetId>([
-  "white-studio",
-  "concrete-minimal",
-  "black-velvet",
-  "midnight-blue",
-  "royal-purple",
-  "gold-bokeh",
-]);
-
 const PRESET_HARMONIZE: Partial<
   Record<StudioStylePresetId, { brightness?: number; saturation?: number }>
 > = {
@@ -394,7 +385,7 @@ async function createContactShadow(
     canvasSize - shadowH - 2,
     top + jHeight - Math.round(jHeight * 0.01)
   );
-  const opacity = dramatic ? 0.52 : 0.36;
+  const opacity = dramatic ? 0.28 : 0.18;
 
   const ellipse = Buffer.from(
     `<svg width="${shadowW}" height="${shadowH}">
@@ -448,88 +439,6 @@ async function createContactShadow(
     .toBuffer();
 
   return canvas;
-}
-
-async function createFloorReflection(
-  jewelryPng: Buffer,
-  left: number,
-  top: number,
-  jWidth: number,
-  jHeight: number,
-  canvasSize: number,
-  opacity: number
-): Promise<Buffer> {
-  const sharp = await loadSharp();
-  const reflectH = Math.max(
-    0,
-    Math.min(Math.round(jHeight * 0.35), canvasSize - top - jHeight)
-  );
-
-  if (reflectH < 8) {
-    return sharp({
-      create: {
-        width: canvasSize,
-        height: canvasSize,
-        channels: 4,
-        background: { r: 0, g: 0, b: 0, alpha: 0 },
-      },
-    } as SharpOptions)
-      .png()
-      .toBuffer();
-  }
-
-  const flipped = await sharp(jewelryPng)
-    .flip()
-    .resize(jWidth, reflectH, { fit: "inside" })
-    .ensureAlpha()
-    .png()
-    .toBuffer();
-
-  const flippedSize = await readImageSize(flipped);
-
-  const gradient = Buffer.from(
-    `<svg width="${flippedSize.width}" height="${flippedSize.height}">
-      <defs>
-        <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="white" stop-opacity="${opacity}"/>
-          <stop offset="100%" stop-color="white" stop-opacity="0"/>
-        </linearGradient>
-      </defs>
-      <rect width="100%" height="100%" fill="url(#g)"/>
-    </svg>`
-  );
-
-  const masked = await sharp(flipped)
-    .composite([{ input: gradient, blend: "dest-in" }])
-    .png()
-    .toBuffer();
-
-  const maskedSize = await readImageSize(masked);
-  const reflectPos = clampCompositePosition(
-    canvasSize,
-    maskedSize.width,
-    maskedSize.height,
-    left,
-    top + jHeight - Math.round(reflectH * 0.15)
-  );
-
-  return sharp({
-    create: {
-      width: canvasSize,
-      height: canvasSize,
-      channels: 4,
-      background: { r: 0, g: 0, b: 0, alpha: 0 },
-    },
-  } as SharpOptions)
-    .composite([
-      {
-        input: masked,
-        left: reflectPos.left,
-        top: reflectPos.top,
-      },
-    ])
-    .png()
-    .toBuffer();
 }
 
 async function harmonizeJewelry(
@@ -652,19 +561,6 @@ export async function compositeProductImage(
       stylePreset
     );
     composites.push({ input: shadowLayer, blend: "multiply" });
-
-    if (!NO_REFLECTION_PRESETS.has(stylePreset)) {
-      const reflection = await createFloorReflection(
-        jewelryPng,
-        left,
-        top,
-        jWidth,
-        jHeight,
-        canvasSize,
-        0.1
-      );
-      composites.push({ input: reflection, blend: "over" });
-    }
   }
 
   composites.push({ input: jewelryPng, left, top });
