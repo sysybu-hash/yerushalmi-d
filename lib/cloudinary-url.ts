@@ -55,6 +55,14 @@ export function opaqueImageUrlForVideo(cloudinaryUrl: string): string {
   );
 }
 
+/** תצוגת cutout בדפדפן — רקע לבן, בלי משבצות שקיפות */
+export function cutoutDisplayUrl(cloudinaryUrl: string): string {
+  return withCloudinaryTransform(
+    cloudinaryUrl,
+    "b_white,c_limit,w_1600,f_jpg,q_auto:best"
+  );
+}
+
 /** גרסה מותאמת ל-Bria RMBG — מגדילה תמונות קטנות, מקטינה גדולות, PNG מלא */
 export function rembgSourceUrl(cloudinaryUrl: string): string {
   return withCloudinaryTransform(

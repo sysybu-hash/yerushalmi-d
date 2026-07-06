@@ -159,9 +159,102 @@ async function stripLightBackground(
     .toBuffer();
 }
 
+/** הסרת רקע משבצות ש-Gemini מצייר במקום אלפא אמיתית */
+async function stripCheckerboardBackground(buffer: Buffer): Promise<Buffer> {
+  const sharp = await loadSharp();
+  const { data, info } = await sharp(buffer)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  const w = info.width;
+  const h = info.height;
+  const out = Buffer.from(data);
+  let removed = 0;
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      const r = out[i];
+      const g = out[i + 1];
+      const b = out[i + 2];
+      const spread = Math.max(r, g, b) - Math.min(r, g, b);
+      if (spread > 28) continue;
+
+      const lum = (r + g + b) / 3;
+      if (lum < 150) continue;
+
+      let matches = false;
+      for (const tile of [8, 16, 32]) {
+        const checker = (Math.floor(x / tile) + Math.floor(y / tile)) % 2;
+        if (checker === 0 && lum > 235) matches = true;
+        if (checker === 1 && lum > 175 && lum < 220) matches = true;
+      }
+
+      if (matches) {
+        out[i + 3] = 0;
+        removed++;
+      }
+    }
+  }
+
+  if (removed < w * h * 0.04) return buffer;
+
+  return sharp(out, {
+    raw: { width: w, height: h, channels: 4 },
+  })
+    .png()
+    .toBuffer();
+}
+
+/** הסרת רקע כרומה ירוק (Gemini) */
+async function chromaKeyGreenBackground(buffer: Buffer): Promise<Buffer> {
+  const sharp = await loadSharp();
+  const { data, info } = await sharp(buffer)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  const w = info.width;
+  const h = info.height;
+  const out = Buffer.from(data);
+  let keyed = 0;
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      const r = out[i];
+      const g = out[i + 1];
+      const b = out[i + 2];
+
+      const isGreen =
+        g > 160 && g > r + 35 && g > b + 35 && g - Math.max(r, b) > 40;
+      const isNearGreen =
+        g > 120 && g > r + 20 && g > b + 20 && g - Math.max(r, b) > 25;
+
+      if (isGreen) {
+        out[i + 3] = 0;
+        keyed++;
+      } else if (isNearGreen) {
+        out[i + 3] = Math.min(out[i + 3], 80);
+        keyed++;
+      }
+    }
+  }
+
+  if (keyed < w * h * 0.02) return buffer;
+
+  return sharp(out, {
+    raw: { width: w, height: h, channels: 4 },
+  })
+    .png()
+    .toBuffer();
+}
+
 /** מכין PNG עם אלפא תקין — AI ואז fallback פרוצדורלי לרקע אחיד */
 export async function normalizeJewelryCutout(buffer: Buffer): Promise<Buffer> {
-  let current = buffer;
+  let current = await stripCheckerboardBackground(buffer);
+  current = await chromaKeyGreenBackground(current);
   let metrics = await analyzeCutout(current);
 
   if (metrics.opaqueRatio > MAX_OPAQUE_RATIO) {
@@ -576,16 +669,25 @@ export async function compositeProductImage(
 
   composites.push({ input: jewelryPng, left, top });
 
+  const bgColor = await sampleBackgroundColor(backgroundBuffer);
+
   const composed = sharp(background)
     .composite(composites)
-    .sharpen({ sigma: 0.4, m1: 0.55, m2: 0.18, x1: 2, y2: 10, y3: 20 });
+    .sharpen({ sigma: 0.4, m1: 0.55, m2: 0.18, x1: 2, y2: 10, y3: 20 })
+    .flatten({ background: bgColor })
+    .jpeg({ quality: 96, mozjpeg: true });
 
-  if (options.forVideo) {
-    return composed
-      .flatten({ background: { r: 255, g: 255, b: 255 } })
-      .jpeg({ quality: 95, mozjpeg: true })
-      .toBuffer();
-  }
+  return composed.toBuffer();
+}
 
-  return composed.png({ compressionLevel: 2 }).toBuffer();
+async function sampleBackgroundColor(
+  backgroundBuffer: Buffer
+): Promise<{ r: number; g: number; b: number }> {
+  const sharp = await loadSharp();
+  const stats = await sharp(backgroundBuffer).resize(64, 64, { fit: "cover" }).stats();
+  return {
+    r: Math.round(stats.channels[0]?.mean ?? 250),
+    g: Math.round(stats.channels[1]?.mean ?? 248),
+    b: Math.round(stats.channels[2]?.mean ?? 245),
+  };
 }

@@ -143,10 +143,9 @@ export async function pipelineCompositeImage(
     preset,
     { forVideo: options.forVideo }
   );
-  const forVideo = Boolean(options.forVideo);
   const url = await uploadBufferToCloudinary(
     buffer,
-    `studio-composite-${Date.now()}.${forVideo ? "jpg" : "png"}`,
+    `studio-composite-${Date.now()}.jpg`,
     "image"
   );
 

@@ -65,6 +65,7 @@ import {
   STUDIO_VIDEO_DURATION_OPTIONS,
   type StudioVideoDurationSec,
 } from "@/lib/studio-video-duration";
+import { cutoutDisplayUrl } from "@/lib/cloudinary-url";
 import {
   StudioWorkflowStepper,
   type StudioWorkflowStep,
@@ -931,7 +932,7 @@ function StudioPageContent() {
                   </p>
                   <div className="relative mx-auto aspect-square max-w-[240px] overflow-hidden border border-border/60 bg-gradient-to-br from-stone-200 to-stone-300">
                     <Image
-                      src={cutoutUrl}
+                      src={cutoutDisplayUrl(cutoutUrl)}
                       alt="תצוגת cutout"
                       fill
                       sizes="240px"

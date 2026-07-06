@@ -207,11 +207,10 @@ export async function geminiRemoveBackground(imageDataUri: string): Promise<Buff
     },
     {
       text: [
-        "Remove the background from this jewelry product photo.",
-        "Output ONLY the jewelry isolated on a fully transparent background.",
-        "Preserve every diamond, prong, metal edge, and reflection.",
-        "Professional e-commerce cutout, PNG with alpha channel.",
-        "Do not add new jewelry or change the product.",
+        "Isolate this exact jewelry product on a solid flat chroma-key green background (RGB 0,255,0 only).",
+        "NO checkerboard, NO transparency grid, NO gray squares, NO patterns behind the jewelry.",
+        "Preserve every diamond, prong, metal edge, chain link, and reflection exactly — do not redraw the product.",
+        "Professional e-commerce product isolation.",
       ].join(" "),
     },
   ]);
