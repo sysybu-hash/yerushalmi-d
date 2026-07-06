@@ -216,10 +216,6 @@ export async function geminiGenerateLuxuryBackground(prompt: string): Promise<Bu
   ]);
 }
 
-function mapVeoDuration(duration: 5 | 10): 4 | 6 | 8 {
-  return duration === 10 ? 8 : 6;
-}
-
 function mapVeoResolution(
   mode: "standard" | "pro",
   duration: 4 | 6 | 8
