@@ -324,7 +324,6 @@ export async function geminiGenerateVideoFromImage(options: {
               aspectRatio: "16:9",
               durationSeconds,
               resolution,
-              generateAudio: false,
             },
           }),
           signal: AbortSignal.timeout(60_000),
