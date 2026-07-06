@@ -13,47 +13,47 @@ export type StudioAudioStyle = {
   fetchUrl: string | null;
 };
 
-/** מוזיקת רקע חופשית (Mixkit) — מוחלפת על הווידאו דרך Cloudinary */
+/** מוזיקת רקע חופשית (Mixkit) — אינסטרומנטלי בלבד, ללא שירה */
 export const STUDIO_AUDIO_STYLES: StudioAudioStyle[] = [
   {
     id: "none",
     label: "ללא מוזיקת רקע",
-    description: "מושתק — מתאים לפרסום שקט או הוספת קריינות",
+    description: "מושתק — ללא סאונד",
     fetchUrl: null,
   },
   {
     id: "original",
     label: "אודיו מקורי",
-    description: "שומר את הסאונד מהצילום / מה-AI",
+    description: "שומר את הסאונד מהקובץ — עלול לכלול דיבור מ-AI",
     fetchUrl: null,
   },
   {
     id: "luxury",
     label: "יוקרה עדינה",
-    description: "פסנתר ומיתרים — קטלוג תכשיטים",
+    description: "פסנתר ומיתרים אינסטרומנטליים — ללא מילים",
     fetchUrl:
-      "https://assets.mixkit.co/music/preview/mixkit-serene-view-443.mp3",
+      "https://assets.mixkit.co/music/preview/mixkit-sparse-and-minimal-orchestra-416.mp3",
   },
   {
     id: "cinematic",
     label: "קולנועי",
-    description: "מתח עדין ואווירה פרימיום",
+    description: "תזמורת עדינה אינסטרומנטלית — ללא שירה",
     fetchUrl:
-      "https://assets.mixkit.co/music/preview/mixkit-dramatic-arcade-tunnel-670.mp3",
+      "https://assets.mixkit.co/music/preview/mixkit-silent-descent-408.mp3",
   },
   {
     id: "soft",
     label: "רך ואווירתי",
-    description: "אמביינט שקט לסטורי וריל",
+    description: "אמביינט שקט אינסטרומנטלי — ללא מילים",
     fetchUrl:
-      "https://assets.mixkit.co/music/preview/mixkit-dreaming-big-31.mp3",
+      "https://assets.mixkit.co/music/preview/mixkit-serene-view-443.mp3",
   },
   {
     id: "upbeat",
     label: "מודרני וקליל",
-    description: "קצב עדין לשיווק ברשתות",
+    description: "קצב עדין אינסטרומנטלי — ללא ווקאל",
     fetchUrl:
-      "https://assets.mixkit.co/music/preview/mixkit-tech-house-vibes-130.mp3",
+      "https://assets.mixkit.co/music/preview/mixkit-valley-sunset-127.mp3",
   },
 ];
 

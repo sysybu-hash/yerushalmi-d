@@ -2,6 +2,10 @@ import { fetchImageDataUri } from "@/lib/vision-image";
 import { opaqueImageUrlForVideo } from "@/lib/cloudinary-url";
 import { normalizeGeminiError } from "@/lib/studio-gemini";
 import {
+  DEFAULT_VIDEO_NEGATIVE_PROMPT,
+  JEWELRY_STRUCTURE_LOCK,
+} from "@/lib/studio-presets";
+import {
   mapDurationForVeo,
   parseStudioVideoDuration,
   type StudioVideoDurationSec,
@@ -286,11 +290,12 @@ export async function geminiGenerateVideoFromImage(options: {
   const resolution = mapVeoResolution(options.mode ?? "pro", durationSeconds);
 
   const prompt = [
+    JEWELRY_STRUCTURE_LOCK,
     options.prompt,
     options.negativePrompt
       ? `Avoid: ${options.negativePrompt}`
-      : "Avoid: camera movement, people, text, watermark, morphing jewelry, transparency, checkerboard, alpha holes",
-    "Static camera, jewelry product shot, subtle light movement only.",
+      : `Avoid: ${DEFAULT_VIDEO_NEGATIVE_PROMPT}`,
+    "Static locked camera. Jewelry product frozen in place — only micro light sparkle on existing facets, no geometry change. No speech, no dialogue, no vocals.",
   ]
     .filter(Boolean)
     .join(" ");
@@ -319,6 +324,7 @@ export async function geminiGenerateVideoFromImage(options: {
               aspectRatio: "16:9",
               durationSeconds,
               resolution,
+              generateAudio: false,
             },
           }),
           signal: AbortSignal.timeout(60_000),

@@ -35,7 +35,8 @@ export function StudioVideoAudioPanel({
         <Label className="font-light">מוזיקת רקע מותאמת</Label>
       </div>
       <p className="text-[11px] font-light text-muted-foreground">
-        מחליפה את האודיו המקורי במוזיקת רקע לפי סגנון — מתאים לריל, סטורי ופרסום.
+        מוזיקת רקע אינסטרומנטלית בלבד — ללא שירה או דיבור. האודיו המקורי מוסר
+        אוטומטית בעת הוספת מוזיקה.
       </p>
 
       <div className="flex flex-wrap gap-2">

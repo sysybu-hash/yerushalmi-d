@@ -34,25 +34,24 @@ export async function getResolvedAiEngines(
 
   return {
     preferences,
-    vision: resolveEngine("vision", preferences.vision, studioMode),
-    text: resolveEngine("text", preferences.text, studioMode),
-    cutout: resolveEngine("cutout", preferences.cutout, studioMode),
+    vision: resolveEngine("vision", preferences.vision),
+    text: resolveEngine("text", preferences.text),
+    cutout: resolveEngine("cutout", preferences.cutout),
     background: resolveBackgroundEngine(
       preferences.background,
       studioMode,
       useAiBackground
     ),
-    video: resolveEngine("video", preferences.video, studioMode),
+    video: resolveEngine("video", preferences.video),
   };
 }
 
 export function resolveWithFallback(
   capability: AiCapability,
-  preference: AiEngineProvider | undefined,
-  studioMode: StudioPipelineMode = "catalog"
+  preference: AiEngineProvider | undefined
 ): ReturnType<typeof resolveEngine> {
   try {
-    const resolved = resolveEngine(capability, preference, studioMode);
+    const resolved = resolveEngine(capability, preference);
     assertEngineAvailable(capability, resolved);
     return resolved;
   } catch {

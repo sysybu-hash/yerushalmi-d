@@ -42,7 +42,7 @@ export async function pipelineRemoveBackground(
     return { url: cached, cached: true };
   }
 
-  let cutoutEngine = resolveEngine("cutout", engines.preferences.cutout, studioMode);
+  let cutoutEngine = resolveEngine("cutout", engines.preferences.cutout);
   if (studioMode === "catalog" && engines.preferences.cutout === "auto") {
     cutoutEngine = "replicate";
   }

@@ -1,6 +1,4 @@
 import { REMBG_MAX_PX } from "@/lib/studio-presets";
-
-/** הוספת טרנספורמציית Cloudinary ל-URL קיים (אחרי /upload/) */
 export function withCloudinaryTransform(
   url: string,
   transform: string
@@ -28,11 +26,12 @@ export function visionAnalysisUrl(cloudinaryUrl: string): string {
 /** פריים מווידאו Cloudinary כ-JPEG לעיבוד AI */
 export function videoFrameJpgUrl(
   cloudinaryVideoUrl: string,
-  offsetSec = 0
+  offsetSec = 0,
+  maxWidth = REMBG_MAX_PX
 ): string {
   return withCloudinaryTransform(
     cloudinaryVideoUrl,
-    `so_${Math.max(0, offsetSec)},w_1280,c_limit,f_jpg,q_auto:good`
+    `so_${Math.max(0, offsetSec)},w_${maxWidth},c_limit,f_jpg,q_auto:best`
   );
 }
 
@@ -40,7 +39,7 @@ export function videoFrameJpgUrl(
 export function opaqueImageUrlForVideo(cloudinaryUrl: string): string {
   return withCloudinaryTransform(
     cloudinaryUrl,
-    "b_white,c_limit,w_1280,h_1280,f_jpg,q_auto:best"
+    `b_white,c_limit,w_${REMBG_MAX_PX},h_${REMBG_MAX_PX},f_jpg,q_auto:best`
   );
 }
 

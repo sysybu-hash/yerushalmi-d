@@ -23,6 +23,7 @@ import {
   parseStudioVideoDuration,
   type StudioVideoDurationSec,
 } from "@/lib/studio-video-duration";
+import { finalizeAiGeneratedVideo } from "@/lib/studio-video-audio";
 import { assertStudioQuota, trackAiUsage } from "@/lib/ai-usage";
 import type { AiUsageMode } from "@/lib/ai-usage";
 
@@ -231,11 +232,12 @@ export async function studioGenerateVideo(
         duration: options.duration,
         mode: options.mode,
       });
-      const url = await uploadBufferToCloudinary(
+      const uploaded = await uploadBufferToCloudinary(
         buffer,
         `studio-video-veo-${Date.now()}.mp4`,
         "video"
       );
+      const url = await finalizeAiGeneratedVideo(uploaded, "studio-video-veo");
       success = true;
       return { url, provider: "veo" };
     } catch (error) {
@@ -277,7 +279,9 @@ export async function studioGenerateVideo(
     }
   );
 
-  return { url: extractUrl(output), provider: "kling" };
+  const rawUrl = extractUrl(output);
+  const url = await finalizeAiGeneratedVideo(rawUrl, "studio-video-kling");
+  return { url, provider: "kling" };
 }
 
 export async function studioEnhanceSource(

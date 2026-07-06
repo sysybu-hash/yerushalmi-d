@@ -213,10 +213,13 @@ export type StudioPipelineStepId =
   (typeof STUDIO_PIPELINE_STEPS)[number]["id"];
 
 export const DEFAULT_VIDEO_PROMPT =
-  "static luxury jewelry product shot, completely frozen background, locked camera, no camera movement, no background animation, no morphing backdrop, subtle micro sparkle on diamond facets only, professional jewelry commercial, soft studio lighting, photorealistic, preserve exact product shape and stone count, seamless smooth gradient backdrop";
+  "static luxury jewelry product shot, completely frozen product geometry, locked camera, no camera movement, no background animation, no morphing backdrop, subtle micro sparkle on existing diamond facets only, professional jewelry commercial, soft studio lighting, photorealistic, preserve exact diamond cut and facet pattern, exact prong count and stone shape, exact chain link geometry, seamless smooth gradient backdrop";
+
+export const JEWELRY_STRUCTURE_LOCK =
+  "CRITICAL: keep identical diamond cut, facet geometry, prong layout, center stone shape, chain link count and metal structure from the input image — do not redesign, redraw, or morph any gemstone or setting";
 
 export const DEFAULT_VIDEO_NEGATIVE_PROMPT =
-  "changing jewelry shape, different ring design, morphing product, extra prongs, missing stones, melted metal, plastic look, camera shake, zoom, orbit, pan, blur, distortion, oversaturated, jitter, low quality, text, watermark, hands, people, horizontal line, seam, split screen, glitch, reflection artifact, black bar, scan line, concentric circles, radial gradient, tunnel effect, target pattern, spinning background, pulsing background, moving bokeh orbs, light rays, sunburst, vortex, kaleidoscope, animated backdrop, background morphing, warping background";
+  "changing jewelry shape, different ring design, morphing product, deformed diamond, wrong facet geometry, melted prongs, fused stone and metal, changed stone shape, blob diamond, painterly gemstone, smoothed facets, warped chain links, altered link count, extra prongs, missing stones, melted metal, plastic look, camera shake, zoom, orbit, pan, blur, distortion, oversaturated, jitter, low quality, text, watermark, hands, people, horizontal line, seam, split screen, glitch, reflection artifact, black bar, scan line, concentric circles, radial gradient, tunnel effect, target pattern, spinning background, pulsing background, moving bokeh orbs, light rays, sunburst, vortex, kaleidoscope, animated backdrop, background morphing, warping background, speech, dialogue, vocals, lyrics, singing, narration, talking, voiceover, announcer, words";
 
 export const STUDIO_VIDEO_PROMPT_EXAMPLES = [
   "מצלמה קבועה, רקע לגמרי סטטי, נצנוץ עדין על היהלומים בלבד",
@@ -232,7 +235,7 @@ export const STUDIO_VIDEO_PRESET_HINTS: Record<StudioStylePresetId, string> = {
   "luxury-marble":
     "frozen marble backdrop, micro sparkle on diamond facets only, no background movement",
   "black-velvet":
-    "static velvet darkness, soft diamond shimmer only, backdrop completely still",
+    "static flat velvet surface only, no mannequin, no bust, soft diamond shimmer only, backdrop completely still",
   "white-studio":
     "frozen white seamless backdrop, clean catalog micro sparkle on stones",
   "gold-bokeh":

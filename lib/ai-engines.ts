@@ -145,8 +145,7 @@ export function isReplicateConfigured(): boolean {
 /** מנוע בפועל לאחר החלת מצב אוטומטי — מודע ל-capability */
 export function resolveEngine(
   capability: AiCapability,
-  preference: AiEngineProvider | undefined,
-  studioMode: StudioPipelineMode = "catalog"
+  preference: AiEngineProvider | undefined
 ): AiResolvedProvider {
   const pref = preference ?? "auto";
 
@@ -157,7 +156,7 @@ export function resolveEngine(
     case "cutout":
       return "replicate";
     case "video":
-      if (studioMode === "catalog") return "replicate";
+      if (isReplicateConfigured()) return "replicate";
       return isGeminiConfigured() ? "gemini" : "replicate";
     case "vision":
     case "text":

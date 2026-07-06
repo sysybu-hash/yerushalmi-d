@@ -2,6 +2,7 @@ import { assertStudioEnv } from "@/lib/studio-env";
 import {
   DEFAULT_VIDEO_NEGATIVE_PROMPT,
   DEFAULT_VIDEO_PROMPT,
+  JEWELRY_STRUCTURE_LOCK,
   STUDIO_CANVAS_SIZE,
   STUDIO_PRESET_LIGHTING_HINTS,
   STUDIO_VIDEO_PRESET_HINTS,
@@ -196,7 +197,7 @@ export async function pipelineGenerateVideo(
     studioMode,
     false
   );
-  const videoEngine = resolveEngine("video", engines.preferences.video, studioMode);
+  const videoEngine = resolveEngine("video", engines.preferences.video);
   assertEngineAvailable("video", videoEngine);
 
   const englishCustom = options.customPrompt?.trim()
@@ -206,7 +207,12 @@ export async function pipelineGenerateVideo(
   const preset = options.stylePreset ?? "luxury-marble";
   const presetVideoHints = STUDIO_VIDEO_PRESET_HINTS[preset];
 
-  const prompt = [DEFAULT_VIDEO_PROMPT, presetVideoHints, englishCustom]
+  const prompt = [
+    JEWELRY_STRUCTURE_LOCK,
+    DEFAULT_VIDEO_PROMPT,
+    presetVideoHints,
+    englishCustom,
+  ]
     .filter(Boolean)
     .join(", ");
 

@@ -1,5 +1,9 @@
 import type { StudioStylePresetId } from "@/lib/studio-presets";
-import { STUDIO_STYLE_PRESETS } from "@/lib/studio-presets";
+import {
+  DEFAULT_VIDEO_NEGATIVE_PROMPT,
+  JEWELRY_STRUCTURE_LOCK,
+  STUDIO_STYLE_PRESETS,
+} from "@/lib/studio-presets";
 import {
   parseStudioVideoDuration,
   type StudioVideoDurationSec,
@@ -11,6 +15,7 @@ import type { AiUsageMode } from "@/lib/ai-usage";
 import { opaqueImageUrlForVideo, videoFrameJpgUrl } from "@/lib/cloudinary-url";
 import { geminiGenerateVideoFromImage } from "@/lib/studio-gemini-media";
 import { uploadBufferToCloudinary } from "@/lib/studio-replicate";
+import { finalizeAiGeneratedVideo } from "@/lib/studio-video-audio";
 import {
   buildTransformedUrl,
   type VideoAdjustments,
@@ -51,11 +56,11 @@ const PRESET_ADJUSTMENTS: Record<VideoEnhancePreset, Partial<VideoAdjustments>> 
 
 const PRESET_VEO_PROMPT: Record<VideoEnhancePreset, string> = {
   catalog:
-    "Luxury jewelry product video on a fully opaque solid studio background, static camera, subtle diamond sparkle, professional catalog lighting, no morphing, no transparency",
+    "Luxury jewelry product video on opaque solid studio background, static camera, micro sparkle on existing facets only, professional catalog lighting",
   stabilize:
-    "Stable jewelry product shot on opaque solid background, minimal movement, steady camera, soft studio light, no transparency",
+    "Stable jewelry product shot on opaque solid background, minimal movement, steady camera, soft studio light",
   sharpen:
-    "Sharp macro jewelry detail on opaque solid background, crisp metal and stones, gentle shimmer, static composition",
+    "Sharp macro jewelry detail on opaque solid background, crisp existing metal and stones, gentle shimmer, static composition",
   color:
     "Balanced natural colors on jewelry, opaque solid studio background, soft lighting, subtle reflections",
 };
@@ -86,8 +91,8 @@ async function studioEnhanceVideoCloudinary(
       autoColor: patch.autoColor ?? false,
       sharpen: patch.sharpen ?? false,
       denoise: false,
-      audioStyle: "original",
-      audioVolume: 35,
+      audioStyle: "luxury",
+      audioVolume: 32,
     };
 
     const transformed = buildTransformedUrl(videoUrl, "video", adjustments, {
@@ -157,6 +162,7 @@ async function studioEnhanceVideoGemini(
       : null;
 
     const veoPrompt = [
+      JEWELRY_STRUCTURE_LOCK,
       PRESET_VEO_PROMPT[options.preset],
       styleSuffix ? `Scene style: ${styleSuffix}` : null,
       options.customPrompt?.trim(),
@@ -168,17 +174,17 @@ async function studioEnhanceVideoGemini(
     const videoBuffer = await geminiGenerateVideoFromImage({
       imageUrl: veoInputUrl,
       prompt: veoPrompt,
-      negativePrompt:
-        "transparency, alpha channel, checkerboard, cutout holes, missing background, morphing jewelry, camera shake",
+      negativePrompt: DEFAULT_VIDEO_NEGATIVE_PROMPT,
       duration: parseStudioVideoDuration(options.duration ?? 5),
       mode: "pro",
     });
 
-    const url = await uploadBufferToCloudinary(
+    const uploaded = await uploadBufferToCloudinary(
       videoBuffer,
       `studio-video-gemini-${Date.now()}.mp4`,
       "video"
     );
+    const url = await finalizeAiGeneratedVideo(uploaded, "studio-video-gemini");
     success = true;
     return { url };
   } finally {

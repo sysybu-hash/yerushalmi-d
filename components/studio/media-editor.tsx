@@ -39,7 +39,7 @@ import {
 } from "@/components/studio/studio-adjust-ui";
 import { StudioVideoAudioPanel } from "@/components/studio/studio-video-audio-panel";
 import { StudioCreativeOptionsPanel } from "@/components/studio/studio-creative-options";
-import { videoFrameJpgUrl } from "@/lib/cloudinary-url";
+import { rembgSourceUrl, videoFrameJpgUrl } from "@/lib/cloudinary-url";
 import type {
   AiEngineConfig,
   StudioPipelineMode,
@@ -212,7 +212,11 @@ export function StudioMediaEditor({
     patchEdit({
       asset: { ...asset, url, originalUrl, type: "video", duration: asset.duration },
       imageAdj: DEFAULT_IMAGE_ADJUSTMENTS,
-      videoAdj: DEFAULT_VIDEO_ADJUSTMENTS,
+      videoAdj: {
+        ...DEFAULT_VIDEO_ADJUSTMENTS,
+        audioStyle: "luxury",
+        audioVolume: 32,
+      },
       savedUrl: null,
     });
     try {
@@ -240,7 +244,7 @@ export function StudioMediaEditor({
 
     setBusy("styled-video");
     try {
-      const frameUrl = videoFrameJpgUrl(asset.url, 0);
+      const frameUrl = rembgSourceUrl(videoFrameJpgUrl(asset.url, 0));
       const cutout = await studioApiRemoveBackground(frameUrl, {
         mode: studioMode,
         engines: aiEngines,
@@ -256,9 +260,8 @@ export function StudioMediaEditor({
         stylePreset,
         engines: aiEngines,
         mode: studioMode,
-        useAiBackground: studioMode === "marketing" && useAiBackground,
-        highQualityBackground:
-          studioMode === "marketing" && useAiBackground && highQualityBackground,
+        useAiBackground: false,
+        highQualityBackground: false,
         projectId: projectId ?? undefined,
       });
       if (!composite.ok) {
@@ -269,9 +272,9 @@ export function StudioMediaEditor({
       const video = await studioApiGenerateVideo(composite.data.url, {
         customPrompt,
         duration: videoDuration,
-        mode: videoMode,
+        mode: "pro",
         stylePreset,
-        engines: aiEngines,
+        engines: { ...aiEngines, video: "replicate" },
         studioMode,
         projectId: projectId ?? undefined,
       });
