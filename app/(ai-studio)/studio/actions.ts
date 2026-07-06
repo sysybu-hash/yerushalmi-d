@@ -130,6 +130,11 @@ export async function saveAssetToCloudinary(
   kind: "image" | "video"
 ) {
   await requireAdmin();
+
+  if (sourceUrl.includes("res.cloudinary.com/")) {
+    return { url: sourceUrl };
+  }
+
   assertRemoteAssetUrl(sourceUrl);
 
   const response = await fetch(sourceUrl);

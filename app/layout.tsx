@@ -11,6 +11,7 @@ const serif = Frank_Ruhl_Libre({
 
 const sans = Heebo({
   subsets: ["hebrew", "latin"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-sans",
 });
 
@@ -49,7 +50,7 @@ export default function RootLayout({
   return (
     <html lang="he" dir="rtl">
       <body
-        className={`${serif.variable} ${sans.variable} ${brand.variable} font-sans antialiased`}
+        className={`${serif.variable} ${sans.variable} ${brand.variable} font-sans subpixel-antialiased`}
       >
         {children}
       </body>

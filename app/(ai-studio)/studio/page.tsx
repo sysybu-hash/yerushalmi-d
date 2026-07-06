@@ -29,14 +29,13 @@ import {
   studioApiGenerateVideo,
   studioApiRemoveBackground,
 } from "@/lib/studio-api";
-import type { GenerateImageOptions, GenerateVideoOptions } from "@/lib/studio-types";
+import type { GenerateImageOptions, GenerateVideoOptions, StudioVideoMotionMode } from "@/lib/studio-types";
 import { StudioMediaEditor } from "@/components/studio/media-editor";
 import { StudioSourcePrep } from "@/components/studio/studio-source-prep";
 import { StudioVideoPrep } from "@/components/studio/studio-video-prep";
 import { StudioVideoAudioPanel } from "@/components/studio/studio-video-audio-panel";
-import { AiEngineSelector } from "@/components/studio/ai-engine-selector";
+import { StudioCreativeOptionsPanel } from "@/components/studio/studio-creative-options";
 import { StudioPortfolioPanel } from "@/components/studio/studio-portfolio-panel";
-import { StylePresetGrid } from "@/components/studio/style-preset-grid";
 import { StudioTipsPanel } from "@/components/studio/studio-tips-panel";
 import {
   emptyStudioForm,
@@ -61,10 +60,7 @@ import {
   type ImageAdjustments,
   type VideoAdjustments,
 } from "@/lib/studio-transform";
-import {
-  STUDIO_VIDEO_DURATION_OPTIONS,
-  type StudioVideoDurationSec,
-} from "@/lib/studio-video-duration";
+import type { StudioVideoDurationSec } from "@/lib/studio-video-duration";
 import { cutoutDisplayUrl } from "@/lib/cloudinary-url";
 import {
   StudioWorkflowStepper,
@@ -73,21 +69,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { MediaPreviewTrigger } from "@/components/ui/media-preview";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
 import {
   STUDIO_PIPELINE_STEPS,
-  STUDIO_PROMPT_EXAMPLES,
   STUDIO_STYLE_PRESETS,
-  STUDIO_VIDEO_PROMPT_EXAMPLES,
   type StudioStylePresetId,
 } from "@/lib/studio-presets";
 
@@ -106,6 +91,8 @@ function StudioPageContent() {
   const [videoDuration, setVideoDuration] =
     React.useState<StudioVideoDurationSec>(5);
   const [videoMode, setVideoMode] = React.useState<"standard" | "pro">("pro");
+  const [videoMotionMode, setVideoMotionMode] =
+    React.useState<StudioVideoMotionMode>("preserve");
   const [busy, setBusy] = React.useState<string | null>(null);
   const [toast, setToast] = React.useState<string | null>(null);
   const [mode, setMode] = React.useState<"create" | "edit">("create");
@@ -268,19 +255,27 @@ function StudioPageContent() {
   }
 
   function videoOptions(): GenerateVideoOptions {
+    const motionMode =
+      studioMode === "catalog" ? "preserve" : videoMotionMode;
     return {
-      customPrompt: videoPrompt,
+      customPrompt: videoPrompt || customPrompt,
       negativePrompt,
       duration: videoDuration,
       mode: videoMode,
       stylePreset,
       engines: aiEngines,
-      studioMode: "marketing",
-      motionMode: "preserve",
+      studioMode,
+      motionMode,
       skipImagePipeline: Boolean(lastCompositeUrl),
       projectId: activeProjectId ?? undefined,
     };
   }
+
+  React.useEffect(() => {
+    if (studioMode === "catalog") {
+      setVideoMotionMode("preserve");
+    }
+  }, [studioMode]);
 
   async function runCutoutStep(
     sourceUrl: string
@@ -537,7 +532,11 @@ function StudioPageContent() {
         return;
       }
 
-      if (!window.confirm("יצירת וידאו היא פעולה יקרה (+1 קריאת API). להמשיך?")) {
+      if (
+        studioMode === "marketing" &&
+        videoMotionMode === "ai" &&
+        !window.confirm("יצירת וידאו AI היא פעולה יקרה (+1 קריאת API). להמשיך?")
+      ) {
         return;
       }
 
@@ -740,38 +739,6 @@ function StudioPageContent() {
           עריכה ומיטוב חומר קיים
         </button>
       </div>
-
-      {useAiStudioFlow && (
-        <div className="flex flex-wrap justify-center gap-2">
-          <button
-            type="button"
-            aria-pressed={studioMode === "catalog"}
-            onClick={() => {
-              setStudioMode("catalog");
-              setUseAiBackground(false);
-            }}
-            className={`border px-4 py-2 text-xs font-light tracking-[0.1em] transition-colors ${
-              studioMode === "catalog"
-                ? "border-emerald-600 bg-emerald-50 text-emerald-900"
-                : "border-border/60 text-muted-foreground hover:border-emerald-400"
-            }`}
-          >
-            מצב קטלוג — 1 קריאת API
-          </button>
-          <button
-            type="button"
-            aria-pressed={studioMode === "marketing"}
-            onClick={() => setStudioMode("marketing")}
-            className={`border px-4 py-2 text-xs font-light tracking-[0.1em] transition-colors ${
-              studioMode === "marketing"
-                ? "border-gold bg-gold/15 text-gold-dark"
-                : "border-border/60 text-muted-foreground hover:border-gold/50"
-            }`}
-          >
-            מצב שיווק — AI רקע / וידאו
-          </button>
-        </div>
-      )}
 
       {mode === "edit" && !useAiStudioFlow && (
         <StudioMediaEditor
@@ -1154,99 +1121,32 @@ function StudioPageContent() {
             </p>
           )}
 
-          <div className="rounded-none border border-emerald-200/80 bg-emerald-50/50 px-3 py-2 text-[11px] font-light leading-relaxed text-emerald-900">
-            התכשיט מועתק מהצילום המקורי — AI משנה רקע ותאורה, לא את התכשיט.
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-baseline justify-between gap-2">
-              <Label className="font-light">סגנון רקע</Label>
-              <span className="text-[10px] font-light tracking-[0.08em] text-muted-foreground">
-                {STUDIO_STYLE_PRESETS.length} סגנונות
-              </span>
-            </div>
-            <StylePresetGrid
-              value={stylePreset}
-              onChange={setStylePreset}
-              disabled={!activeSource || isGenerating}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="custom-prompt" className="font-light">
-              תאורה ואווירה (אופציונלי)
-            </Label>
-            <Textarea
-              id="custom-prompt"
-              value={customPrompt}
-              onChange={(e) => setCustomPrompt(e.target.value)}
-              rows={3}
-              disabled={!activeSource || isGenerating}
-              placeholder="לדוגמה: תאורה דרמטית, השתקפויות זהב, רקע כהה..."
-              className="rounded-none resize-none"
-            />
-            <div className="flex flex-wrap gap-2 pt-1">
-              {STUDIO_PROMPT_EXAMPLES.map((example) => (
-                <button
-                  key={example}
-                  type="button"
-                  disabled={!activeSource || isGenerating}
-                  onClick={() => setCustomPrompt(example)}
-                  className="border border-border/60 px-2 py-1 text-[11px] font-light text-muted-foreground transition-colors hover:border-gold/50 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {example}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <Separator className="bg-border/40" />
-
-          <details className="rounded-none border border-border/40 bg-muted/20 px-3 py-2">
-            <summary className="cursor-pointer text-xs font-light tracking-[0.08em] text-muted-foreground">
-              מנועי AI — אוטומטי / Replicate / Gemini
-            </summary>
-            <div className="mt-4">
-              <AiEngineSelector
-                value={aiEngines}
-                onChange={setAiEngines}
-                disabled={!activeSource || isGenerating}
-                compact
-                showBackground={studioMode === "marketing"}
-              />
-            </div>
-          </details>
-
-          {studioMode === "marketing" && (
-            <div className="space-y-3 rounded-none border border-amber-200/80 bg-amber-50/40 p-3">
-              <label className="flex items-center gap-2 text-xs font-light">
-                <input
-                  type="checkbox"
-                  checked={useAiBackground}
-                  onChange={(e) => setUseAiBackground(e.target.checked)}
-                  disabled={!activeSource || isGenerating}
-                />
-                רקע AI (+1 קריאת API)
-              </label>
-              {useAiBackground && (
-                <label className="flex items-center gap-2 text-xs font-light">
-                  <input
-                    type="checkbox"
-                    checked={highQualityBackground}
-                    onChange={(e) => setHighQualityBackground(e.target.checked)}
-                    disabled={!activeSource || isGenerating}
-                  />
-                  איכות גבוהה (SDXL) — יקר יותר
-                </label>
-              )}
-            </div>
-          )}
-
-          {studioMode === "catalog" && (
-            <p className="text-[11px] font-light text-emerald-800">
-              קטלוג: Bria cutout + רקע פרוצדורלי + צל — ללא עלות API נוספת.
-            </p>
-          )}
+          <StudioCreativeOptionsPanel
+            studioMode={studioMode}
+            onStudioModeChange={setStudioMode}
+            stylePreset={stylePreset}
+            onStylePresetChange={setStylePreset}
+            customPrompt={customPrompt}
+            onCustomPromptChange={setCustomPrompt}
+            aiEngines={aiEngines}
+            onAiEnginesChange={setAiEngines}
+            useAiBackground={useAiBackground}
+            onUseAiBackgroundChange={setUseAiBackground}
+            highQualityBackground={highQualityBackground}
+            onHighQualityBackgroundChange={setHighQualityBackground}
+            videoDuration={videoDuration}
+            onVideoDurationChange={setVideoDuration}
+            videoMode={videoMode}
+            onVideoModeChange={setVideoMode}
+            videoMotionMode={videoMotionMode}
+            onVideoMotionModeChange={setVideoMotionMode}
+            videoPrompt={videoPrompt}
+            onVideoPromptChange={setVideoPrompt}
+            negativePrompt={negativePrompt}
+            onNegativePromptChange={setNegativePrompt}
+            showVideoSettings={studioMode === "marketing"}
+            disabled={!activeSource || isGenerating}
+          />
 
           <Separator className="bg-border/40" />
 
@@ -1281,105 +1181,14 @@ function StudioPageContent() {
             <span className="text-foreground">
               {STUDIO_STYLE_PRESETS.find((p) => p.id === stylePreset)?.label}
             </span>
+            {studioMode === "marketing" && (
+              <>
+                {" "}
+                · וידאו:{" "}
+                {videoMotionMode === "preserve" ? "זום עדין" : "AI (Veo/Kling)"}
+              </>
+            )}
           </p>
-
-          {studioMode === "marketing" && (
-          <details className="rounded-none border border-border/40 bg-muted/20 px-3 py-2">
-            <summary className="cursor-pointer text-xs font-light tracking-[0.08em] text-muted-foreground">
-              הגדרות וידאו Kling 3 (ברירת מחדל: Pro 1080p) — אווירה לפי הסגנון שנבחר
-            </summary>
-            <div className="mt-4 space-y-4">
-              <div className="grid gap-5 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label className="text-xs font-light text-muted-foreground">
-                    אורך
-                  </Label>
-                  <Select
-                    value={String(videoDuration)}
-                    onValueChange={(v) =>
-                      setVideoDuration(Number(v) as StudioVideoDurationSec)
-                    }
-                    disabled={!activeSource || isGenerating}
-                    dir="rtl"
-                  >
-                    <SelectTrigger className="rounded-none">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {STUDIO_VIDEO_DURATION_OPTIONS.map((option) => (
-                        <SelectItem
-                          key={option.value}
-                          value={String(option.value)}
-                        >
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs font-light text-muted-foreground">
-                    איכות
-                  </Label>
-                  <Select
-                    value={videoMode}
-                    onValueChange={(v) =>
-                      setVideoMode(v as "standard" | "pro")
-                    }
-                    disabled={!activeSource || isGenerating}
-                    dir="rtl"
-                  >
-                    <SelectTrigger className="rounded-none">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="standard">Standard (720p)</SelectItem>
-                      <SelectItem value="pro">Pro (1080p)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <Textarea
-                value={videoPrompt}
-                onChange={(e) => setVideoPrompt(e.target.value)}
-                rows={2}
-                disabled={!activeSource || isGenerating}
-                placeholder="תנועה לווידאו (אופציונלי): סיבוב איטי, נצנוץ יהלומים..."
-                className="rounded-none resize-none"
-              />
-              <div className="flex flex-wrap gap-2">
-                {STUDIO_VIDEO_PROMPT_EXAMPLES.map((example) => (
-                  <button
-                    key={example}
-                    type="button"
-                    disabled={!activeSource || isGenerating}
-                    onClick={() => setVideoPrompt(example)}
-                    className="border border-border/60 px-2 py-1 text-[11px] font-light text-muted-foreground transition-colors hover:border-gold/50 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    {example}
-                  </button>
-                ))}
-              </div>
-              <div className="space-y-2">
-                <Label
-                  htmlFor="negative-prompt"
-                  className="text-xs font-light text-muted-foreground"
-                >
-                  מה להימנע בווידאו (אופציונלי)
-                </Label>
-                <Textarea
-                  id="negative-prompt"
-                  value={negativePrompt}
-                  onChange={(e) => setNegativePrompt(e.target.value)}
-                  rows={2}
-                  disabled={!activeSource || isGenerating}
-                  placeholder="לדוגמה: שינוי צורת התכשיט, תנועת מצלמה, טשטוש..."
-                  className="rounded-none resize-none"
-                />
-              </div>
-            </div>
-          </details>
-          )}
 
           {studioMode === "marketing" && (
             <StudioVideoAudioPanel
@@ -1402,7 +1211,6 @@ function StudioPageContent() {
               )}
               עצב בסגנון יוקרתי
             </Button>
-            {studioMode === "marketing" && (
             <Button
               disabled={!activeSource || isGenerating || isCutoutPreview}
               onClick={() => generate("video")}
@@ -1414,9 +1222,10 @@ function StudioPageContent() {
               ) : (
                 <Clapperboard className="ml-2 h-4 w-4" strokeWidth={1.5} />
               )}
-              הפוך לווידאו מנצנץ (+1 API)
+              {studioMode === "catalog" || videoMotionMode === "preserve"
+                ? "צור וידאו קטלוגי (זום עדין)"
+                : "צור וידאו AI (+API)"}
             </Button>
-            )}
             {cutoutUrl && (
               <Button
                 type="button"

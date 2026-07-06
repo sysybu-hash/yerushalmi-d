@@ -59,7 +59,7 @@ export function opaqueImageUrlForVideo(cloudinaryUrl: string): string {
 export function cutoutDisplayUrl(cloudinaryUrl: string): string {
   return withCloudinaryTransform(
     cloudinaryUrl,
-    "b_white,c_limit,w_1600,f_jpg,q_auto:best"
+    "b_white,c_limit,w_1600,f_png,q_auto:best"
   );
 }
 

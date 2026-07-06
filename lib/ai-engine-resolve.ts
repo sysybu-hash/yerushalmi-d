@@ -103,7 +103,7 @@ export function resolveWithFallback(
     }
     throw new Error(
       capability === "cutout" || capability === "video"
-        ? "המשימה דורשת Replicate — בחרו Replicate או אוטומטי"
+        ? "אין מנוע AI זמין — הגדירו GEMINI_API_KEY או REPLICATE_API_TOKEN"
         : "אין מנוע AI זמין — הגדירו GEMINI_API_KEY או REPLICATE_API_TOKEN"
     );
   }

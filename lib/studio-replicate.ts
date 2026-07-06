@@ -205,8 +205,13 @@ export async function runTrackedReplicate(
 }
 
 async function normalizeImageBufferForUpload(buffer: Buffer): Promise<Buffer> {
-  const sharp = await loadSharp();
-  return sharp(buffer).png({ compressionLevel: 2 }).toBuffer();
+  try {
+    const sharp = await loadSharp();
+    return sharp(buffer).png({ compressionLevel: 2 }).toBuffer();
+  } catch (error) {
+    console.error("studio_png_normalize_failed", error);
+    throw new Error("עיבוד התמונה לפני העלאה נכשל — נסו שוב");
+  }
 }
 
 export async function uploadBufferToCloudinary(
@@ -239,6 +244,9 @@ export async function uploadBufferToCloudinary(
   );
   form.append("upload_preset", uploadPreset);
   form.append("folder", "yerushalmi-studio");
+  if (resourceType === "image") {
+    form.append("format", "png");
+  }
 
   const response = await fetch(
     `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`,

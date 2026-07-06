@@ -28,6 +28,10 @@ export function humanizeStudioError(message: string): string {
     return "הפעולה ארכה יותר מדי — נסו שוב עם תמונה קטנה יותר או שדרגו את תוכנית Vercel.";
   }
 
+  if (/unsupported file type.*jpeg/i.test(trimmed)) {
+    return "שגיאת העלאה ל-Cloudinary — נסו שוב; התמונה מומרת אוטומטית ל-PNG.";
+  }
+
   return trimmed;
 }
 

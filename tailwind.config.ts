@@ -17,6 +17,13 @@ const config: Config = {
   		letterSpacing: {
   			luxury: '0.25em'
   		},
+  		fontWeight: {
+  			light: '500',
+  			normal: '500',
+  			medium: '600',
+  			semibold: '700',
+  			bold: '800',
+  		},
   		colors: {
   			gold: {
   				DEFAULT: '#B49A5E',

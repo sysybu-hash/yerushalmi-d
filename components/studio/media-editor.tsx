@@ -52,6 +52,7 @@ import {
 } from "@/lib/studio-api";
 import type { StudioStylePresetId } from "@/lib/studio-presets";
 import type { StudioVideoDurationSec } from "@/lib/studio-video-duration";
+import type { StudioVideoMotionMode } from "@/lib/studio-types";
 import { Button } from "@/components/ui/button";
 import { MediaPreviewTrigger } from "@/components/ui/media-preview";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -140,6 +141,8 @@ export function StudioMediaEditor({
     videoMode,
   } = creative;
   const [busy, setBusy] = React.useState<string | null>(null);
+  const [videoMotionMode, setVideoMotionMode] =
+    React.useState<StudioVideoMotionMode>("preserve");
 
   const {
     asset,
@@ -271,11 +274,11 @@ export function StudioMediaEditor({
       const video = await studioApiGenerateVideo(composite.data.url, {
         customPrompt,
         duration: videoDuration,
-        mode: "pro",
+        mode: videoMode,
         stylePreset,
         engines: aiEngines,
         studioMode,
-        motionMode: "preserve",
+        motionMode: videoMotionMode,
         projectId: projectId ?? undefined,
       });
       if (!video.ok) {
@@ -325,20 +328,6 @@ export function StudioMediaEditor({
     });
     showToast(type === "video" ? "וידאו נטען לעריכה" : "תמונה נטענה לעריכה");
     onWorkflowStepChange?.(2);
-  }
-
-  async function handleSaveToLibrary() {
-    if (!asset) return;
-    setBusy("library");
-    try {
-      const url = await ensureSaved();
-      if (!url) throw new Error("השמירה נכשלה");
-      await persistToContentLibrary(url, { reupload: false });
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : "השמירה לספרייה נכשלה");
-    } finally {
-      setBusy(null);
-    }
   }
 
   function canSelectVideoStep(step: StudioWorkflowStep) {
@@ -598,6 +587,8 @@ export function StudioMediaEditor({
               onVideoDurationChange={creative.onVideoDurationChange}
               videoMode={videoMode}
               onVideoModeChange={creative.onVideoModeChange}
+              videoMotionMode={videoMotionMode}
+              onVideoMotionModeChange={setVideoMotionMode}
               showVideoSettings
               showModeToggle
               disabled={busy !== null}
@@ -617,7 +608,8 @@ export function StudioMediaEditor({
                   strokeWidth={1.5}
                 />
               )}
-              צור וידאו חדש עם רקע נבחר (+API)
+              צור וידאו חדש עם רקע נבחר
+              {videoMotionMode === "ai" ? " (+API)" : ""}
             </Button>
           </CardContent>
         </Card>
@@ -1085,20 +1077,6 @@ export function StudioMediaEditor({
                     <Copy aria-hidden className="ml-2 h-4 w-4" strokeWidth={1.5} />
                     העתקת קישור
                   </Button>
-                  {isVideo && (
-                    <Button
-                      disabled={busy !== null}
-                      onClick={() => void handleSaveToLibrary()}
-                      className="rounded-none text-xs font-light tracking-[0.1em]"
-                    >
-                      {busy === "library" ? (
-                        <Loader2 aria-hidden className="ml-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <FolderHeart aria-hidden className="ml-2 h-4 w-4" strokeWidth={1.5} />
-                      )}
-                      שמירה לספריית התוכן
-                    </Button>
-                  )}
                 </div>
 
                 {savedUrl && (

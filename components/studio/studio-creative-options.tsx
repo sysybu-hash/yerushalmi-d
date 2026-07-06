@@ -19,12 +19,14 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   STUDIO_PROMPT_EXAMPLES,
   STUDIO_STYLE_PRESETS,
+  STUDIO_VIDEO_PROMPT_EXAMPLES,
   type StudioStylePresetId,
 } from "@/lib/studio-presets";
 import {
   STUDIO_VIDEO_DURATION_OPTIONS,
   type StudioVideoDurationSec,
 } from "@/lib/studio-video-duration";
+import type { StudioVideoMotionMode } from "@/lib/studio-types";
 
 type StudioCreativeOptionsProps = {
   studioMode: StudioPipelineMode;
@@ -43,6 +45,12 @@ type StudioCreativeOptionsProps = {
   onVideoDurationChange?: (duration: StudioVideoDurationSec) => void;
   videoMode?: "standard" | "pro";
   onVideoModeChange?: (mode: "standard" | "pro") => void;
+  videoMotionMode?: StudioVideoMotionMode;
+  onVideoMotionModeChange?: (mode: StudioVideoMotionMode) => void;
+  videoPrompt?: string;
+  onVideoPromptChange?: (value: string) => void;
+  negativePrompt?: string;
+  onNegativePromptChange?: (value: string) => void;
   showVideoSettings?: boolean;
   showModeToggle?: boolean;
   disabled?: boolean;
@@ -65,6 +73,12 @@ export function StudioCreativeOptionsPanel({
   onVideoDurationChange,
   videoMode = "pro",
   onVideoModeChange,
+  videoMotionMode = "preserve",
+  onVideoMotionModeChange,
+  videoPrompt = "",
+  onVideoPromptChange,
+  negativePrompt = "",
+  onNegativePromptChange,
   showVideoSettings = false,
   showModeToggle = true,
   disabled,
@@ -155,6 +169,50 @@ export function StudioCreativeOptionsPanel({
         </div>
       </div>
 
+      {showVideoSettings && onVideoMotionModeChange && (
+        <>
+          <Separator className="bg-border/40" />
+          <div className="space-y-3">
+            <Label className="text-xs font-light text-muted-foreground">
+              סוג וידאו
+            </Label>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                aria-pressed={videoMotionMode === "preserve"}
+                disabled={disabled}
+                onClick={() => onVideoMotionModeChange("preserve")}
+                className={`border px-3 py-2 text-[11px] font-light tracking-[0.08em] transition-colors disabled:opacity-40 ${
+                  videoMotionMode === "preserve"
+                    ? "border-emerald-600 bg-emerald-50 text-emerald-900"
+                    : "border-border/60 text-muted-foreground hover:border-emerald-400"
+                }`}
+              >
+                קטלוג — זום עדין (מומלץ)
+              </button>
+              <button
+                type="button"
+                aria-pressed={videoMotionMode === "ai"}
+                disabled={disabled}
+                onClick={() => onVideoMotionModeChange("ai")}
+                className={`border px-3 py-2 text-[11px] font-light tracking-[0.08em] transition-colors disabled:opacity-40 ${
+                  videoMotionMode === "ai"
+                    ? "border-gold bg-gold/15 text-gold-dark"
+                    : "border-border/60 text-muted-foreground hover:border-gold/50"
+                }`}
+              >
+                AI — Veo / Kling (+API)
+              </button>
+            </div>
+            <p className="text-[10px] font-light leading-relaxed text-muted-foreground">
+              {videoMotionMode === "preserve"
+                ? "תנועת זום עדינה מהתמונה — שומרת על התכשיט בדיוק, ללא מורפינג."
+                : "וידאו גנרטיבי — מתאים לשיווק; דורש קרדיטים ב-Gemini או Replicate."}
+            </p>
+          </div>
+        </>
+      )}
+
       {showVideoSettings && onVideoDurationChange && onVideoModeChange && (
         <>
           <Separator className="bg-border/40" />
@@ -210,6 +268,49 @@ export function StudioCreativeOptionsPanel({
               </Select>
             </div>
           </div>
+          {videoMotionMode === "ai" && onVideoPromptChange && (
+            <div className="space-y-2">
+              <Label className="text-xs font-light text-muted-foreground">
+                תנועה לווידאו (אופציונלי)
+              </Label>
+              <Textarea
+                value={videoPrompt}
+                onChange={(e) => onVideoPromptChange(e.target.value)}
+                rows={2}
+                disabled={disabled}
+                placeholder="סיבוב איטי, נצנוץ יהלומים..."
+                className="rounded-none resize-none"
+              />
+              <div className="flex flex-wrap gap-2">
+                {STUDIO_VIDEO_PROMPT_EXAMPLES.map((example) => (
+                  <button
+                    key={example}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => onVideoPromptChange(example)}
+                    className="border border-border/60 px-2 py-1 text-[11px] font-light text-muted-foreground transition-colors hover:border-gold/50 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {example}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {videoMotionMode === "ai" && onNegativePromptChange && (
+            <div className="space-y-2">
+              <Label className="text-xs font-light text-muted-foreground">
+                מה להימנע בווידאו (אופציונלי)
+              </Label>
+              <Textarea
+                value={negativePrompt}
+                onChange={(e) => onNegativePromptChange(e.target.value)}
+                rows={2}
+                disabled={disabled}
+                placeholder="שינוי צורת התכשיט, תנועת מצלמה..."
+                className="rounded-none resize-none"
+              />
+            </div>
+          )}
         </>
       )}
 
@@ -257,7 +358,7 @@ export function StudioCreativeOptionsPanel({
 
       {studioMode === "catalog" && (
         <p className="text-[11px] font-light text-emerald-800">
-          קטלוג: Bria cutout + רקע פרוצדורלי + צל — ללא עלות API נוספת.
+          קטלוג: Gemini cutout + רקע פרוצדורלי + צל — ללא Replicate.
         </p>
       )}
     </div>

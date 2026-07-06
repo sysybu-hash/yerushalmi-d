@@ -154,7 +154,8 @@ export function resolveEngine(
 
   switch (capability) {
     case "cutout":
-      return "replicate";
+      if (isReplicateConfigured()) return "replicate";
+      return isGeminiConfigured() ? "gemini" : "replicate";
     case "video":
       if (isReplicateConfigured()) return "replicate";
       return isGeminiConfigured() ? "gemini" : "replicate";
