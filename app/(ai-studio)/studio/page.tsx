@@ -498,7 +498,7 @@ function StudioPageContent() {
   }
 
   async function generate(kind: "image" | "video") {
-    if (!activeSource) return;
+    if (!activeSource || isGenerating) return;
 
     setWorkflowStep(3);
 
@@ -540,6 +540,14 @@ function StudioPageContent() {
         return;
       }
 
+      setState({
+        status: "generating",
+        source: activeSource,
+        kind: "video",
+        step: cutoutUrl ? "composite" : "cutout",
+      });
+      showToast("יוצר וידאו — זה עשוי לקחת עד דקה...");
+
       let frameUrl: string | null = null;
 
       if (cutoutUrl) {
@@ -579,7 +587,7 @@ function StudioPageContent() {
         frameUrl = videoComposite.data.url;
       }
 
-      setState({ status: "generating", source: activeSource, kind: "video" });
+      setState({ status: "generating", source: activeSource, kind: "video", step: "composite" });
       const video = await studioApiGenerateVideo(frameUrl, videoOptions());
       if (!video.ok) {
         failGeneration(activeSource, video.error);
@@ -1200,8 +1208,9 @@ function StudioPageContent() {
 
           <div className="flex flex-col gap-3 pt-2">
             <Button
+              type="button"
               disabled={!activeSource || isGenerating || isCutoutPreview}
-              onClick={() => generate("image")}
+              onClick={() => void generate("image")}
               className="w-full rounded-none text-xs font-light tracking-[0.15em]"
             >
               {isGenerating && state.status === "generating" && state.kind === "image" ? (
@@ -1212,8 +1221,9 @@ function StudioPageContent() {
               עצב בסגנון יוקרתי
             </Button>
             <Button
+              type="button"
               disabled={!activeSource || isGenerating || isCutoutPreview}
-              onClick={() => generate("video")}
+              onClick={() => void generate("video")}
               variant="outline"
               className="w-full rounded-none text-xs font-light tracking-[0.15em]"
             >

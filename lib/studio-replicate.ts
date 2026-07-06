@@ -1,5 +1,6 @@
 import Replicate from "replicate";
 import { loadSharp } from "@/lib/sharp-loader";
+import { createHash } from "node:crypto";
 import {
   assertStudioQuota,
   extractReplicatePredictTime,
@@ -214,6 +215,49 @@ async function normalizeImageBufferForUpload(buffer: Buffer): Promise<Buffer> {
   }
 }
 
+function isPngBuffer(buffer: Buffer): boolean {
+  return (
+    buffer.length >= 8 &&
+    buffer[0] === 0x89 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x4e &&
+    buffer[3] === 0x47
+  );
+}
+
+function cloudinaryUploadSignature(
+  params: Record<string, string>,
+  apiSecret: string
+): string {
+  const serialized = Object.entries(params)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => `${k}=${v}`)
+    .join("&");
+  return createHash("sha1").update(serialized + apiSecret).digest("hex");
+}
+
+async function postCloudinaryUpload(
+  cloudName: string,
+  resourceType: "image" | "video",
+  form: FormData
+): Promise<string> {
+  const response = await fetch(
+    `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`,
+    { method: "POST", body: form }
+  );
+
+  const json = (await response.json()) as {
+    secure_url?: string;
+    error?: { message?: string };
+  };
+
+  if (!response.ok || !json.secure_url) {
+    throw new Error(json.error?.message ?? "העלאה ל-Cloudinary נכשלה");
+  }
+
+  return json.secure_url;
+}
+
 export async function uploadBufferToCloudinary(
   buffer: Buffer,
   filename: string,
@@ -232,32 +276,38 @@ export async function uploadBufferToCloudinary(
   if (resourceType === "image") {
     uploadBuffer = await normalizeImageBufferForUpload(buffer);
     uploadFilename = filename.replace(/\.[^.]+$/, "") + ".png";
+    if (!isPngBuffer(uploadBuffer)) {
+      throw new Error("המרת PNG לפני העלאה נכשלה");
+    }
   }
 
   const mime = resourceType === "video" ? "video/mp4" : "image/png";
+  const base64 = uploadBuffer.toString("base64");
+  const dataUri = `data:${mime};base64,${base64}`;
 
-  const form = new FormData();
-  form.append(
-    "file",
-    new Blob([new Uint8Array(uploadBuffer)], { type: mime }),
-    uploadFilename
-  );
-  form.append("upload_preset", uploadPreset);
-  form.append("folder", "yerushalmi-studio");
+  const apiSecret = process.env.CLOUDINARY_API_SECRET?.trim();
+  const apiKey = process.env.CLOUDINARY_API_KEY?.trim();
 
-  const response = await fetch(
-    `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`,
-    { method: "POST", body: form }
-  );
-
-  const json = (await response.json()) as {
-    secure_url?: string;
-    error?: { message?: string };
-  };
-
-  if (!response.ok || !json.secure_url) {
-    throw new Error(json.error?.message ?? "העלאה ל-Cloudinary נכשלה");
+  if (apiSecret && apiKey) {
+    const timestamp = String(Math.round(Date.now() / 1000));
+    const folder = "yerushalmi-studio";
+    const signature = cloudinaryUploadSignature({ folder, timestamp }, apiSecret);
+    const form = new FormData();
+    form.append("file", dataUri);
+    form.append("api_key", apiKey);
+    form.append("timestamp", timestamp);
+    form.append("signature", signature);
+    form.append("folder", folder);
+    return postCloudinaryUpload(cloudName, resourceType, form);
   }
 
-  return json.secure_url;
+  const form = new FormData();
+  form.append("file", dataUri);
+  form.append("upload_preset", uploadPreset);
+  form.append("folder", "yerushalmi-studio");
+  if (resourceType === "image") {
+    form.append("filename_override", uploadFilename.replace(/\.png$/i, ""));
+  }
+
+  return postCloudinaryUpload(cloudName, resourceType, form);
 }
