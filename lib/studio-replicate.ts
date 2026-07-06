@@ -1,4 +1,5 @@
 import Replicate from "replicate";
+import { loadSharp } from "@/lib/sharp-loader";
 import {
   assertStudioQuota,
   extractReplicatePredictTime,
@@ -203,6 +204,11 @@ export async function runTrackedReplicate(
   }
 }
 
+async function normalizeImageBufferForUpload(buffer: Buffer): Promise<Buffer> {
+  const sharp = await loadSharp();
+  return sharp(buffer).png({ compressionLevel: 2 }).toBuffer();
+}
+
 export async function uploadBufferToCloudinary(
   buffer: Buffer,
   filename: string,
@@ -215,19 +221,21 @@ export async function uploadBufferToCloudinary(
     throw new Error("Cloudinary לא מוגדר — בדקו את משתני הסביבה");
   }
 
-  const mime =
-    resourceType === "video"
-      ? "video/mp4"
-      : filename.toLowerCase().endsWith(".jpg") ||
-          filename.toLowerCase().endsWith(".jpeg")
-        ? "image/jpeg"
-        : "image/png";
+  let uploadBuffer = buffer;
+  let uploadFilename = filename;
+
+  if (resourceType === "image") {
+    uploadBuffer = await normalizeImageBufferForUpload(buffer);
+    uploadFilename = filename.replace(/\.[^.]+$/, "") + ".png";
+  }
+
+  const mime = resourceType === "video" ? "video/mp4" : "image/png";
 
   const form = new FormData();
   form.append(
     "file",
-    new Blob([new Uint8Array(buffer)], { type: mime }),
-    filename
+    new Blob([new Uint8Array(uploadBuffer)], { type: mime }),
+    uploadFilename
   );
   form.append("upload_preset", uploadPreset);
   form.append("folder", "yerushalmi-studio");
