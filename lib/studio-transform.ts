@@ -94,7 +94,7 @@ export const DEFAULT_VIDEO_ADJUSTMENTS: VideoAdjustments = {
 };
 
 export const JEWELRY_CATALOG_VIDEO_ADJUSTMENTS: VideoAdjustments = {
-  aspect: "9:16",
+  aspect: "1:1",
   mute: false,
   brightness: 5,
   saturation: -5,
@@ -107,6 +107,12 @@ export const JEWELRY_CATALOG_VIDEO_ADJUSTMENTS: VideoAdjustments = {
   denoise: true,
   audioStyle: "luxury",
   audioVolume: 32,
+};
+
+/** תצוגה מקדימה — ללא שכבת אודיו (נמנעת 400 לפני העלאת המוזיקה ל-Cloudinary) */
+export const JEWELRY_CATALOG_VIDEO_PREVIEW_ADJUSTMENTS: VideoAdjustments = {
+  ...JEWELRY_CATALOG_VIDEO_ADJUSTMENTS,
+  audioStyle: "none",
 };
 
 function audioOverlayComponent(

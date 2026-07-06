@@ -24,6 +24,17 @@ export function visionAnalysisUrl(cloudinaryUrl: string): string {
   );
 }
 
+/** פריים מווידאו לסטודיו — שומר רזולוציה מקורית, בלי upscaling מלאכותי */
+export function studioVideoFrameUrl(
+  cloudinaryVideoUrl: string,
+  offsetSec = 0
+): string {
+  return withCloudinaryTransform(
+    cloudinaryVideoUrl,
+    `so_${Math.max(0, offsetSec)},c_limit,w_1920,h_1920,q_100,f_jpg`
+  );
+}
+
 /** פריים מווידאו Cloudinary כ-JPEG לעיבוד AI */
 export function videoFrameJpgUrl(
   cloudinaryVideoUrl: string,
@@ -87,7 +98,7 @@ export function cloudinaryUploadTail(secureUrl: string): string {
 export function buildZoompanVideoUrl(
   imageUrl: string,
   durationSec: number,
-  options: { maxZoom?: number; fps?: number } = {}
+  options: { maxZoom?: number; fps?: number; width?: number } = {}
 ): string {
   const marker = "/image/upload/";
   const idx = imageUrl.indexOf(marker);
@@ -97,9 +108,43 @@ export function buildZoompanVideoUrl(
 
   const prefix = imageUrl.slice(0, idx + marker.length);
   const tail = cloudinaryUploadTail(imageUrl).replace(/\.[^./]+$/, ".mp4");
-  const maxZoom = options.maxZoom ?? 1.05;
-  const fps = options.fps ?? 24;
+  const width = options.width ?? 1920;
+  const maxZoom = options.maxZoom ?? 1.02;
+  const fps = options.fps ?? 30;
+  const flatten = `c_limit,w_${width},h_${width},b_white,f_jpg,q_100`;
   const zoompan = `e_zoompan:du_${durationSec};maxzoom_${maxZoom};fps_${fps};to_(g_auto)`;
 
-  return `${prefix}${zoompan}/fl_animated/q_auto:best/${tail}`;
+  return `${prefix}${flatten}/${zoompan}/fl_animated/q_auto:best/${tail}`;
+}
+
+/** מיטוב וידאו מקור (WhatsApp וכו') — שומר תנועה מקורית, בלי AI */
+export function buildSourceVideoStudioUrl(
+  videoUrl: string,
+  durationSec: number,
+  maxWidth = 1080
+): string {
+  const marker = "/video/upload/";
+  const idx = videoUrl.indexOf(marker);
+  if (idx === -1) {
+    throw new Error("נדרש וידאו Cloudinary לעיבוד מקצועי");
+  }
+
+  const prefix = videoUrl.slice(0, idx + marker.length);
+  const tail = cloudinaryUploadTail(videoUrl);
+  const transform = [
+    `du_${durationSec}`,
+    `c_limit,w_${maxWidth}`,
+    `e_improve`,
+    `e_denoise:40`,
+    `e_sharpen:50`,
+    `q_auto:best`,
+    `vc_h264:high`,
+    `f_mp4`,
+  ].join(",");
+
+  return `${prefix}${transform}/${tail}`;
+}
+
+export function isCloudinaryVideoUrl(url: string): boolean {
+  return url.includes("/video/upload/");
 }

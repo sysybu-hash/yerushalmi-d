@@ -56,7 +56,7 @@ import {
 import {
   DEFAULT_IMAGE_ADJUSTMENTS,
   DEFAULT_VIDEO_ADJUSTMENTS,
-  JEWELRY_CATALOG_VIDEO_ADJUSTMENTS,
+  JEWELRY_CATALOG_VIDEO_PREVIEW_ADJUSTMENTS,
   buildTransformedUrl,
   type ImageAdjustments,
   type VideoAdjustments,
@@ -591,7 +591,7 @@ function StudioPageContent() {
         activeSource,
         video.data.url
       );
-      setVideoPostAdj(JEWELRY_CATALOG_VIDEO_ADJUSTMENTS);
+      setVideoPostAdj(JEWELRY_CATALOG_VIDEO_PREVIEW_ADJUSTMENTS);
       setState({
         status: "done",
         source: activeSource,

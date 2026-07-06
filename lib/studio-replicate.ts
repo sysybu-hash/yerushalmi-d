@@ -215,7 +215,13 @@ export async function uploadBufferToCloudinary(
     throw new Error("Cloudinary לא מוגדר — בדקו את משתני הסביבה");
   }
 
-  const mime = resourceType === "video" ? "video/mp4" : "image/png";
+  const mime =
+    resourceType === "video"
+      ? "video/mp4"
+      : filename.toLowerCase().endsWith(".jpg") ||
+          filename.toLowerCase().endsWith(".jpeg")
+        ? "image/jpeg"
+        : "image/png";
 
   const form = new FormData();
   form.append(

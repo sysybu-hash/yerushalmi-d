@@ -27,6 +27,9 @@ export type GenerateVideoOptions = {
   studioMode?: StudioPipelineMode;
   /** preserve = זום עדין מתמונה (מומלץ לתכשיטים), ai = Veo/Kling */
   motionMode?: StudioVideoMotionMode;
+  /** וידאו מקורי — מיטוב תנועה מקורית (רק כש-useSourceVideoMotion) */
+  sourceVideoUrl?: string;
+  useSourceVideoMotion?: boolean;
   compositeUrl?: string;
   skipImagePipeline?: boolean;
   projectId?: number;

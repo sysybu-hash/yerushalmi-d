@@ -22,7 +22,8 @@ import {
   parseStudioVideoDuration,
   type StudioVideoDurationSec,
 } from "@/lib/studio-video-duration";
-import { generatePreservedMotionVideo } from "@/lib/studio-motion-video";
+import { generatePreservedMotionVideo, generateProfessionalSourceVideo } from "@/lib/studio-motion-video";
+import { isCloudinaryVideoUrl } from "@/lib/cloudinary-url";
 import type { StudioVideoMotionMode } from "@/lib/studio-types";
 import { assertStudioQuota, trackAiUsage } from "@/lib/ai-usage";
 import type { AiUsageMode } from "@/lib/ai-usage";
@@ -215,10 +216,25 @@ export async function studioGenerateVideo(
     projectId?: number;
     studioMode?: StudioPipelineMode;
     motionMode?: StudioVideoMotionMode;
+    sourceVideoUrl?: string;
+    useSourceVideoMotion?: boolean;
   },
   engine: AiResolvedProvider
 ): Promise<{ url: string; provider: StudioVideoProvider }> {
   const motionMode = options.motionMode ?? "preserve";
+
+  if (
+    motionMode === "preserve" &&
+    options.useSourceVideoMotion &&
+    options.sourceVideoUrl &&
+    isCloudinaryVideoUrl(options.sourceVideoUrl)
+  ) {
+    const { url } = await generateProfessionalSourceVideo(
+      options.sourceVideoUrl,
+      options.duration ?? 10
+    );
+    return { url, provider: "preserve" };
+  }
 
   if (motionMode === "preserve") {
     const { url } = await generatePreservedMotionVideo(

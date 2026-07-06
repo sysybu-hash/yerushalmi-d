@@ -39,7 +39,7 @@ import {
 } from "@/components/studio/studio-adjust-ui";
 import { StudioVideoAudioPanel } from "@/components/studio/studio-video-audio-panel";
 import { StudioCreativeOptionsPanel } from "@/components/studio/studio-creative-options";
-import { rembgSourceUrl, videoFrameJpgUrl } from "@/lib/cloudinary-url";
+import { rembgSourceUrl, studioVideoFrameUrl } from "@/lib/cloudinary-url";
 import type {
   AiEngineConfig,
   StudioPipelineMode,
@@ -78,7 +78,7 @@ import {
   DEFAULT_IMAGE_ADJUSTMENTS,
   DEFAULT_VIDEO_ADJUSTMENTS,
   JEWELRY_CATALOG_IMAGE_ADJUSTMENTS,
-  JEWELRY_CATALOG_VIDEO_ADJUSTMENTS,
+  JEWELRY_CATALOG_VIDEO_PREVIEW_ADJUSTMENTS,
   buildTransformedUrl,
   hasImageEdits,
   hasVideoEdits,
@@ -213,9 +213,7 @@ export function StudioMediaEditor({
       asset: { ...asset, url, originalUrl, type: "video", duration: asset.duration },
       imageAdj: DEFAULT_IMAGE_ADJUSTMENTS,
       videoAdj: {
-        ...DEFAULT_VIDEO_ADJUSTMENTS,
-        audioStyle: "luxury",
-        audioVolume: 32,
+        ...JEWELRY_CATALOG_VIDEO_PREVIEW_ADJUSTMENTS,
       },
       savedUrl: null,
     });
@@ -244,7 +242,7 @@ export function StudioMediaEditor({
 
     setBusy("styled-video");
     try {
-      const frameUrl = rembgSourceUrl(videoFrameJpgUrl(asset.url, 0));
+      const frameUrl = rembgSourceUrl(studioVideoFrameUrl(asset.url, 0));
       const cutout = await studioApiRemoveBackground(frameUrl, {
         mode: studioMode,
         engines: aiEngines,
@@ -807,7 +805,7 @@ export function StudioMediaEditor({
                           }
                           onClick={() =>
                             patchEdit({
-                              videoAdj: JEWELRY_CATALOG_VIDEO_ADJUSTMENTS,
+                              videoAdj: JEWELRY_CATALOG_VIDEO_PREVIEW_ADJUSTMENTS,
                             })
                           }
                         />

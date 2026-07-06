@@ -28,7 +28,7 @@ import type { StudioVideoDurationSec } from "@/lib/studio-video-duration";
 import {
   ASPECT_OPTIONS,
   DEFAULT_VIDEO_ADJUSTMENTS,
-  JEWELRY_CATALOG_VIDEO_ADJUSTMENTS,
+  JEWELRY_CATALOG_VIDEO_PREVIEW_ADJUSTMENTS,
   buildTransformedUrl,
   hasVideoEdits,
   type AspectId,
@@ -130,13 +130,14 @@ export function StudioVideoPrep({
               <ToggleChip
                 label="פריסט קטלוג"
                 active={
-                  adjustments.audioStyle === "luxury" &&
+                  adjustments.audioStyle === "none" &&
                   adjustments.autoEnhance &&
-                  adjustments.sharpen
+                  adjustments.sharpen &&
+                  adjustments.aspect === "1:1"
                 }
                 disabled={disabled || busy}
                 onClick={() =>
-                  onAdjustmentsChange(JEWELRY_CATALOG_VIDEO_ADJUSTMENTS)
+                  onAdjustmentsChange(JEWELRY_CATALOG_VIDEO_PREVIEW_ADJUSTMENTS)
                 }
               />
             </div>

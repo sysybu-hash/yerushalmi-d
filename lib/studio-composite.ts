@@ -492,12 +492,20 @@ export async function compositeProductImage(
 
   const skipFeather = await hasSoftAlphaMatte(jewelryInput);
   const jewelryMaxWidth = Math.round(canvasSize * JEWELRY_CANVAS_RATIO);
+  const inputMeta = await sharp(jewelryInput).metadata();
+  const nativeWidth = inputMeta.width ?? jewelryMaxWidth;
+  const targetWidth = options.forVideo
+    ? Math.min(
+        jewelryMaxWidth,
+        Math.max(nativeWidth, Math.round(nativeWidth * 1.15))
+      )
+    : jewelryMaxWidth;
 
   let jewelryPng = await sharp(jewelryInput)
     .trim({ threshold: 6 })
     .resize({
-      width: jewelryMaxWidth,
-      height: jewelryMaxWidth,
+      width: targetWidth,
+      height: targetWidth,
       fit: "inside",
       kernel: "lanczos3",
       withoutEnlargement: false,
@@ -568,9 +576,16 @@ export async function compositeProductImage(
 
   composites.push({ input: jewelryPng, left, top });
 
-  return sharp(background)
+  const composed = sharp(background)
     .composite(composites)
-    .sharpen({ sigma: 0.4, m1: 0.55, m2: 0.18, x1: 2, y2: 10, y3: 20 })
-    .png({ compressionLevel: 2 })
-    .toBuffer();
+    .sharpen({ sigma: 0.4, m1: 0.55, m2: 0.18, x1: 2, y2: 10, y3: 20 });
+
+  if (options.forVideo) {
+    return composed
+      .flatten({ background: { r: 255, g: 255, b: 255 } })
+      .jpeg({ quality: 95, mozjpeg: true })
+      .toBuffer();
+  }
+
+  return composed.png({ compressionLevel: 2 }).toBuffer();
 }
