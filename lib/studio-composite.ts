@@ -220,14 +220,9 @@ async function chromaKeyGreenBackground(buffer: Buffer): Promise<Buffer> {
 
       const isGreen =
         g > 160 && g > r + 35 && g > b + 35 && g - Math.max(r, b) > 40;
-      const isNearGreen =
-        g > 120 && g > r + 20 && g > b + 20 && g - Math.max(r, b) > 25;
 
       if (isGreen) {
         out[i + 3] = 0;
-        keyed++;
-      } else if (isNearGreen) {
-        out[i + 3] = Math.min(out[i + 3], 80);
         keyed++;
       }
     }
@@ -260,6 +255,38 @@ export async function normalizeJewelryCutout(buffer: Buffer): Promise<Buffer> {
 
   await validateJewelryCutout(current);
   return current;
+}
+
+/** cutout פרוצדורלי לצילום על רקע לבן/אפור — שומר פיקסels מקוריים, בלי AI */
+export async function proceduralJewelryCutout(buffer: Buffer): Promise<Buffer> {
+  let current = await stripLightBackground(buffer, 38);
+  let metrics = await analyzeCutout(current);
+
+  if (metrics.opaqueRatio > MAX_OPAQUE_RATIO) {
+    current = await stripLightBackground(current, 55);
+    metrics = await analyzeCutout(current);
+  }
+
+  if (metrics.opaqueRatio > MAX_OPAQUE_RATIO) {
+    throw new Error("procedural_cutout_background_too_busy");
+  }
+
+  await validateJewelryCutout(current);
+  return current;
+}
+
+export async function tryProceduralJewelryCutout(
+  buffer: Buffer
+): Promise<Buffer | null> {
+  try {
+    return await proceduralJewelryCutout(buffer);
+  } catch {
+    return null;
+  }
+}
+
+function isProcessedStudioCutoutUrl(url: string): boolean {
+  return /studio-cutout-(local|gemini|bria)-/i.test(url);
 }
 
 function clampCompositePosition(
@@ -488,9 +515,14 @@ export async function compositeProductImage(
     throw new Error("לא ניתן להוריד את תמונת התכשיט");
   }
 
-  const jewelryInput = await normalizeJewelryCutout(
-    Buffer.from(await jewelryRes.arrayBuffer())
-  );
+  const rawJewelry = Buffer.from(await jewelryRes.arrayBuffer());
+
+  const jewelryInput = isProcessedStudioCutoutUrl(jewelryPngUrl)
+    ? await (async () => {
+        await validateJewelryCutout(rawJewelry);
+        return rawJewelry;
+      })()
+    : await normalizeJewelryCutout(rawJewelry);
 
   const skipFeather = await hasSoftAlphaMatte(jewelryInput);
   const jewelryMaxWidth = Math.round(canvasSize * JEWELRY_CANVAS_RATIO);

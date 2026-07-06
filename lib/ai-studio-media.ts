@@ -16,7 +16,7 @@ import {
   uploadBufferToCloudinary,
 } from "@/lib/studio-replicate";
 import { fetchImageDataUri } from "@/lib/vision-image";
-import { normalizeJewelryCutout } from "@/lib/studio-composite";
+import { normalizeJewelryCutout, tryProceduralJewelryCutout } from "@/lib/studio-composite";
 import {
   mapDurationForKling,
   parseStudioVideoDuration,
@@ -52,6 +52,33 @@ export async function studioRemoveBackground(
       projectId: options.projectId ?? null,
     });
     return { url: imageUrl };
+  }
+
+  const sourceResponse = await fetch(rembgSourceUrl(imageUrl), {
+    signal: AbortSignal.timeout(60_000),
+  });
+  if (sourceResponse.ok) {
+    const procedural = await tryProceduralJewelryCutout(
+      Buffer.from(await sourceResponse.arrayBuffer())
+    );
+    if (procedural) {
+      const url = await uploadBufferToCloudinary(
+        procedural,
+        `studio-cutout-local-${Date.now()}.png`,
+        "image"
+      );
+      await trackAiUsage({
+        provider: "gemini",
+        capability: "cutout",
+        modelId: "procedural-light-bg",
+        mode: usageMode,
+        success: true,
+        cached: true,
+        projectId: options.projectId ?? null,
+        metadata: { method: "procedural" },
+      });
+      return { url };
+    }
   }
 
   if (engine === "gemini") {

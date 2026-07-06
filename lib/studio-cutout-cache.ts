@@ -9,7 +9,7 @@ type CutoutEntry = {
 const cutoutCache = new Map<string, CutoutEntry>();
 
 function cacheKey(sourceUrl: string): string {
-  return sourceUrl.trim();
+  return `v2-procedural:${sourceUrl.trim()}`;
 }
 
 export function getCachedCutout(sourceUrl: string): string | null {
