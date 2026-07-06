@@ -8,18 +8,13 @@ import { assertEngineAvailable, isGeminiConfigured } from "@/lib/ai-engines";
 import type { StudioPipelineMode } from "@/lib/ai-engines";
 import { assertStudioQuota, trackAiUsage } from "@/lib/ai-usage";
 import type { AiUsageMode } from "@/lib/ai-usage";
-import { videoFrameJpgUrl } from "@/lib/cloudinary-url";
-import {
-  geminiEnhanceSourceImage,
-  geminiGenerateVideoFromImage,
-  type SourceEnhancePreset,
-} from "@/lib/studio-gemini-media";
+import { opaqueImageUrlForVideo, videoFrameJpgUrl } from "@/lib/cloudinary-url";
+import { geminiGenerateVideoFromImage } from "@/lib/studio-gemini-media";
 import { uploadBufferToCloudinary } from "@/lib/studio-replicate";
 import {
   buildTransformedUrl,
   type VideoAdjustments,
 } from "@/lib/studio-transform";
-import { fetchImageDataUri } from "@/lib/vision-image";
 
 export type VideoEnhancePreset = "stabilize" | "sharpen" | "color" | "catalog";
 export type VideoEnhanceProvider = "cloudinary" | "gemini";
@@ -54,22 +49,15 @@ const PRESET_ADJUSTMENTS: Record<VideoEnhancePreset, Partial<VideoAdjustments>> 
     },
   };
 
-const PRESET_SOURCE_ENHANCE: Record<VideoEnhancePreset, SourceEnhancePreset> = {
-  catalog: "enhance",
-  stabilize: "enhance",
-  sharpen: "enhance",
-  color: "enhance",
-};
-
 const PRESET_VEO_PROMPT: Record<VideoEnhancePreset, string> = {
   catalog:
-    "Luxury jewelry product video, static camera, subtle diamond sparkle, professional catalog lighting, no morphing",
+    "Luxury jewelry product video on a fully opaque solid studio background, static camera, subtle diamond sparkle, professional catalog lighting, no morphing, no transparency",
   stabilize:
-    "Stable jewelry product shot, minimal movement, steady camera, soft studio light",
+    "Stable jewelry product shot on opaque solid background, minimal movement, steady camera, soft studio light, no transparency",
   sharpen:
-    "Sharp macro jewelry detail, crisp metal and stones, gentle shimmer, static composition",
+    "Sharp macro jewelry detail on opaque solid background, crisp metal and stones, gentle shimmer, static composition",
   color:
-    "Balanced natural colors on jewelry, soft studio lighting, subtle reflections",
+    "Balanced natural colors on jewelry, opaque solid studio background, soft lighting, subtle reflections",
 };
 
 async function studioEnhanceVideoCloudinary(
@@ -162,17 +150,7 @@ async function studioEnhanceVideoGemini(
     }
 
     const frameUrl = videoFrameJpgUrl(videoUrl, 0);
-    const dataUri = await fetchImageDataUri(frameUrl);
-    const enhancedBuffer = await geminiEnhanceSourceImage(dataUri, {
-      preset: PRESET_SOURCE_ENHANCE[options.preset],
-      customPrompt: options.customPrompt,
-    });
-
-    const enhancedImageUrl = await uploadBufferToCloudinary(
-      enhancedBuffer,
-      `studio-video-enhance-frame-${Date.now()}.png`,
-      "image"
-    );
+    const veoInputUrl = opaqueImageUrlForVideo(frameUrl);
 
     const styleSuffix = options.stylePreset
       ? STUDIO_STYLE_PRESETS.find((p) => p.id === options.stylePreset)?.suffix
@@ -182,13 +160,16 @@ async function studioEnhanceVideoGemini(
       PRESET_VEO_PROMPT[options.preset],
       styleSuffix ? `Scene style: ${styleSuffix}` : null,
       options.customPrompt?.trim(),
+      "The entire frame must be fully opaque with a continuous solid background — no transparency, no alpha holes, no checkerboard.",
     ]
       .filter(Boolean)
       .join(" ");
 
     const videoBuffer = await geminiGenerateVideoFromImage({
-      imageUrl: enhancedImageUrl,
+      imageUrl: veoInputUrl,
       prompt: veoPrompt,
+      negativePrompt:
+        "transparency, alpha channel, checkerboard, cutout holes, missing background, morphing jewelry, camera shake",
       duration: parseStudioVideoDuration(options.duration ?? 5),
       mode: "pro",
     });

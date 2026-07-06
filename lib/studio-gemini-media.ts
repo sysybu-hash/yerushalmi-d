@@ -1,4 +1,5 @@
 import { fetchImageDataUri } from "@/lib/vision-image";
+import { opaqueImageUrlForVideo } from "@/lib/cloudinary-url";
 import { normalizeGeminiError } from "@/lib/studio-gemini";
 import {
   mapDurationForVeo,
@@ -274,7 +275,10 @@ export async function geminiGenerateVideoFromImage(options: {
   duration?: StudioVideoDurationSec | 5 | 10;
   mode?: "standard" | "pro";
 }): Promise<Buffer> {
-  const imageDataUri = await fetchImageDataUri(options.imageUrl);
+  const fetchUrl = options.imageUrl.includes("res.cloudinary.com")
+    ? opaqueImageUrlForVideo(options.imageUrl)
+    : options.imageUrl;
+  const imageDataUri = await fetchImageDataUri(fetchUrl);
   const { mimeType, data } = parseDataUri(imageDataUri);
   const durationSeconds = mapDurationForVeo(
     parseStudioVideoDuration(options.duration ?? 5)
@@ -285,7 +289,7 @@ export async function geminiGenerateVideoFromImage(options: {
     options.prompt,
     options.negativePrompt
       ? `Avoid: ${options.negativePrompt}`
-      : "Avoid: camera movement, people, text, watermark, morphing jewelry",
+      : "Avoid: camera movement, people, text, watermark, morphing jewelry, transparency, checkerboard, alpha holes",
     "Static camera, jewelry product shot, subtle light movement only.",
   ]
     .filter(Boolean)

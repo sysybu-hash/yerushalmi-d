@@ -36,6 +36,14 @@ export function videoFrameJpgUrl(
   );
 }
 
+/** מרכיב תמונה אטומה ל-Veo — מבטל אלפא (משבצות שקיפות) */
+export function opaqueImageUrlForVideo(cloudinaryUrl: string): string {
+  return withCloudinaryTransform(
+    cloudinaryUrl,
+    "b_white,c_limit,w_1280,h_1280,f_jpg,q_auto:best"
+  );
+}
+
 /** גרסה מותאמת ל-Bria RMBG — מגדילה תמונות קטנות, מקטינה גדולות, PNG מלא */
 export function rembgSourceUrl(cloudinaryUrl: string): string {
   return withCloudinaryTransform(
