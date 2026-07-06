@@ -16,6 +16,7 @@ import { opaqueImageUrlForVideo, videoFrameJpgUrl } from "@/lib/cloudinary-url";
 import { geminiGenerateVideoFromImage } from "@/lib/studio-gemini-media";
 import { uploadBufferToCloudinary } from "@/lib/studio-replicate";
 import { finalizeAiGeneratedVideo } from "@/lib/studio-video-audio";
+import { ensureStudioAudioOnCloudinary } from "@/lib/studio-audio-cloudinary";
 import {
   buildTransformedUrl,
   type VideoAdjustments,
@@ -95,8 +96,10 @@ async function studioEnhanceVideoCloudinary(
       audioVolume: 32,
     };
 
+    const audioPublicId = await ensureStudioAudioOnCloudinary("luxury");
     const transformed = buildTransformedUrl(videoUrl, "video", adjustments, {
       quality: "best",
+      audioPublicId,
     });
     const response = await fetch(transformed, {
       signal: AbortSignal.timeout(120_000),

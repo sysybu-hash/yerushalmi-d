@@ -1,4 +1,5 @@
 import { uploadBufferToCloudinary } from "@/lib/studio-replicate";
+import { ensureStudioAudioOnCloudinary } from "@/lib/studio-audio-cloudinary";
 import {
   DEFAULT_VIDEO_ADJUSTMENTS,
   JEWELRY_CATALOG_VIDEO_ADJUSTMENTS,
@@ -37,8 +38,31 @@ async function ensureCloudinaryVideoUrl(
   );
 }
 
+async function bakeMutedVideo(cloudinaryVideoUrl: string): Promise<string> {
+  const transformed = buildTransformedUrl(
+    cloudinaryVideoUrl,
+    "video",
+    { ...DEFAULT_VIDEO_ADJUSTMENTS, mute: true, audioStyle: "none" },
+    { quality: "best" }
+  );
+
+  const response = await fetch(transformed, {
+    signal: AbortSignal.timeout(180_000),
+  });
+  if (!response.ok) {
+    throw new Error("השתקת הווידאו נכשלה");
+  }
+
+  const buffer = Buffer.from(await response.arrayBuffer());
+  return uploadBufferToCloudinary(
+    buffer,
+    `studio-video-muted-${Date.now()}.mp4`,
+    "video"
+  );
+}
+
 /**
- * מסיר אודיו מקורי (כולל דיבור מ-Veo) ומטמיע מוזיקת רקע אינסטרומנטלית בקובץ.
+ * מסיר אודיו מקורי ומטמיע מוזיקת רקע אינסטרומנטלית (דרך l_audio ב-Cloudinary).
  */
 export async function bakeInstrumentalVideoAudio(
   cloudinaryVideoUrl: string,
@@ -53,23 +77,35 @@ export async function bakeInstrumentalVideoAudio(
     return cloudinaryVideoUrl;
   }
 
+  if (adjustments.mute || adjustments.audioStyle === "none") {
+    return bakeMutedVideo(cloudinaryVideoUrl);
+  }
+
+  const audioPublicId = await ensureStudioAudioOnCloudinary(
+    adjustments.audioStyle
+  );
+  if (!audioPublicId) {
+    return bakeMutedVideo(cloudinaryVideoUrl);
+  }
+
   const transformed = buildTransformedUrl(
     cloudinaryVideoUrl,
     "video",
     adjustments,
-    { quality: "best" }
+    { quality: "best", audioPublicId }
   );
 
   const response = await fetch(transformed, {
     signal: AbortSignal.timeout(180_000),
   });
   if (!response.ok) {
-    throw new Error("הטמעת מוזיקת רקע בווידאו נכשלה");
+    console.warn("studio_audio_overlay_failed", response.status);
+    return bakeMutedVideo(cloudinaryVideoUrl);
   }
 
   const buffer = Buffer.from(await response.arrayBuffer());
   if (buffer.length < 1024) {
-    throw new Error("קובץ הווידאו אחרי עיבוד אודיו ריק או פגום");
+    return bakeMutedVideo(cloudinaryVideoUrl);
   }
 
   return uploadBufferToCloudinary(
@@ -85,5 +121,14 @@ export async function finalizeAiGeneratedVideo(
   label = "studio-video-ai"
 ): Promise<string> {
   const onCloudinary = await ensureCloudinaryVideoUrl(videoUrl, label);
-  return bakeInstrumentalVideoAudio(onCloudinary);
+  try {
+    return await bakeInstrumentalVideoAudio(onCloudinary);
+  } catch (error) {
+    console.warn("studio_finalize_video_audio_failed", error);
+    try {
+      return await bakeMutedVideo(onCloudinary);
+    } catch {
+      return onCloudinary;
+    }
+  }
 }

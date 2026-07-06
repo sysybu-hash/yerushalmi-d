@@ -4,7 +4,17 @@
  */
 
 import type { VideoAudioStyleId } from "@/lib/studio-audio-presets";
-import { getAudioStyle } from "@/lib/studio-audio-presets";
+import { cloudinaryAudioLayerId } from "@/lib/studio-audio-cloudinary";
+
+/** נתיבי אודיו ב-Cloudinary (לאחר העלאה ראשונה) — לתצוגה מקדימה בדפדפן */
+export const STUDIO_AUDIO_CLOUDINARY_IDS: Partial<
+  Record<VideoAudioStyleId, string>
+> = {
+  luxury: "yerushalmi-studio/music/luxury",
+  cinematic: "yerushalmi-studio/music/cinematic",
+  soft: "yerushalmi-studio/music/soft",
+  upbeat: "yerushalmi-studio/music/upbeat",
+};
 
 export type MediaResourceType = "image" | "video";
 
@@ -99,11 +109,21 @@ export const JEWELRY_CATALOG_VIDEO_ADJUSTMENTS: VideoAdjustments = {
   audioVolume: 32,
 };
 
-function encodeFetchUrl(url: string): string {
-  if (typeof Buffer !== "undefined") {
-    return Buffer.from(url).toString("base64");
+function audioOverlayComponent(
+  adj: VideoAdjustments,
+  audioPublicId?: string | null
+): string | null {
+  if (adj.mute || adj.audioStyle === "none" || adj.audioStyle === "original") {
+    return null;
   }
-  return btoa(url);
+
+  const resolvedPublicId =
+    audioPublicId ?? STUDIO_AUDIO_CLOUDINARY_IDS[adj.audioStyle] ?? null;
+  if (!resolvedPublicId) return null;
+
+  const volume = Math.max(-80, Math.min(80, adj.audioVolume - 50));
+  const layerId = cloudinaryAudioLayerId(resolvedPublicId);
+  return `l_audio:${layerId},e_volume:${volume},fl_splice,fl_layer_apply`;
 }
 
 function aspectComponent(aspect: AspectId): string | null {
@@ -127,21 +147,10 @@ function imageComponents(adj: ImageAdjustments): string[] {
   return parts;
 }
 
-function audioOverlayComponent(
-  adj: VideoAdjustments
-): string | null {
-  if (adj.mute || adj.audioStyle === "none" || adj.audioStyle === "original") {
-    return null;
-  }
-  const style = getAudioStyle(adj.audioStyle);
-  if (!style.fetchUrl) return null;
-
-  const volume = Math.max(-80, Math.min(80, adj.audioVolume - 50));
-  const encoded = encodeFetchUrl(style.fetchUrl);
-  return `l_fetch:${encoded},e_volume:${volume},e_loop:200,fl_layer_apply`;
-}
-
-function videoComponents(adj: VideoAdjustments): string[] {
+function videoComponents(
+  adj: VideoAdjustments,
+  audioPublicId?: string | null
+): string[] {
   const parts: string[] = [];
 
   const trim: string[] = [];
@@ -167,7 +176,7 @@ function videoComponents(adj: VideoAdjustments): string[] {
     parts.push("ac_none");
   }
 
-  const audioOverlay = audioOverlayComponent(adj);
+  const audioOverlay = audioOverlayComponent(adj, audioPublicId);
   if (audioOverlay) {
     if (!adj.mute) parts.push("ac_none");
     parts.push(audioOverlay);
@@ -198,7 +207,11 @@ export function buildTransformedUrl(
   secureUrl: string,
   type: MediaResourceType,
   adjustments: ImageAdjustments | VideoAdjustments,
-  options: { download?: boolean; quality?: "good" | "best" } = {}
+  options: {
+    download?: boolean;
+    quality?: "good" | "best";
+    audioPublicId?: string | null;
+  } = {}
 ): string {
   const components: string[] = [];
 
@@ -211,7 +224,10 @@ export function buildTransformedUrl(
   const effectParts =
     type === "image"
       ? imageComponents(adjustments as ImageAdjustments)
-      : videoComponents(adjustments as VideoAdjustments);
+      : videoComponents(
+          adjustments as VideoAdjustments,
+          options.audioPublicId
+        );
 
   components.push(...effectParts);
 
