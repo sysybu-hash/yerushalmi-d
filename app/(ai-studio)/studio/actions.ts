@@ -14,6 +14,7 @@ import {
   pipelineRemoveBackground,
 } from "@/lib/studio-pipeline";
 import { uploadBufferToCloudinary } from "@/lib/studio-replicate";
+import type { StudioVideoProvider } from "@/lib/ai-studio-media";
 import type { GenerateImageOptions, GenerateVideoOptions } from "@/lib/studio-types";
 import type { SettingKey } from "@/lib/site-settings";
 
@@ -84,7 +85,7 @@ export async function generateLuxuryImage(
 export async function generateJewelryVideo(
   imageUrl: string,
   options: GenerateVideoOptions = {}
-): Promise<StudioActionResult<{ url: string; provider: "kling" | "veo" }>> {
+): Promise<StudioActionResult<{ url: string; provider: StudioVideoProvider }>> {
   return runStudioAction(async () => {
     await requireAdmin();
     return pipelineGenerateVideo(imageUrl, options);

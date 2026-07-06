@@ -22,11 +22,12 @@ import {
   parseStudioVideoDuration,
   type StudioVideoDurationSec,
 } from "@/lib/studio-video-duration";
-import { finalizeAiGeneratedVideo } from "@/lib/studio-video-audio";
+import { generatePreservedMotionVideo } from "@/lib/studio-motion-video";
+import type { StudioVideoMotionMode } from "@/lib/studio-types";
 import { assertStudioQuota, trackAiUsage } from "@/lib/ai-usage";
 import type { AiUsageMode } from "@/lib/ai-usage";
 
-export type StudioVideoProvider = "kling" | "veo";
+export type StudioVideoProvider = "kling" | "veo" | "preserve";
 
 export async function studioRemoveBackground(
   imageUrl: string,
@@ -213,9 +214,20 @@ export async function studioGenerateVideo(
     mode?: "standard" | "pro";
     projectId?: number;
     studioMode?: StudioPipelineMode;
+    motionMode?: StudioVideoMotionMode;
   },
   engine: AiResolvedProvider
 ): Promise<{ url: string; provider: StudioVideoProvider }> {
+  const motionMode = options.motionMode ?? "preserve";
+
+  if (motionMode === "preserve") {
+    const { url } = await generatePreservedMotionVideo(
+      imageUrl,
+      options.duration ?? 5
+    );
+    return { url, provider: "preserve" };
+  }
+
   const usageMode: AiUsageMode =
     options.studioMode === "marketing" ? "marketing" : "catalog";
 
@@ -236,9 +248,8 @@ export async function studioGenerateVideo(
         `studio-video-veo-${Date.now()}.mp4`,
         "video"
       );
-      const url = await finalizeAiGeneratedVideo(uploaded, "studio-video-veo");
       success = true;
-      return { url, provider: "veo" };
+      return { url: uploaded, provider: "veo" };
     } finally {
       await trackAiUsage({
         provider: "gemini",
@@ -274,8 +285,18 @@ export async function studioGenerateVideo(
   );
 
   const rawUrl = extractUrl(output);
-  const url = await finalizeAiGeneratedVideo(rawUrl, "studio-video-kling");
-  return { url, provider: "kling" };
+  return { url: rawUrl.includes("res.cloudinary.com") ? rawUrl : await ensureCloudinaryKlingUrl(rawUrl), provider: "kling" };
+}
+
+async function ensureCloudinaryKlingUrl(remoteUrl: string): Promise<string> {
+  const response = await fetch(remoteUrl, { signal: AbortSignal.timeout(180_000) });
+  if (!response.ok) throw new Error("הורדת הווידאו מ-Kling נכשלה");
+  const buffer = Buffer.from(await response.arrayBuffer());
+  return uploadBufferToCloudinary(
+    buffer,
+    `studio-video-kling-${Date.now()}.mp4`,
+    "video"
+  );
 }
 
 export async function studioEnhanceSource(

@@ -154,7 +154,7 @@ export async function studioApiGenerateImage(
 export async function studioApiGenerateVideo(
   imageUrl: string,
   options: GenerateVideoOptions = {}
-): Promise<StudioActionResult<{ url: string; provider: "kling" | "veo" }>> {
+): Promise<StudioActionResult<{ url: string; provider: "kling" | "veo" | "preserve" }>> {
   try {
     const response = await fetch("/api/studio/video", {
       method: "POST",

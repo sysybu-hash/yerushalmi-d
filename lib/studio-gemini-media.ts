@@ -20,10 +20,19 @@ const GEMINI_IMAGE_MODELS = [
   "gemini-2.5-flash-image",
 ] as const;
 
-const VEO_MODELS = [
+const VEO_MODELS_PRO = [
+  "veo-3.1-generate-preview",
+  "veo-3.1-fast-generate-preview",
+] as const;
+
+const VEO_MODELS_STANDARD = [
   "veo-3.1-fast-generate-preview",
   "veo-3.1-generate-preview",
 ] as const;
+
+function veoModelsForMode(mode: "standard" | "pro") {
+  return mode === "pro" ? VEO_MODELS_PRO : VEO_MODELS_STANDARD;
+}
 
 type GeminiMediaPart =
   | { text: string }
@@ -221,12 +230,8 @@ export async function geminiGenerateLuxuryBackground(prompt: string): Promise<Bu
   ]);
 }
 
-function mapVeoResolution(
-  mode: "standard" | "pro",
-  duration: 4 | 6 | 8
-): "720p" | "1080p" {
-  if (mode === "pro" && duration === 8) return "1080p";
-  return "720p";
+function mapVeoResolution(mode: "standard" | "pro"): "720p" | "1080p" {
+  return mode === "pro" ? "1080p" : "720p";
 }
 
 async function pollVeoOperation(operationName: string): Promise<string> {
@@ -287,7 +292,7 @@ export async function geminiGenerateVideoFromImage(options: {
   const durationSeconds = mapDurationForVeo(
     parseStudioVideoDuration(options.duration ?? 5)
   );
-  const resolution = mapVeoResolution(options.mode ?? "pro", durationSeconds);
+  const resolution = mapVeoResolution(options.mode ?? "pro");
 
   const prompt = [
     JEWELRY_STRUCTURE_LOCK,
@@ -302,8 +307,9 @@ export async function geminiGenerateVideoFromImage(options: {
 
   const key = getGeminiApiKey();
   let lastError: Error | null = null;
+  const models = veoModelsForMode(options.mode ?? "pro");
 
-  for (const model of VEO_MODELS) {
+  for (const model of models) {
     try {
       const startResponse = await fetch(
         `${GEMINI_API_BASE}/models/${model}:predictLongRunning?key=${encodeURIComponent(key)}`,

@@ -75,7 +75,7 @@ export type StudioClientState =
       kind: "image" | "video";
       result: string;
       savedUrl?: string;
-      videoProvider?: "kling" | "veo" | "svd";
+      videoProvider?: "kling" | "veo" | "preserve" | "svd";
     }
   | { status: "error"; source: string; message: string };
 

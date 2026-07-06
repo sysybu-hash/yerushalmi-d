@@ -56,6 +56,8 @@ import {
 import {
   DEFAULT_IMAGE_ADJUSTMENTS,
   DEFAULT_VIDEO_ADJUSTMENTS,
+  JEWELRY_CATALOG_VIDEO_ADJUSTMENTS,
+  buildTransformedUrl,
   type ImageAdjustments,
   type VideoAdjustments,
 } from "@/lib/studio-transform";
@@ -208,6 +210,13 @@ function StudioPageContent() {
       ? state.savedUrl ?? state.result
       : null;
 
+  const resultVideoPreviewUrl = React.useMemo(() => {
+    if (state.status !== "done" || state.kind !== "video") return null;
+    return buildTransformedUrl(state.result, "video", videoPostAdj, {
+      quality: "best",
+    });
+  }, [state, videoPostAdj]);
+
   const canSelectWorkflowStep = React.useCallback(
     (step: StudioWorkflowStep) => {
       if (step === 1) return true;
@@ -266,6 +275,7 @@ function StudioPageContent() {
       stylePreset,
       engines: aiEngines,
       studioMode: "marketing",
+      motionMode: "preserve",
       skipImagePipeline: Boolean(lastCompositeUrl),
       projectId: activeProjectId ?? undefined,
     };
@@ -581,6 +591,7 @@ function StudioPageContent() {
         activeSource,
         video.data.url
       );
+      setVideoPostAdj(JEWELRY_CATALOG_VIDEO_ADJUSTMENTS);
       setState({
         status: "done",
         source: activeSource,
@@ -875,16 +886,17 @@ function StudioPageContent() {
                         />
                       </MediaPreviewTrigger>
                     )}
-                    {activeSource && state.status === "done" && state.kind === "video" && (
+                    {activeSource && state.status === "done" && state.kind === "video" && resultVideoPreviewUrl && (
                       <MediaPreviewTrigger
-                        url={state.result}
+                        url={resultVideoPreviewUrl}
                         type="video"
-                        alt="תוצאת וידאו AI"
+                        alt="תוצאת וידאו"
                         className="absolute inset-0 block h-full w-full"
                       >
                         {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
                         <video
-                          src={state.result}
+                          key={resultVideoPreviewUrl}
+                          src={resultVideoPreviewUrl}
                           muted
                           playsInline
                           preload="metadata"
@@ -978,13 +990,13 @@ function StudioPageContent() {
               {state.status === "done" && (
                 <p className="text-center text-[11px] font-light text-emerald-800">
                   ✓ נשמר בספריית התוכן — פרסמו למלאי מאזור הניהול
-                  {state.kind === "video" &&
-                    (state.videoProvider === "kling" ||
-                      state.videoProvider === "veo") && (
+                  {state.kind === "video" && state.videoProvider && (
                     <span className="mt-1 block text-muted-foreground">
-                      וידאו{" "}
-                      {state.videoProvider === "veo" ? "Veo 3.1" : "Kling 3 Pro"}{" "}
-                      — מצלמה קבועה, תנועת אור עדינה
+                      {state.videoProvider === "preserve"
+                        ? "וידאו קטלוגי — זום עדין, תכשיט ללא שינוי צורה"
+                        : state.videoProvider === "veo"
+                          ? "וידאו Veo 3.1 — מצלמה קבועה, תנועת אור עדינה"
+                          : "וידאו Kling 3 Pro — מצלמה קבועה, תנועת אור עדינה"}
                     </span>
                   )}
                 </p>

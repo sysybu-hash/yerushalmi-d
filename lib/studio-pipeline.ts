@@ -197,6 +197,8 @@ export async function pipelineGenerateVideo(
     false
   );
 
+  const motionMode = options.motionMode ?? "preserve";
+
   const englishCustom = options.customPrompt?.trim()
     ? await translatePrompt(options.customPrompt, engines.text)
     : "";
@@ -227,6 +229,7 @@ export async function pipelineGenerateVideo(
           mode: options.mode ?? "pro",
           projectId: options.projectId,
           studioMode,
+          motionMode,
         },
         videoEngine
       )

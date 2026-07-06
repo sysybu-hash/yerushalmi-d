@@ -277,6 +277,7 @@ export function StudioMediaEditor({
         stylePreset,
         engines: aiEngines,
         studioMode,
+        motionMode: "preserve",
         projectId: projectId ?? undefined,
       });
       if (!video.ok) {

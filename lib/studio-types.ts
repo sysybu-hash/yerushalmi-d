@@ -15,6 +15,8 @@ export type GenerateImageOptions = {
   projectId?: number;
 };
 
+export type StudioVideoMotionMode = "preserve" | "ai";
+
 export type GenerateVideoOptions = {
   customPrompt?: string;
   negativePrompt?: string;
@@ -23,6 +25,8 @@ export type GenerateVideoOptions = {
   stylePreset?: StudioStylePresetId;
   engines?: Partial<AiEngineConfig>;
   studioMode?: StudioPipelineMode;
+  /** preserve = זום עדין מתמונה (מומלץ לתכשיטים), ai = Veo/Kling */
+  motionMode?: StudioVideoMotionMode;
   compositeUrl?: string;
   skipImagePipeline?: boolean;
   projectId?: number;
