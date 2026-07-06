@@ -1,4 +1,4 @@
-import { withCloudinaryTransform } from "@/lib/cloudinary-url";
+import { buildZoompanVideoUrl } from "@/lib/cloudinary-url";
 import { uploadBufferToCloudinary } from "@/lib/studio-replicate";
 import { parseStudioVideoDuration, type StudioVideoDurationSec } from "@/lib/studio-video-duration";
 
@@ -11,20 +11,15 @@ export async function generatePreservedMotionVideo(
   duration: StudioVideoDurationSec = 5
 ): Promise<{ url: string }> {
   const seconds = parseStudioVideoDuration(duration);
-  const transform = [
-    `w_1920,c_limit`,
-    `e_zoompan:du_${seconds};fps_24;zoom_1.03`,
-    `f_mp4`,
-    `vc_h264:high`,
-    `q_auto:best`,
-  ].join(",");
+  const motionUrl = buildZoompanVideoUrl(compositeImageUrl, seconds);
 
-  const motionUrl = withCloudinaryTransform(compositeImageUrl, transform);
   const response = await fetch(motionUrl, {
     signal: AbortSignal.timeout(180_000),
   });
 
   if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    console.error("studio_zoompan_failed", response.status, detail.slice(0, 500));
     throw new Error(
       `יצירת וידאו קטלוגי נכשלה (${response.status}) — נסו שוב`
     );

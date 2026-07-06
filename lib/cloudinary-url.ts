@@ -1,4 +1,5 @@
 import { REMBG_MAX_PX } from "@/lib/studio-presets";
+
 export function withCloudinaryTransform(
   url: string,
   transform: string
@@ -49,4 +50,56 @@ export function rembgSourceUrl(cloudinaryUrl: string): string {
     cloudinaryUrl,
     `w_${REMBG_MAX_PX},q_100,f_png`
   );
+}
+
+/** נתיב הנכס אחרי /upload/ ללא טרנספורמציות (כולל גרסה v123 אם קיימת) */
+export function cloudinaryUploadTail(secureUrl: string): string {
+  const marker = "/upload/";
+  const idx = secureUrl.indexOf(marker);
+  if (idx === -1) {
+    throw new Error("כתובת Cloudinary לא תקינה");
+  }
+
+  const segments = secureUrl.slice(idx + marker.length).split("/");
+  let i = 0;
+  while (i < segments.length) {
+    const seg = segments[i];
+    if (/^v\d+$/.test(seg)) break;
+    if (
+      seg.includes(",") ||
+      /^[a-z]{1,3}_/i.test(seg) ||
+      seg.startsWith("fl_") ||
+      seg.startsWith("e_")
+    ) {
+      i++;
+      continue;
+    }
+    break;
+  }
+
+  return segments.slice(i).join("/");
+}
+
+/**
+ * וידאו Ken Burns מתמונה סטטית — דורש image/upload + fl_animated + סיומת .mp4
+ * @see https://cloudinary.com/documentation/transformation_reference#e_zoompan
+ */
+export function buildZoompanVideoUrl(
+  imageUrl: string,
+  durationSec: number,
+  options: { maxZoom?: number; fps?: number } = {}
+): string {
+  const marker = "/image/upload/";
+  const idx = imageUrl.indexOf(marker);
+  if (idx === -1) {
+    throw new Error("נדרשת תמונת Cloudinary ליצירת וידאו קטלוגי");
+  }
+
+  const prefix = imageUrl.slice(0, idx + marker.length);
+  const tail = cloudinaryUploadTail(imageUrl).replace(/\.[^./]+$/, ".mp4");
+  const maxZoom = options.maxZoom ?? 1.05;
+  const fps = options.fps ?? 24;
+  const zoompan = `e_zoompan:du_${durationSec};maxzoom_${maxZoom};fps_${fps};to_(g_auto)`;
+
+  return `${prefix}${zoompan}/fl_animated/q_auto:best/${tail}`;
 }
