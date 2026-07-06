@@ -18,6 +18,11 @@ import {
 } from "@/lib/studio-replicate";
 import { fetchImageDataUri } from "@/lib/vision-image";
 import { normalizeJewelryCutout } from "@/lib/studio-composite";
+import {
+  mapDurationForKling,
+  parseStudioVideoDuration,
+  type StudioVideoDurationSec,
+} from "@/lib/studio-video-duration";
 import { assertStudioQuota, trackAiUsage } from "@/lib/ai-usage";
 import type { AiUsageMode } from "@/lib/ai-usage";
 
@@ -204,7 +209,7 @@ export async function studioGenerateVideo(
   options: {
     prompt: string;
     negativePrompt?: string;
-    duration?: 5 | 10;
+    duration?: StudioVideoDurationSec;
     mode?: "standard" | "pro";
     projectId?: number;
     studioMode?: StudioPipelineMode;
@@ -251,13 +256,17 @@ export async function studioGenerateVideo(
     }
   }
 
+  const replicateDuration = mapDurationForKling(
+    parseStudioVideoDuration(options.duration ?? 5)
+  );
+
   const output = await runTrackedReplicate(
     MODELS.kling,
     {
       start_image: imageUrl,
       prompt: options.prompt,
       negative_prompt: options.negativePrompt,
-      duration: options.duration ?? 5,
+      duration: replicateDuration,
       mode: options.mode ?? "pro",
       generate_audio: false,
     },

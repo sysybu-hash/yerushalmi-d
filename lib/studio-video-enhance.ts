@@ -1,5 +1,11 @@
-import type { StudioPipelineMode } from "@/lib/ai-engines";
+import type { StudioStylePresetId } from "@/lib/studio-presets";
+import { STUDIO_STYLE_PRESETS } from "@/lib/studio-presets";
+import {
+  parseStudioVideoDuration,
+  type StudioVideoDurationSec,
+} from "@/lib/studio-video-duration";
 import { assertEngineAvailable, isGeminiConfigured } from "@/lib/ai-engines";
+import type { StudioPipelineMode } from "@/lib/ai-engines";
 import { assertStudioQuota, trackAiUsage } from "@/lib/ai-usage";
 import type { AiUsageMode } from "@/lib/ai-usage";
 import { videoFrameJpgUrl } from "@/lib/cloudinary-url";
@@ -135,6 +141,8 @@ async function studioEnhanceVideoGemini(
     mode?: StudioPipelineMode;
     projectId?: number;
     customPrompt?: string;
+    duration?: StudioVideoDurationSec;
+    stylePreset?: StudioStylePresetId;
   }
 ): Promise<{ url: string }> {
   if (!isGeminiConfigured()) {
@@ -166,8 +174,13 @@ async function studioEnhanceVideoGemini(
       "image"
     );
 
+    const styleSuffix = options.stylePreset
+      ? STUDIO_STYLE_PRESETS.find((p) => p.id === options.stylePreset)?.suffix
+      : null;
+
     const veoPrompt = [
       PRESET_VEO_PROMPT[options.preset],
+      styleSuffix ? `Scene style: ${styleSuffix}` : null,
       options.customPrompt?.trim(),
     ]
       .filter(Boolean)
@@ -176,7 +189,7 @@ async function studioEnhanceVideoGemini(
     const videoBuffer = await geminiGenerateVideoFromImage({
       imageUrl: enhancedImageUrl,
       prompt: veoPrompt,
-      duration: 5,
+      duration: parseStudioVideoDuration(options.duration ?? 5),
       mode: "pro",
     });
 
@@ -209,6 +222,8 @@ export async function studioEnhanceVideo(
     mode?: StudioPipelineMode;
     projectId?: number;
     customPrompt?: string;
+    duration?: StudioVideoDurationSec;
+    stylePreset?: StudioStylePresetId;
   }
 ): Promise<{ url: string }> {
   const provider = options.provider ?? "cloudinary";

@@ -1,5 +1,7 @@
 import type { AiEngineConfig } from "@/lib/ai-engines";
 import { DEFAULT_AI_ENGINES, mergeAiEngineConfig } from "@/lib/ai-engines";
+import type { StudioVideoDurationSec } from "@/lib/studio-video-duration";
+import { parseStudioVideoDuration } from "@/lib/studio-video-duration";
 import type {
   StudioPipelineStepId,
   StudioStylePresetId,
@@ -84,7 +86,7 @@ export type StudioProjectSnapshot = {
   negativePrompt: string;
   stylePreset: StudioStylePresetId;
   videoPrompt: string;
-  videoDuration: 5 | 10;
+  videoDuration: StudioVideoDurationSec;
   videoMode: "standard" | "pro";
   workspaceUploadMode: StudioWorkspaceUploadModeId;
   publishTarget: SettingKey;
@@ -125,6 +127,7 @@ export function normalizeSnapshot(
     useAiBackground: Boolean(raw.useAiBackground),
     highQualityBackground: Boolean(raw.highQualityBackground),
     cutoutUrl: raw.cutoutUrl ?? "",
+    videoDuration: parseStudioVideoDuration(raw.videoDuration),
   };
 }
 
@@ -137,7 +140,7 @@ export const EMPTY_STUDIO_SNAPSHOT: StudioProjectSnapshot = {
   negativePrompt: "",
   stylePreset: "luxury-marble",
   videoPrompt: "",
-  videoDuration: 5,
+  videoDuration: 5 as StudioVideoDurationSec,
   videoMode: "pro",
   workspaceUploadMode: "site-banner",
   publishTarget: "heroImage",

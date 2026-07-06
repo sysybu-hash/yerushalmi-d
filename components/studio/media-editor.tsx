@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { CldUploadWidget } from "next-cloudinary";
 import {
+  Clapperboard,
   Copy,
   Download,
   FileVideo,
@@ -37,6 +38,20 @@ import {
   ToggleChip,
 } from "@/components/studio/studio-adjust-ui";
 import { StudioVideoAudioPanel } from "@/components/studio/studio-video-audio-panel";
+import { StudioCreativeOptionsPanel } from "@/components/studio/studio-creative-options";
+import { videoFrameJpgUrl } from "@/lib/cloudinary-url";
+import type {
+  AiEngineConfig,
+  StudioPipelineMode,
+} from "@/lib/ai-engines";
+import {
+  humanizeStudioError,
+  studioApiCompositeImage,
+  studioApiGenerateVideo,
+  studioApiRemoveBackground,
+} from "@/lib/studio-api";
+import type { StudioStylePresetId } from "@/lib/studio-presets";
+import type { StudioVideoDurationSec } from "@/lib/studio-video-duration";
 import { Button } from "@/components/ui/button";
 import { MediaPreviewTrigger } from "@/components/ui/media-preview";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -70,7 +85,25 @@ import {
   type AspectId,
   type MediaResourceType,
 } from "@/lib/studio-transform";
-import type { StudioPipelineMode } from "@/lib/ai-engines";
+
+type StudioMediaEditorCreativeProps = {
+  studioMode: StudioPipelineMode;
+  onStudioModeChange: (mode: StudioPipelineMode) => void;
+  stylePreset: StudioStylePresetId;
+  onStylePresetChange: (preset: StudioStylePresetId) => void;
+  customPrompt: string;
+  onCustomPromptChange: (value: string) => void;
+  aiEngines: AiEngineConfig;
+  onAiEnginesChange: (engines: AiEngineConfig) => void;
+  useAiBackground: boolean;
+  onUseAiBackgroundChange: (value: boolean) => void;
+  highQualityBackground: boolean;
+  onHighQualityBackgroundChange: (value: boolean) => void;
+  videoDuration: StudioVideoDurationSec;
+  onVideoDurationChange: (duration: StudioVideoDurationSec) => void;
+  videoMode: "standard" | "pro";
+  onVideoModeChange: (mode: "standard" | "pro") => void;
+};
 
 export function StudioMediaEditor({
   showToast,
@@ -80,8 +113,8 @@ export function StudioMediaEditor({
   onUpload,
   workflowStep = 1,
   onWorkflowStepChange,
-  studioMode = "catalog",
   projectId,
+  ...creative
 }: {
   showToast: (message: string) => void;
   edit: StudioEditSnapshot;
@@ -94,9 +127,18 @@ export function StudioMediaEditor({
   onUpload?: (info: unknown) => void;
   workflowStep?: StudioWorkflowStep;
   onWorkflowStepChange?: (step: StudioWorkflowStep) => void;
-  studioMode?: StudioPipelineMode;
   projectId?: number | null;
-}) {
+} & StudioMediaEditorCreativeProps) {
+  const {
+    studioMode,
+    stylePreset,
+    customPrompt,
+    aiEngines,
+    useAiBackground,
+    highQualityBackground,
+    videoDuration,
+    videoMode,
+  } = creative;
   const [busy, setBusy] = React.useState<string | null>(null);
 
   const {
@@ -146,11 +188,74 @@ export function StudioMediaEditor({
   function handleAssetEnhanced(url: string) {
     if (!asset) return;
     patchEdit({
-      asset: { ...asset, url },
+      asset: { ...asset, url, type: "video", duration: asset.duration },
       imageAdj: DEFAULT_IMAGE_ADJUSTMENTS,
       videoAdj: DEFAULT_VIDEO_ADJUSTMENTS,
       savedUrl: null,
     });
+  }
+
+  async function handleCreateStyledVideo() {
+    if (!asset || asset.type !== "video" || busy) return;
+
+    if (
+      !window.confirm(
+        "יצירת וידאו חדש עם רקע נבחר היא פעולה יקרה (+1–2 קריאות API). להמשיך?"
+      )
+    ) {
+      return;
+    }
+
+    setBusy("styled-video");
+    try {
+      const frameUrl = videoFrameJpgUrl(asset.url, 0);
+      const cutout = await studioApiRemoveBackground(frameUrl, {
+        mode: studioMode,
+        engines: aiEngines,
+        projectId: projectId ?? undefined,
+      });
+      if (!cutout.ok) {
+        showToast(humanizeStudioError(cutout.error));
+        return;
+      }
+
+      const composite = await studioApiCompositeImage(cutout.data.url, {
+        customPrompt,
+        stylePreset,
+        engines: aiEngines,
+        mode: studioMode,
+        useAiBackground: studioMode === "marketing" && useAiBackground,
+        highQualityBackground:
+          studioMode === "marketing" && useAiBackground && highQualityBackground,
+        projectId: projectId ?? undefined,
+      });
+      if (!composite.ok) {
+        showToast(humanizeStudioError(composite.error));
+        return;
+      }
+
+      const video = await studioApiGenerateVideo(composite.data.url, {
+        customPrompt,
+        duration: videoDuration,
+        mode: videoMode,
+        stylePreset,
+        engines: aiEngines,
+        studioMode,
+        projectId: projectId ?? undefined,
+      });
+      if (!video.ok) {
+        showToast(humanizeStudioError(video.error));
+        return;
+      }
+
+      handleAssetEnhanced(video.data.url);
+      showToast("וידאו חדש נוצר עם הרקע והאורך שבחרתם");
+      onWorkflowStepChange?.(2);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "יצירת הווידאו נכשלה");
+    } finally {
+      setBusy(null);
+    }
   }
 
   function handleUploadResult(info: unknown) {
@@ -433,6 +538,58 @@ export function StudioMediaEditor({
           )}
         </CardContent>
       </Card>
+      )}
+
+      {asset && isVideo && workflowStep >= 2 && (
+        <Card className="rounded-none border-gold/25 bg-gold/[0.03] shadow-none">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-light tracking-[0.1em] text-gold-dark">
+              סגנון רקע, תאורה ואורך וידאו
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <StudioCreativeOptionsPanel
+              studioMode={studioMode}
+              onStudioModeChange={creative.onStudioModeChange}
+              stylePreset={stylePreset}
+              onStylePresetChange={creative.onStylePresetChange}
+              customPrompt={customPrompt}
+              onCustomPromptChange={creative.onCustomPromptChange}
+              aiEngines={aiEngines}
+              onAiEnginesChange={creative.onAiEnginesChange}
+              useAiBackground={useAiBackground}
+              onUseAiBackgroundChange={creative.onUseAiBackgroundChange}
+              highQualityBackground={highQualityBackground}
+              onHighQualityBackgroundChange={
+                creative.onHighQualityBackgroundChange
+              }
+              videoDuration={videoDuration}
+              onVideoDurationChange={creative.onVideoDurationChange}
+              videoMode={videoMode}
+              onVideoModeChange={creative.onVideoModeChange}
+              showVideoSettings
+              showModeToggle
+              disabled={busy !== null}
+            />
+            <Button
+              type="button"
+              disabled={busy !== null}
+              onClick={() => void handleCreateStyledVideo()}
+              className="w-full rounded-none text-xs font-light tracking-[0.15em]"
+            >
+              {busy === "styled-video" ? (
+                <Loader2 aria-hidden className="ml-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Clapperboard
+                  aria-hidden
+                  className="ml-2 h-4 w-4"
+                  strokeWidth={1.5}
+                />
+              )}
+              צור וידאו חדש עם רקע נבחר (+API)
+            </Button>
+          </CardContent>
+        </Card>
       )}
 
       {asset && (isImage || workflowStep >= 2) && (
@@ -793,6 +950,8 @@ export function StudioMediaEditor({
                         studioMode={studioMode}
                         projectId={projectId}
                         disabled={busy !== null}
+                        videoDuration={videoDuration}
+                        stylePreset={stylePreset}
                       />
                     )}
                   </>

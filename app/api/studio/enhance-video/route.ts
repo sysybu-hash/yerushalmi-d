@@ -10,6 +10,8 @@ import {
 } from "@/lib/studio-route";
 import { QuotaExceededError } from "@/lib/ai-usage";
 import type { StudioPipelineMode } from "@/lib/ai-engines";
+import type { StudioStylePresetId } from "@/lib/studio-presets";
+import type { StudioVideoDurationSec } from "@/lib/studio-video-duration";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,6 +34,8 @@ export async function POST(request: Request) {
       preset?: VideoEnhancePreset;
       provider?: VideoEnhanceProvider;
       customPrompt?: string;
+      duration?: StudioVideoDurationSec;
+      stylePreset?: StudioStylePresetId;
       mode?: StudioPipelineMode;
       projectId?: number;
     };
@@ -57,6 +61,8 @@ export async function POST(request: Request) {
       preset,
       provider: body.provider,
       customPrompt: body.customPrompt,
+      duration: body.duration,
+      stylePreset: body.stylePreset,
       mode: body.mode,
       projectId: body.projectId,
     });

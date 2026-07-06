@@ -23,6 +23,8 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import type { StudioPipelineMode } from "@/lib/ai-engines";
+import type { StudioStylePresetId } from "@/lib/studio-presets";
+import type { StudioVideoDurationSec } from "@/lib/studio-video-duration";
 import {
   ASPECT_OPTIONS,
   DEFAULT_VIDEO_ADJUSTMENTS,
@@ -44,6 +46,8 @@ type StudioVideoPrepProps = {
   projectId?: number | null;
   disabled?: boolean;
   title?: string;
+  videoDuration?: StudioVideoDurationSec;
+  stylePreset?: StudioStylePresetId;
 };
 
 export function StudioVideoPrep({
@@ -57,6 +61,8 @@ export function StudioVideoPrep({
   projectId,
   disabled,
   title = "מיטוב וידאו",
+  videoDuration = 5,
+  stylePreset = "luxury-marble",
 }: StudioVideoPrepProps) {
   const [busy, setBusy] = React.useState(false);
 
@@ -260,6 +266,8 @@ export function StudioVideoPrep({
           studioMode={studioMode}
           projectId={projectId}
           disabled={disabled || busy}
+          videoDuration={videoDuration}
+          stylePreset={stylePreset}
         />
       </CardContent>
     </Card>

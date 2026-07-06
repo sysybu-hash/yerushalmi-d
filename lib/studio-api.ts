@@ -5,6 +5,8 @@ import type {
   StudioGenerateResult,
 } from "@/lib/studio-types";
 import type { AiEngineConfig } from "@/lib/ai-engines";
+import type { StudioStylePresetId } from "@/lib/studio-presets";
+import type { StudioVideoDurationSec } from "@/lib/studio-video-duration";
 
 const GENERIC_PRODUCTION_ERROR =
   "An error occurred in the Server Components render";
@@ -180,6 +182,8 @@ export async function studioApiEnhanceVideo(
     preset?: VideoEnhancePreset;
     provider?: VideoEnhanceProvider;
     customPrompt?: string;
+    duration?: StudioVideoDurationSec;
+    stylePreset?: StudioStylePresetId;
     mode?: GenerateImageOptions["mode"];
     projectId?: number;
   } = {}
@@ -194,6 +198,8 @@ export async function studioApiEnhanceVideo(
         preset: options.preset,
         provider: options.provider,
         customPrompt: options.customPrompt,
+        duration: options.duration,
+        stylePreset: options.stylePreset,
         mode: options.mode,
         projectId: options.projectId,
       }),

@@ -1,5 +1,6 @@
 import type { StudioStylePresetId } from "@/lib/studio-presets";
 import type { AiEngineConfig, StudioPipelineMode } from "@/lib/ai-engines";
+import type { StudioVideoDurationSec } from "@/lib/studio-video-duration";
 
 export type GenerateImageOptions = {
   customPrompt?: string;
@@ -15,7 +16,7 @@ export type GenerateImageOptions = {
 export type GenerateVideoOptions = {
   customPrompt?: string;
   negativePrompt?: string;
-  duration?: 5 | 10;
+  duration?: StudioVideoDurationSec;
   mode?: "standard" | "pro";
   stylePreset?: StudioStylePresetId;
   engines?: Partial<AiEngineConfig>;

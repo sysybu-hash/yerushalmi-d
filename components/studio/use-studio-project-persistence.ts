@@ -19,7 +19,11 @@ import {
   type StudioProjectSnapshot,
 } from "@/lib/studio-project-snapshot";
 import type { StudioWorkflowStep } from "@/components/studio/studio-workflow-stepper";
-import type { StudioStylePresetId, StudioWorkspaceUploadModeId } from "@/lib/studio-presets";
+import type { StudioVideoDurationSec } from "@/lib/studio-video-duration";
+import type {
+  StudioStylePresetId,
+  StudioWorkspaceUploadModeId,
+} from "@/lib/studio-presets";
 import type { AiEngineConfig } from "@/lib/ai-engines";
 import type { SettingKey } from "@/lib/site-settings";
 
@@ -31,7 +35,7 @@ export type StudioFormState = {
   negativePrompt: string;
   stylePreset: StudioStylePresetId;
   videoPrompt: string;
-  videoDuration: 5 | 10;
+  videoDuration: StudioVideoDurationSec;
   videoMode: "standard" | "pro";
   workspaceUploadMode: StudioWorkspaceUploadModeId;
   publishTarget: SettingKey;

@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { StudioPipelineMode } from "@/lib/ai-engines";
+import type { StudioStylePresetId } from "@/lib/studio-presets";
+import type { StudioVideoDurationSec } from "@/lib/studio-video-duration";
 import {
   humanizeStudioError,
   studioApiEnhanceSource,
@@ -91,6 +93,8 @@ type StudioAiEnhancePanelProps = {
   studioMode?: StudioPipelineMode;
   projectId?: number | null;
   disabled?: boolean;
+  videoDuration?: StudioVideoDurationSec;
+  stylePreset?: StudioStylePresetId;
 };
 
 export function StudioAiEnhancePanel({
@@ -101,6 +105,8 @@ export function StudioAiEnhancePanel({
   studioMode = "catalog",
   projectId,
   disabled,
+  videoDuration = 5,
+  stylePreset = "luxury-marble",
 }: StudioAiEnhancePanelProps) {
   const [busy, setBusy] = React.useState(false);
   const [imagePreset, setImagePreset] =
@@ -140,6 +146,8 @@ export function StudioAiEnhancePanel({
         preset: videoPreset,
         provider: videoProvider,
         customPrompt: customPrompt || undefined,
+        duration: videoDuration,
+        stylePreset,
         mode: studioMode,
         projectId: projectId ?? undefined,
       });

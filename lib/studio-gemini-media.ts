@@ -1,5 +1,10 @@
 import { fetchImageDataUri } from "@/lib/vision-image";
 import { normalizeGeminiError } from "@/lib/studio-gemini";
+import {
+  mapDurationForVeo,
+  parseStudioVideoDuration,
+  type StudioVideoDurationSec,
+} from "@/lib/studio-video-duration";
 
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
@@ -270,12 +275,14 @@ export async function geminiGenerateVideoFromImage(options: {
   imageUrl: string;
   prompt: string;
   negativePrompt?: string;
-  duration?: 5 | 10;
+  duration?: StudioVideoDurationSec | 5 | 10;
   mode?: "standard" | "pro";
 }): Promise<Buffer> {
   const imageDataUri = await fetchImageDataUri(options.imageUrl);
   const { mimeType, data } = parseDataUri(imageDataUri);
-  const durationSeconds = mapVeoDuration(options.duration ?? 5);
+  const durationSeconds = mapDurationForVeo(
+    parseStudioVideoDuration(options.duration ?? 5)
+  );
   const resolution = mapVeoResolution(options.mode ?? "pro", durationSeconds);
 
   const prompt = [

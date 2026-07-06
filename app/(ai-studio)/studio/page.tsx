@@ -60,6 +60,10 @@ import {
   type VideoAdjustments,
 } from "@/lib/studio-transform";
 import {
+  STUDIO_VIDEO_DURATION_OPTIONS,
+  type StudioVideoDurationSec,
+} from "@/lib/studio-video-duration";
+import {
   StudioWorkflowStepper,
   type StudioWorkflowStep,
 } from "@/components/studio/studio-workflow-stepper";
@@ -96,7 +100,8 @@ function StudioPageContent() {
   const [stylePreset, setStylePreset] =
     React.useState<StudioStylePresetId>("luxury-marble");
   const [videoPrompt, setVideoPrompt] = React.useState("");
-  const [videoDuration, setVideoDuration] = React.useState<5 | 10>(5);
+  const [videoDuration, setVideoDuration] =
+    React.useState<StudioVideoDurationSec>(5);
   const [videoMode, setVideoMode] = React.useState<"standard" | "pro">("pro");
   const [busy, setBusy] = React.useState<string | null>(null);
   const [toast, setToast] = React.useState<string | null>(null);
@@ -735,8 +740,23 @@ function StudioPageContent() {
           onUpload={handleEditMediaUpload}
           workflowStep={workflowStep}
           onWorkflowStepChange={setWorkflowStep}
-          studioMode={studioMode}
           projectId={activeProjectId}
+          studioMode={studioMode}
+          onStudioModeChange={setStudioMode}
+          stylePreset={stylePreset}
+          onStylePresetChange={setStylePreset}
+          customPrompt={customPrompt}
+          onCustomPromptChange={setCustomPrompt}
+          aiEngines={aiEngines}
+          onAiEnginesChange={setAiEngines}
+          useAiBackground={useAiBackground}
+          onUseAiBackgroundChange={setUseAiBackground}
+          highQualityBackground={highQualityBackground}
+          onHighQualityBackgroundChange={setHighQualityBackground}
+          videoDuration={videoDuration}
+          onVideoDurationChange={setVideoDuration}
+          videoMode={videoMode}
+          onVideoModeChange={setVideoMode}
         />
       )}
 
@@ -1234,7 +1254,7 @@ function StudioPageContent() {
                   <Select
                     value={String(videoDuration)}
                     onValueChange={(v) =>
-                      setVideoDuration(Number(v) as 5 | 10)
+                      setVideoDuration(Number(v) as StudioVideoDurationSec)
                     }
                     disabled={!activeSource || isGenerating}
                     dir="rtl"
@@ -1243,8 +1263,14 @@ function StudioPageContent() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="5">5 שניות</SelectItem>
-                      <SelectItem value="10">10 שניות</SelectItem>
+                      {STUDIO_VIDEO_DURATION_OPTIONS.map((option) => (
+                        <SelectItem
+                          key={option.value}
+                          value={String(option.value)}
+                        >
+                          {option.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -1400,6 +1426,8 @@ function StudioPageContent() {
             projectId={activeProjectId}
             disabled={isGenerating}
             title="מיטוב הווידאו לאחר יצירה"
+            videoDuration={videoDuration}
+            stylePreset={stylePreset}
           />
         )}
 
