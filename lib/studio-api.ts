@@ -172,11 +172,14 @@ export async function studioApiGenerateVideo(
 }
 
 export type VideoEnhancePreset = "stabilize" | "sharpen" | "color" | "catalog";
+export type VideoEnhanceProvider = "cloudinary" | "gemini";
 
 export async function studioApiEnhanceVideo(
   videoUrl: string,
   options: {
     preset?: VideoEnhancePreset;
+    provider?: VideoEnhanceProvider;
+    customPrompt?: string;
     mode?: GenerateImageOptions["mode"];
     projectId?: number;
   } = {}
@@ -189,6 +192,8 @@ export async function studioApiEnhanceVideo(
       body: JSON.stringify({
         videoUrl,
         preset: options.preset,
+        provider: options.provider,
+        customPrompt: options.customPrompt,
         mode: options.mode,
         projectId: options.projectId,
       }),

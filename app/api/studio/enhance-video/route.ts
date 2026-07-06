@@ -1,5 +1,8 @@
 import { studioEnhanceVideo } from "@/lib/studio-video-enhance";
-import type { VideoEnhancePreset } from "@/lib/studio-video-enhance";
+import type {
+  VideoEnhancePreset,
+  VideoEnhanceProvider,
+} from "@/lib/studio-video-enhance";
 import {
   studioJsonError,
   studioJsonOk,
@@ -10,7 +13,7 @@ import type { StudioPipelineMode } from "@/lib/ai-engines";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 const VALID_PRESETS: VideoEnhancePreset[] = [
   "stabilize",
@@ -27,6 +30,8 @@ export async function POST(request: Request) {
     const body = (await request.json()) as {
       videoUrl?: string;
       preset?: VideoEnhancePreset;
+      provider?: VideoEnhanceProvider;
+      customPrompt?: string;
       mode?: StudioPipelineMode;
       projectId?: number;
     };
@@ -50,6 +55,8 @@ export async function POST(request: Request) {
 
     const data = await studioEnhanceVideo(body.videoUrl.trim(), {
       preset,
+      provider: body.provider,
+      customPrompt: body.customPrompt,
       mode: body.mode,
       projectId: body.projectId,
     });

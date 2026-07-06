@@ -25,6 +25,17 @@ export function visionAnalysisUrl(cloudinaryUrl: string): string {
   );
 }
 
+/** פריים מווידאו Cloudinary כ-JPEG לעיבוד AI */
+export function videoFrameJpgUrl(
+  cloudinaryVideoUrl: string,
+  offsetSec = 0
+): string {
+  return withCloudinaryTransform(
+    cloudinaryVideoUrl,
+    `so_${Math.max(0, offsetSec)},w_1280,c_limit,f_jpg,q_auto:good`
+  );
+}
+
 /** גרסה מותאמת ל-Bria RMBG — מגדילה תמונות קטנות, מקטינה גדולות, PNG מלא */
 export function rembgSourceUrl(cloudinaryUrl: string): string {
   return withCloudinaryTransform(

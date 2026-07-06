@@ -159,7 +159,6 @@ function videoComponents(adj: VideoAdjustments): string[] {
   if (adj.autoEnhance) parts.push("e_improve");
   if (adj.autoColor) parts.push("e_auto_color");
   if (adj.sharpen) parts.push("e_sharpen:80");
-  if (adj.denoise) parts.push("e_noise_reduction:50");
   if (adj.brightness !== 0) parts.push(`e_brightness:${adj.brightness}`);
   if (adj.saturation !== 0) parts.push(`e_saturation:${adj.saturation}`);
   if (adj.contrast !== 0) parts.push(`e_contrast:${adj.contrast}`);
