@@ -303,7 +303,8 @@ export async function geminiGenerateVideoFromImage(options: {
               {
                 prompt,
                 image: {
-                  inlineData: { mimeType, data },
+                  bytesBase64Encoded: data,
+                  mimeType,
                 },
               },
             ],
