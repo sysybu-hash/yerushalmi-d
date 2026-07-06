@@ -10,6 +10,8 @@ export type GenerateImageOptions = {
   cutoutUrl?: string;
   useAiBackground?: boolean;
   highQualityBackground?: boolean;
+  /** ללא צל/השתקפות — מונע מלבן טשטוש בווידאו AI */
+  forVideo?: boolean;
   projectId?: number;
 };
 

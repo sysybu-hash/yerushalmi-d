@@ -1,6 +1,5 @@
 import { rembgSourceUrl } from "@/lib/cloudinary-url";
 import type { AiBackgroundResolved, AiResolvedProvider, StudioPipelineMode } from "@/lib/ai-engines";
-import { isReplicateConfigured } from "@/lib/ai-engines";
 import {
   geminiEnhanceSourceImage,
   geminiGenerateLuxuryBackground,
@@ -240,11 +239,6 @@ export async function studioGenerateVideo(
       const url = await finalizeAiGeneratedVideo(uploaded, "studio-video-veo");
       success = true;
       return { url, provider: "veo" };
-    } catch (error) {
-      if (!isReplicateConfigured()) {
-        throw error;
-      }
-      console.warn("studio_video_veo_fallback_kling", error);
     } finally {
       await trackAiUsage({
         provider: "gemini",

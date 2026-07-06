@@ -262,6 +262,7 @@ export function StudioMediaEditor({
         mode: studioMode,
         useAiBackground: false,
         highQualityBackground: false,
+        forVideo: true,
         projectId: projectId ?? undefined,
       });
       if (!composite.ok) {
@@ -274,7 +275,7 @@ export function StudioMediaEditor({
         duration: videoDuration,
         mode: "pro",
         stylePreset,
-        engines: { ...aiEngines, video: "replicate" },
+        engines: aiEngines,
         studioMode,
         projectId: projectId ?? undefined,
       });

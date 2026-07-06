@@ -3,7 +3,10 @@ import {
   type AiEngineConfig,
   type AiEngineProvider,
   type AiBackgroundResolved,
+  type AiResolvedProvider,
   assertEngineAvailable,
+  isGeminiConfigured,
+  isReplicateConfigured,
   mergeAiEngineConfig,
   aiEnginesFromSiteSettings,
   resolveBackgroundEngine,
@@ -46,6 +49,45 @@ export async function getResolvedAiEngines(
   };
 }
 
+function alternateEngine(engine: AiResolvedProvider): AiResolvedProvider {
+  return engine === "replicate" ? "gemini" : "replicate";
+}
+
+/** במצב אוטומטי — ניסיון ראשון במנוע המועדף, מעבר למנוע החלופי בכשלון */
+export async function executeWithEngineFallback<T>(
+  capability: AiCapability,
+  preference: AiEngineProvider | undefined,
+  run: (engine: AiResolvedProvider) => Promise<T>
+): Promise<T> {
+  const pref = preference ?? "auto";
+  const primary = resolveEngine(capability, pref);
+  assertEngineAvailable(capability, primary);
+
+  try {
+    return await run(primary);
+  } catch (error) {
+    if (pref !== "auto") throw error;
+
+    const fallback = alternateEngine(primary);
+    if (fallback === "gemini" && !isGeminiConfigured()) throw error;
+    if (fallback === "replicate" && !isReplicateConfigured()) throw error;
+
+    try {
+      assertEngineAvailable(capability, fallback);
+    } catch {
+      throw error;
+    }
+
+    console.warn(`studio_engine_fallback_${capability}`, {
+      from: primary,
+      to: fallback,
+      message: error instanceof Error ? error.message : String(error),
+    });
+
+    return await run(fallback);
+  }
+}
+
 export function resolveWithFallback(
   capability: AiCapability,
   preference: AiEngineProvider | undefined
@@ -56,7 +98,8 @@ export function resolveWithFallback(
     return resolved;
   } catch {
     if (preference === "auto" || !preference) {
-      return "replicate";
+      if (isGeminiConfigured()) return "gemini";
+      if (isReplicateConfigured()) return "replicate";
     }
     throw new Error(
       capability === "cutout" || capability === "video"

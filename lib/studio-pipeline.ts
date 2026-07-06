@@ -12,10 +12,8 @@ export { pipelineRemoveBackground } from "@/lib/studio-pipeline-remove-bg";
 import { pipelineRemoveBackground } from "@/lib/studio-pipeline-remove-bg";
 import {
   assertBackgroundEngineAvailable,
-  assertEngineAvailable,
-  resolveEngine,
 } from "@/lib/ai-engines";
-import { getResolvedAiEngines } from "@/lib/ai-engine-resolve";
+import { getResolvedAiEngines, executeWithEngineFallback } from "@/lib/ai-engine-resolve";
 import {
   studioGenerateBackground,
   studioGenerateVideo,
@@ -142,7 +140,8 @@ export async function pipelineCompositeImage(
     cutoutUrl,
     backgroundBuffer,
     STUDIO_CANVAS_SIZE,
-    preset
+    preset,
+    { forVideo: options.forVideo }
   );
   const url = await uploadBufferToCloudinary(
     buffer,
@@ -197,8 +196,6 @@ export async function pipelineGenerateVideo(
     studioMode,
     false
   );
-  const videoEngine = resolveEngine("video", engines.preferences.video);
-  assertEngineAvailable("video", videoEngine);
 
   const englishCustom = options.customPrompt?.trim()
     ? await translatePrompt(options.customPrompt, engines.text)
@@ -216,17 +213,22 @@ export async function pipelineGenerateVideo(
     .filter(Boolean)
     .join(", ");
 
-  return studioGenerateVideo(
-    imageUrl,
-    {
-      prompt,
-      negativePrompt:
-        options.negativePrompt?.trim() || DEFAULT_VIDEO_NEGATIVE_PROMPT,
-      duration: options.duration ?? 5,
-      mode: options.mode ?? "pro",
-      projectId: options.projectId,
-      studioMode,
-    },
-    videoEngine
+  return executeWithEngineFallback(
+    "video",
+    engines.preferences.video,
+    (videoEngine) =>
+      studioGenerateVideo(
+        imageUrl,
+        {
+          prompt,
+          negativePrompt:
+            options.negativePrompt?.trim() || DEFAULT_VIDEO_NEGATIVE_PROMPT,
+          duration: options.duration ?? 5,
+          mode: options.mode ?? "pro",
+          projectId: options.projectId,
+          studioMode,
+        },
+        videoEngine
+      )
   );
 }

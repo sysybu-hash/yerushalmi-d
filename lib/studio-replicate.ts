@@ -40,6 +40,19 @@ export const DEFAULT_NEGATIVE =
 export const BACKGROUND_NEGATIVE =
   "jewelry, ring, necklace, bracelet, earrings, diamond, product, hands, people, text, watermark, logo";
 
+/** שגיאות Replicate שמצדיקות מעבר ל-Gemini במצב אוטומטי */
+export function isReplicateFallbackError(error: unknown): boolean {
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "object" && error !== null && "message" in error
+        ? String((error as { message: unknown }).message)
+        : String(error);
+
+  return /402|401|insufficient credit|אין מספיק קרדיט|unauthorized|rate limit|billing|payment|out of credits/i.test(
+    message
+  );
+}
 /** הודעת שגיאה ברורה מ-Replicate / Server Actions */
 export function normalizeStudioError(error: unknown, fallback: string): string {
   if (error instanceof Error) {

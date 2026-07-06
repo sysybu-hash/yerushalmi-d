@@ -35,6 +35,7 @@ export async function POST(request: Request) {
       mode: body.mode,
       useAiBackground: body.useAiBackground,
       highQualityBackground: body.highQualityBackground,
+      forVideo: body.forVideo,
       projectId: body.projectId,
     });
     return studioJsonOk(data);

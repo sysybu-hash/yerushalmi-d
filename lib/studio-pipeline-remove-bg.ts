@@ -1,7 +1,6 @@
-import { assertEngineAvailable, resolveEngine, type StudioPipelineMode } from "@/lib/ai-engines";
-import type { AiEngineConfig } from "@/lib/ai-engines";
+import type { AiEngineConfig, StudioPipelineMode } from "@/lib/ai-engines";
 import { studioRemoveBackground } from "@/lib/ai-studio-media";
-import { getResolvedAiEngines } from "@/lib/ai-engine-resolve";
+import { getResolvedAiEngines, executeWithEngineFallback } from "@/lib/ai-engine-resolve";
 import { assertStudioEnv } from "@/lib/studio-env";
 import {
   getCachedCutout,
@@ -42,16 +41,15 @@ export async function pipelineRemoveBackground(
     return { url: cached, cached: true };
   }
 
-  let cutoutEngine = resolveEngine("cutout", engines.preferences.cutout);
-  if (studioMode === "catalog" && engines.preferences.cutout === "auto") {
-    cutoutEngine = "replicate";
-  }
-  assertEngineAvailable("cutout", cutoutEngine);
-
-  const result = await studioRemoveBackground(imageUrl, cutoutEngine, {
-    mode: studioMode,
-    projectId: options.projectId,
-  });
+  const result = await executeWithEngineFallback(
+    "cutout",
+    engines.preferences.cutout,
+    (cutoutEngine) =>
+      studioRemoveBackground(imageUrl, cutoutEngine, {
+        mode: studioMode,
+        projectId: options.projectId,
+      })
+  );
 
   setCachedCutout(imageUrl, result.url);
   return { url: result.url, cached: false };

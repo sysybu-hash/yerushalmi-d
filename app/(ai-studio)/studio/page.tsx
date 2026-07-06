@@ -530,19 +530,43 @@ function StudioPageContent() {
         return;
       }
 
-      let frameUrl = lastCompositeUrl;
+      let frameUrl: string | null = null;
+
+      if (cutoutUrl) {
+        const videoComposite = await studioApiCompositeImage(cutoutUrl, {
+          ...aiOptions(),
+          forVideo: true,
+          cutoutUrl,
+        });
+        if (videoComposite.ok) {
+          frameUrl = videoComposite.data.url;
+        }
+      }
+
       if (!frameUrl) {
         showToast("יוצרים תמונת בסיס לווידאו...");
-        const pipeline = await generateImagePipeline(activeSource, true);
-        if (!pipeline.ok) {
-          if (pipeline.error === "__CUTOUT_PREVIEW__") {
+        const cutout = cutoutUrl
+          ? ({ ok: true as const, url: cutoutUrl })
+          : await runCutoutStep(activeSource);
+        if (!cutout.ok) {
+          if (cutout.error === "__CUTOUT_PREVIEW__") {
             showToast("השלימו cutout לפני וידאו");
             return;
           }
-          failGeneration(activeSource, pipeline.error);
+          failGeneration(activeSource, cutout.error);
           return;
         }
-        frameUrl = pipeline.url;
+
+        const videoComposite = await studioApiCompositeImage(cutout.url, {
+          ...aiOptions(),
+          forVideo: true,
+          cutoutUrl: cutout.url,
+        });
+        if (!videoComposite.ok) {
+          failGeneration(activeSource, videoComposite.error);
+          return;
+        }
+        frameUrl = videoComposite.data.url;
       }
 
       setState({ status: "generating", source: activeSource, kind: "video" });

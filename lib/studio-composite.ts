@@ -476,7 +476,8 @@ export async function compositeProductImage(
   jewelryPngUrl: string,
   backgroundBuffer: Buffer,
   canvasSize = STUDIO_CANVAS_SIZE,
-  stylePreset: StudioStylePresetId = "luxury-marble"
+  stylePreset: StudioStylePresetId = "luxury-marble",
+  options: { forVideo?: boolean } = {}
 ): Promise<Buffer> {
   const sharp = await loadSharp();
 
@@ -532,31 +533,37 @@ export async function compositeProductImage(
   const left = jewelryPos.left;
   const top = jewelryPos.top;
 
-  const shadowLayer = await createContactShadow(
-    jewelryPng,
-    left,
-    top,
-    jWidth,
-    jHeight,
-    canvasSize,
-    stylePreset
-  );
+  const composites: {
+    input: Buffer;
+    left?: number;
+    top?: number;
+    blend?: "over" | "multiply" | "dest-over";
+  }[] = [];
 
-  const composites: { input: Buffer; left?: number; top?: number; blend?: "over" | "multiply" | "dest-over" }[] = [
-    { input: shadowLayer, blend: "multiply" },
-  ];
-
-  if (!NO_REFLECTION_PRESETS.has(stylePreset)) {
-    const reflection = await createFloorReflection(
+  if (!options.forVideo) {
+    const shadowLayer = await createContactShadow(
       jewelryPng,
       left,
       top,
       jWidth,
       jHeight,
       canvasSize,
-      0.1
+      stylePreset
     );
-    composites.push({ input: reflection, blend: "over" });
+    composites.push({ input: shadowLayer, blend: "multiply" });
+
+    if (!NO_REFLECTION_PRESETS.has(stylePreset)) {
+      const reflection = await createFloorReflection(
+        jewelryPng,
+        left,
+        top,
+        jWidth,
+        jHeight,
+        canvasSize,
+        0.1
+      );
+      composites.push({ input: reflection, blend: "over" });
+    }
   }
 
   composites.push({ input: jewelryPng, left, top });
