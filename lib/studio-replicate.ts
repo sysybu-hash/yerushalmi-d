@@ -297,6 +297,12 @@ export async function uploadBufferToCloudinary(
 
   const serverAuth = getCloudinaryServerAuth();
 
+  if (!serverAuth && process.env.VERCEL) {
+    throw new Error(
+      "חסרים CLOUDINARY_API_KEY ו-CLOUDINARY_API_SECRET ב-Vercel — הוסיפו מ-Cloudinary Console → API Keys ועשו Redeploy."
+    );
+  }
+
   if (serverAuth) {
     const timestamp = String(Math.round(Date.now() / 1000));
     const folder = "yerushalmi-studio";
