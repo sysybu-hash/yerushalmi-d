@@ -20,6 +20,8 @@ export type StudioWorkflowStepNumber = 1 | 2 | 3 | 4;
 
 export type StudioEditAsset = {
   url: string;
+  /** כתובת ההעלאה המקורית — לשמירה בספריית התוכן */
+  originalUrl: string;
   type: MediaResourceType;
   duration: number | null;
 };
@@ -121,6 +123,13 @@ export function normalizeSnapshot(
         ...DEFAULT_VIDEO_ADJUSTMENTS,
         ...raw.edit?.videoAdj,
       },
+      asset: raw.edit?.asset
+        ? {
+            ...raw.edit.asset,
+            originalUrl:
+              raw.edit.asset.originalUrl?.trim() || raw.edit.asset.url,
+          }
+        : null,
     },
     aiEngines: mergeAiEngineConfig(DEFAULT_AI_ENGINES, raw.aiEngines),
     studioMode: raw.studioMode === "marketing" ? "marketing" : "catalog",

@@ -185,14 +185,46 @@ export function StudioMediaEditor({
     });
   }
 
-  function handleAssetEnhanced(url: string) {
-    if (!asset) return;
+  async function persistToContentLibrary(
+    generatedUrl: string,
+    options: { reupload?: boolean; originalUrl?: string } = {}
+  ) {
+    if (!asset) return null;
+    const original =
+      options.originalUrl ?? asset.originalUrl ?? asset.url;
+    const url =
+      options.reupload === false
+        ? generatedUrl
+        : (await saveAssetToCloudinary(generatedUrl, asset.type)).url;
+    await saveToMediaLibrary(asset.type, original, url);
     patchEdit({
-      asset: { ...asset, url, type: "video", duration: asset.duration },
+      savedUrl: url,
+      asset: { ...asset, url, originalUrl: original },
+    });
+    onWorkflowStepChange?.(4);
+    showToast("נשמר בהצלחה בספריית התוכן");
+    return url;
+  }
+
+  async function handleAssetEnhanced(url: string) {
+    if (!asset) return;
+    const originalUrl = asset.originalUrl || asset.url;
+    patchEdit({
+      asset: { ...asset, url, originalUrl, type: "video", duration: asset.duration },
       imageAdj: DEFAULT_IMAGE_ADJUSTMENTS,
       videoAdj: DEFAULT_VIDEO_ADJUSTMENTS,
       savedUrl: null,
     });
+    try {
+      await persistToContentLibrary(url, {
+        reupload: false,
+        originalUrl,
+      });
+    } catch (e) {
+      showToast(
+        e instanceof Error ? e.message : "השמירה לספריית התוכן נכשלה"
+      );
+    }
   }
 
   async function handleCreateStyledVideo() {
@@ -249,7 +281,6 @@ export function StudioMediaEditor({
       }
 
       handleAssetEnhanced(video.data.url);
-      showToast("וידאו חדש נוצר עם הרקע והאורך שבחרתם");
       onWorkflowStepChange?.(2);
     } catch (e) {
       showToast(e instanceof Error ? e.message : "יצירת הווידאו נכשלה");
@@ -281,6 +312,7 @@ export function StudioMediaEditor({
     patchEdit({
       asset: {
         url: data.secure_url,
+        originalUrl: data.secure_url,
         type,
         duration: typeof data.duration === "number" ? data.duration : null,
       },
@@ -298,9 +330,7 @@ export function StudioMediaEditor({
     try {
       const url = await ensureSaved();
       if (!url) throw new Error("השמירה נכשלה");
-      await saveToMediaLibrary(asset.type, asset.url, url);
-      onWorkflowStepChange?.(4);
-      showToast("נשמר בהצלחה בספריית התוכן");
+      await persistToContentLibrary(url, { reupload: false });
     } catch (e) {
       showToast(e instanceof Error ? e.message : "השמירה לספרייה נכשלה");
     } finally {
@@ -325,9 +355,7 @@ export function StudioMediaEditor({
         asset.type === "image" ? imageAdj : videoAdj,
         { quality: "best" }
       );
-      const { url } = await saveAssetToCloudinary(saveUrl, asset.type);
-      patchEdit({ savedUrl: url });
-      showToast("הנכס המעובד נשמר ב-Cloudinary באיכות גבוהה");
+      await persistToContentLibrary(saveUrl);
     } catch (e) {
       showToast(e instanceof Error ? e.message : "השמירה נכשלה");
     } finally {
@@ -1032,7 +1060,7 @@ export function StudioMediaEditor({
                     ) : (
                       <Save aria-hidden className="ml-2 h-4 w-4" strokeWidth={1.5} />
                     )}
-                    שמירה ב-Cloudinary
+                    שמירה לספריית התוכן
                   </Button>
                   <Button
                     variant="outline"
@@ -1057,7 +1085,7 @@ export function StudioMediaEditor({
                   {isVideo && (
                     <Button
                       disabled={busy !== null}
-                      onClick={handleSaveToLibrary}
+                      onClick={() => void handleSaveToLibrary()}
                       className="rounded-none text-xs font-light tracking-[0.1em]"
                     >
                       {busy === "library" ? (

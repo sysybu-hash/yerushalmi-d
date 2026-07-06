@@ -429,7 +429,7 @@ function StudioPageContent() {
     if (mode === "edit" && edit.asset?.type === "image") {
       setEdit((prev) => ({
         ...prev,
-        asset: prev.asset ? { ...prev.asset, url } : null,
+        asset: prev.asset ? { ...prev.asset, url, originalUrl: prev.asset.originalUrl || prev.asset.url } : null,
         savedUrl: null,
       }));
     }
@@ -443,7 +443,12 @@ function StudioPageContent() {
     if (mode === "edit") {
       setEdit((prev) => ({
         ...prev,
-        asset: { url, type: "image", duration: null },
+        asset: {
+          url,
+          originalUrl: url,
+          type: "image",
+          duration: null,
+        },
         imageAdj: DEFAULT_IMAGE_ADJUSTMENTS,
         videoAdj: DEFAULT_VIDEO_ADJUSTMENTS,
         savedUrl: null,
@@ -474,6 +479,7 @@ function StudioPageContent() {
       ...prev,
       asset: {
         url: data.secure_url,
+        originalUrl: data.secure_url,
         type: "video",
         duration: typeof data.duration === "number" ? data.duration : null,
       },
@@ -1413,13 +1419,25 @@ function StudioPageContent() {
             videoUrl={resultUrl}
             adjustments={videoPostAdj}
             onAdjustmentsChange={setVideoPostAdj}
-            onVideoUpdated={(url) => {
+            onVideoUpdated={async (url) => {
               setState((prev) =>
                 prev.status === "done" && prev.kind === "video"
                   ? { ...prev, result: url, savedUrl: url }
                   : prev
               );
               setVideoPostAdj(DEFAULT_VIDEO_ADJUSTMENTS);
+              if (activeSource) {
+                try {
+                  await persistToContentLibrary("video", activeSource, url);
+                  showToast("נשמר בהצלחה בספריית התוכן");
+                } catch (error) {
+                  showToast(
+                    error instanceof Error
+                      ? error.message
+                      : "השמירה לספריית התוכן נכשלה"
+                  );
+                }
+              }
             }}
             showToast={showToast}
             studioMode={studioMode}
