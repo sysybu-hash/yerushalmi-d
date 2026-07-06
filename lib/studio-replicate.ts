@@ -244,9 +244,6 @@ export async function uploadBufferToCloudinary(
   );
   form.append("upload_preset", uploadPreset);
   form.append("folder", "yerushalmi-studio");
-  if (resourceType === "image") {
-    form.append("format", "png");
-  }
 
   const response = await fetch(
     `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`,

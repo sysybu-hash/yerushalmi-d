@@ -18,11 +18,11 @@ const config: Config = {
   			luxury: '0.25em'
   		},
   		fontWeight: {
-  			light: '500',
-  			normal: '500',
-  			medium: '600',
-  			semibold: '700',
-  			bold: '800',
+  			light: '600',
+  			normal: '600',
+  			medium: '700',
+  			semibold: '800',
+  			bold: '900',
   		},
   		colors: {
   			gold: {
