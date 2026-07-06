@@ -145,7 +145,7 @@ export async function pipelineCompositeImage(
   );
   const url = await uploadBufferToCloudinary(
     buffer,
-    `studio-composite-${Date.now()}.jpg`,
+    `studio-composite-${Date.now()}.png`,
     "image"
   );
 

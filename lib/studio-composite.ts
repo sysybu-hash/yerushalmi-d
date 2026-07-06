@@ -571,7 +571,7 @@ export async function compositeProductImage(
     .composite(composites)
     .sharpen({ sigma: 0.4, m1: 0.55, m2: 0.18, x1: 2, y2: 10, y3: 20 })
     .flatten({ background: bgColor })
-    .jpeg({ quality: 96, mozjpeg: true });
+    .png({ compressionLevel: 2 });
 
   return composed.toBuffer();
 }
