@@ -1,5 +1,6 @@
 import Replicate from "replicate";
 import { loadSharp } from "@/lib/sharp-loader";
+import { getCloudinaryServerAuth } from "@/lib/cloudinary-server";
 import { createHash } from "node:crypto";
 import {
   assertStudioQuota,
@@ -294,17 +295,19 @@ export async function uploadBufferToCloudinary(
 
   const mime = resourceType === "video" ? "video/mp4" : "image/png";
 
-  const apiSecret = process.env.CLOUDINARY_API_SECRET?.trim();
-  const apiKey = process.env.CLOUDINARY_API_KEY?.trim();
+  const serverAuth = getCloudinaryServerAuth();
 
-  if (apiSecret && apiKey) {
+  if (serverAuth) {
     const timestamp = String(Math.round(Date.now() / 1000));
     const folder = "yerushalmi-studio";
-    const signature = cloudinaryUploadSignature({ folder, timestamp }, apiSecret);
+    const signature = cloudinaryUploadSignature(
+      { folder, timestamp },
+      serverAuth.apiSecret
+    );
     const base64 = uploadBuffer.toString("base64");
     const form = new FormData();
     form.append("file", `data:${mime};base64,${base64}`);
-    form.append("api_key", apiKey);
+    form.append("api_key", serverAuth.apiKey);
     form.append("timestamp", timestamp);
     form.append("signature", signature);
     form.append("folder", folder);
