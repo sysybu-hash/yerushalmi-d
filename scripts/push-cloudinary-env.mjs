@@ -29,20 +29,17 @@ function parseEnvFile(path) {
 
 function upsertVercelEnv(name, value, environment = "production") {
   spawnSync("vercel", ["env", "rm", name, environment, "--yes"], {
-    stdio: "inherit",
-    shell: true,
+    stdio: "pipe",
+    shell: false,
   });
-  const result = spawnSync(
-    "vercel",
-    ["env", "add", name, environment],
-    {
-      input: value,
-      encoding: "utf8",
-      shell: true,
-    }
-  );
+  const result = spawnSync("vercel", ["env", "add", name, environment], {
+    input: value,
+    encoding: "utf8",
+    shell: false,
+  });
   if (result.status !== 0) {
-    throw new Error(`vercel env add ${name} failed`);
+    const err = result.stderr?.toString() || result.stdout?.toString() || "";
+    throw new Error(`vercel env add ${name} failed: ${err}`);
   }
   console.log(`✓ ${name} → Vercel (${environment})`);
 }
@@ -50,13 +47,35 @@ function upsertVercelEnv(name, value, environment = "production") {
 const envPath = join(process.cwd(), ".env.local");
 const env = parseEnvFile(envPath);
 
-const key = env.CLOUDINARY_API_KEY?.trim();
-const secret = env.CLOUDINARY_API_SECRET?.trim();
+let key = env.CLOUDINARY_API_KEY?.trim();
+let secret = env.CLOUDINARY_API_SECRET?.trim();
 
-if (!key || !secret) {
+const cloudinaryUrl = env.CLOUDINARY_URL?.trim();
+if (cloudinaryUrl && (!key || !secret)) {
+  try {
+    const parsed = new URL(cloudinaryUrl);
+    if (parsed.protocol === "cloudinary:") {
+      key = key || decodeURIComponent(parsed.username);
+      secret = secret || decodeURIComponent(parsed.password);
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+const missing = [];
+if (!key) missing.push("CLOUDINARY_API_KEY");
+if (!secret) missing.push("CLOUDINARY_API_SECRET");
+
+if (missing.length > 0) {
   console.error(
-    "חסרים CLOUDINARY_API_KEY או CLOUDINARY_API_SECRET ב-.env.local\n" +
-      "פתח Cloudinary → API Keys → Reveal והדבק את CLOUDINARY_API_SECRET."
+    `חסר ב-.env.local: ${missing.join(", ")}\n\n` +
+      "1. פתח https://console.cloudinary.com → Settings → API Keys\n" +
+      "2. לחץ Reveal ליד API Secret\n" +
+      "3. הדבק ב-.env.local בשורה:\n" +
+      "   CLOUDINARY_API_SECRET=הסוד_שהעתקת\n\n" +
+      "או שורה אחת:\n" +
+      "   CLOUDINARY_URL=cloudinary://API_KEY:API_SECRET@djohcg6ig\n"
   );
   process.exit(1);
 }
