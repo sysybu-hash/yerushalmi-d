@@ -119,7 +119,7 @@ export function buildZoompanVideoUrl(
   const width = options.width ?? 1920;
   const maxZoom = options.maxZoom ?? 1.02;
   const fps = options.fps ?? 30;
-  const flatten = `c_limit,w_${width},h_${width},b_white,f_jpg,q_100`;
+  const flatten = `c_limit,w_${width},h_${width},b_white,f_png,q_100`;
   const zoompan = `e_zoompan:du_${durationSec};maxzoom_${maxZoom};fps_${fps};to_(g_auto)`;
 
   return `${prefix}${flatten}/${zoompan}/fl_animated/q_auto:best/${tail}`;

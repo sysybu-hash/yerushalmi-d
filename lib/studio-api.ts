@@ -32,8 +32,8 @@ export function humanizeStudioError(message: string): string {
     return "שגיאת העלאה ל-Cloudinary — נסו שוב.";
   }
 
-  if (/unsupported file type.*jpeg/i.test(trimmed)) {
-    return "שגיאת העלאה ל-Cloudinary — נסו שוב; התמונה מומרת אוטומטית ל-PNG.";
+  if (/unsupported file type/i.test(trimmed)) {
+    return "Cloudinary דוחה את סוג הקובץ — ודאו שה-upload preset מאפשר PNG (תמונות) או הוסיפו CLOUDINARY_API_KEY + CLOUDINARY_API_SECRET ב-Vercel.";
   }
 
   return trimmed;

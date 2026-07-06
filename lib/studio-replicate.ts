@@ -208,7 +208,16 @@ export async function runTrackedReplicate(
 async function normalizeImageBufferForUpload(buffer: Buffer): Promise<Buffer> {
   try {
     const sharp = await loadSharp();
-    return sharp(buffer).png({ compressionLevel: 2 }).toBuffer();
+    let pipeline = sharp(buffer).ensureAlpha();
+    const meta = await pipeline.metadata();
+    const maxSide = Math.max(meta.width ?? 0, meta.height ?? 0);
+    if (maxSide > 1600) {
+      pipeline = pipeline.resize(1600, 1600, {
+        fit: "inside",
+        withoutEnlargement: true,
+      });
+    }
+    return pipeline.png({ compressionLevel: 8 }).toBuffer();
   } catch (error) {
     console.error("studio_png_normalize_failed", error);
     throw new Error("עיבוד התמונה לפני העלאה נכשל — נסו שוב");
@@ -252,7 +261,9 @@ async function postCloudinaryUpload(
   };
 
   if (!response.ok || !json.secure_url) {
-    throw new Error(json.error?.message ?? "העלאה ל-Cloudinary נכשלה");
+    const detail = json.error?.message ?? "העלאה ל-Cloudinary נכשלה";
+    console.error("cloudinary_upload_failed", detail);
+    throw new Error(detail);
   }
 
   return json.secure_url;
@@ -282,8 +293,6 @@ export async function uploadBufferToCloudinary(
   }
 
   const mime = resourceType === "video" ? "video/mp4" : "image/png";
-  const base64 = uploadBuffer.toString("base64");
-  const dataUri = `data:${mime};base64,${base64}`;
 
   const apiSecret = process.env.CLOUDINARY_API_SECRET?.trim();
   const apiKey = process.env.CLOUDINARY_API_KEY?.trim();
@@ -292,8 +301,9 @@ export async function uploadBufferToCloudinary(
     const timestamp = String(Math.round(Date.now() / 1000));
     const folder = "yerushalmi-studio";
     const signature = cloudinaryUploadSignature({ folder, timestamp }, apiSecret);
+    const base64 = uploadBuffer.toString("base64");
     const form = new FormData();
-    form.append("file", dataUri);
+    form.append("file", `data:${mime};base64,${base64}`);
     form.append("api_key", apiKey);
     form.append("timestamp", timestamp);
     form.append("signature", signature);
@@ -301,13 +311,23 @@ export async function uploadBufferToCloudinary(
     return postCloudinaryUpload(cloudName, resourceType, form);
   }
 
-  const form = new FormData();
-  form.append("file", dataUri);
-  form.append("upload_preset", uploadPreset);
-  form.append("folder", "yerushalmi-studio");
-  if (resourceType === "image") {
-    form.append("filename_override", uploadFilename.replace(/\.png$/i, ""));
-  }
+  const blob = new Blob([new Uint8Array(uploadBuffer)], { type: mime });
+  const minimal = new FormData();
+  minimal.append("file", blob, uploadFilename);
+  minimal.append("upload_preset", uploadPreset);
 
-  return postCloudinaryUpload(cloudName, resourceType, form);
+  try {
+    return await postCloudinaryUpload(cloudName, resourceType, minimal);
+  } catch (blobError) {
+    const base64 = uploadBuffer.toString("base64");
+    const dataUri = `data:${mime};base64,${base64}`;
+    const fallback = new FormData();
+    fallback.append("file", dataUri);
+    fallback.append("upload_preset", uploadPreset);
+    try {
+      return await postCloudinaryUpload(cloudName, resourceType, fallback);
+    } catch {
+      throw blobError;
+    }
+  }
 }

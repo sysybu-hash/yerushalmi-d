@@ -2,10 +2,13 @@ import {
   buildSourceVideoStudioUrl,
   buildZoompanVideoUrl,
 } from "@/lib/cloudinary-url";
-import { uploadBufferToCloudinary } from "@/lib/studio-replicate";
 import { parseStudioVideoDuration, type StudioVideoDurationSec } from "@/lib/studio-video-duration";
 
-async function fetchCloudinaryDelivery(deliveryUrl: string, label: string): Promise<Buffer> {
+async function verifyCloudinaryDelivery(
+  deliveryUrl: string,
+  label: string,
+  minBytes = 2048
+): Promise<void> {
   const response = await fetch(deliveryUrl, {
     signal: AbortSignal.timeout(180_000),
   });
@@ -19,16 +22,14 @@ async function fetchCloudinaryDelivery(deliveryUrl: string, label: string): Prom
   }
 
   const buffer = Buffer.from(await response.arrayBuffer());
-  if (buffer.length < 2048) {
+  if (buffer.length < minBytes) {
     throw new Error("קובץ הווידאו הקטלוגי ריק או פגום");
   }
-
-  return buffer;
 }
 
 /**
  * וידאו קטלוגי מתמונת הרכבה — זום עדין בלבד, בלי AI.
- * שומר 100% על צורת התכשיט (אין morphing של Veo/Kling).
+ * מחזיר URL ישירות מ-Cloudinary (ללא העלאה חוזרת — ה-preset לרוב מיועד לתמונות).
  */
 export async function generatePreservedMotionVideo(
   compositeImageUrl: string,
@@ -41,19 +42,12 @@ export async function generatePreservedMotionVideo(
     width: 1920,
   });
 
-  const buffer = await fetchCloudinaryDelivery(motionUrl, "zoompan");
-  const url = await uploadBufferToCloudinary(
-    buffer,
-    `studio-video-preserve-${Date.now()}.mp4`,
-    "video"
-  );
-
-  return { url };
+  await verifyCloudinaryDelivery(motionUrl, "zoompan");
+  return { url: motionUrl };
 }
 
 /**
  * מיטוב וידאו מקורי — שומר תנועה, משפר חדות וצבע.
- * מומלץ כשמעלים וידאו WhatsApp במקום פריים בודד.
  */
 export async function generateProfessionalSourceVideo(
   sourceVideoUrl: string,
@@ -61,12 +55,6 @@ export async function generateProfessionalSourceVideo(
 ): Promise<{ url: string }> {
   const seconds = parseStudioVideoDuration(duration);
   const deliveryUrl = buildSourceVideoStudioUrl(sourceVideoUrl, seconds, 1080);
-  const buffer = await fetchCloudinaryDelivery(deliveryUrl, "source_video");
-  const url = await uploadBufferToCloudinary(
-    buffer,
-    `studio-video-source-${Date.now()}.mp4`,
-    "video"
-  );
-
-  return { url };
+  await verifyCloudinaryDelivery(deliveryUrl, "source_video", 4096);
+  return { url: deliveryUrl };
 }
