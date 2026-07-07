@@ -103,33 +103,45 @@ export function useStudioActions(
     [dispatch, keyFor, finishIntent, refreshUsage]
   );
 
-  /** שלב 1 בתשלום (~$0.004, עם מטמון): בידוד התכשיט */
-  const makeCutout = React.useCallback(async (): Promise<string | null> => {
-    const { source, cutout, aiEngines, flow } = stateRef.current;
-    if (!source.url) return null;
-    if (cutout.url) return cutout.url;
+  /**
+   * שלב 1 בתשלום (~$0.004, עם מטמון): בידוד התכשיט.
+   * force=true — בידוד מחדש עם AI: עוקף מטמון ופרוצדורלי (כשהבידוד יצא גרוע).
+   */
+  const makeCutout = React.useCallback(
+    async (force = false): Promise<string | null> => {
+      const { source, cutout, aiEngines, flow } = stateRef.current;
+      if (!source.url) return null;
+      if (cutout.url && !force) return cutout.url;
 
-    let cutoutUrl: string | null = null;
-    await runPaidAction(
-      "cutout",
-      `cutout:${source.url}`,
-      (idempotencyKey) =>
-        studioApiRemoveBackground(source.url!, {
-          engines: aiEngines,
-          mode: flow,
-          idempotencyKey,
-        }),
-      (data) => {
-        cutoutUrl = data.url;
-        dispatch({
-          type: "CUTOUT_DONE",
-          url: data.url,
-          cached: Boolean(data.cached),
-        });
-      }
-    );
-    return cutoutUrl;
-  }, [runPaidAction, dispatch]);
+      // בידוד מאולץ הוא כוונה חדשה — מפתח חדש בכל לחיצה (הנעילה מגינה מכפילות)
+      const intent = force
+        ? `cutout-force:${source.url}:${crypto.randomUUID()}`
+        : `cutout:${source.url}`;
+
+      let cutoutUrl: string | null = null;
+      await runPaidAction(
+        "cutout",
+        intent,
+        (idempotencyKey) =>
+          studioApiRemoveBackground(source.url!, {
+            engines: aiEngines,
+            mode: flow,
+            idempotencyKey,
+            force,
+          }),
+        (data) => {
+          cutoutUrl = data.url;
+          dispatch({
+            type: "CUTOUT_DONE",
+            url: data.url,
+            cached: Boolean(data.cached),
+          });
+        }
+      );
+      return cutoutUrl;
+    },
+    [runPaidAction, dispatch]
+  );
 
   /** תצוגה מקדימה חינמית — קומפוזיט פרוצדורלי (Sharp, ללא AI) */
   const makePreview = React.useCallback(async (): Promise<string | null> => {

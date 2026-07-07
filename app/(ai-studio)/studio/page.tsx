@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { RotateCcw, Sparkles } from "lucide-react";
+import { RotateCcw, Scissors, Sparkles } from "lucide-react";
 
 import {
   createStudioProject,
@@ -13,6 +13,10 @@ import {
   saveStudioProject,
   type StudioProjectListItem,
 } from "@/app/(ai-studio)/studio/project-actions";
+import {
+  saveAssetToCloudinary,
+  saveToMediaLibrary,
+} from "@/app/(ai-studio)/studio/actions";
 import {
   INITIAL_STUDIO_STATE,
   snapshotToState,
@@ -163,6 +167,27 @@ function StudioV2Content() {
     setProjectInUrl(null);
   }, [setProjectInUrl]);
 
+  // שמירה אוטומטית של כל תוצאה מוכנה לספריית התוכן — פעם אחת לכל URL
+  const savedResults = React.useRef(new Set<string>());
+  React.useEffect(() => {
+    const { url, kind, status } = state.result;
+    const sourceUrl = state.source.url;
+    if (status !== "done" || !url || !kind || !sourceUrl) return;
+    if (savedResults.current.has(url)) return;
+    savedResults.current.add(url);
+
+    (async () => {
+      try {
+        const { url: storedUrl } = await saveAssetToCloudinary(url, kind);
+        await saveToMediaLibrary(kind, sourceUrl, storedUrl);
+        showToast("התוצאה נשמרה אוטומטית בספריית התוכן");
+      } catch {
+        savedResults.current.delete(url);
+        showToast("השמירה האוטומטית לספרייה נכשלה — השתמשו בכפתור השמירה");
+      }
+    })();
+  }, [state.result, state.source.url, showToast]);
+
   const handleAction = React.useCallback(
     (id: "preview" | "image" | "video") => {
       if (id === "preview") void actions.makePreview();
@@ -213,14 +238,29 @@ function StudioV2Content() {
         <div className="space-y-3 lg:sticky lg:top-4 lg:self-start">
           <StudioCanvas state={state} />
           {state.source.url && (
-            <div className="flex items-center justify-between">
-              <StudioUploadZone
-                hasSource
-                onUploaded={(url) =>
-                  dispatch({ type: "SOURCE_UPLOADED", url, kind: "image" })
-                }
-                disabled={busy}
-              />
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <StudioUploadZone
+                  hasSource
+                  onUploaded={(url) =>
+                    dispatch({ type: "SOURCE_UPLOADED", url, kind: "image" })
+                  }
+                  disabled={busy}
+                />
+                {state.cutout.url && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => void actions.makeCutout(true)}
+                    title="הבידוד יצא גרוע? הרצה מחדש עם AI — עוקף את המטמון"
+                    className="rounded-none text-xs font-light"
+                  >
+                    <Scissors className="ml-1.5 h-3.5 w-3.5" />
+                    בידוד מחדש עם AI
+                  </Button>
+                )}
+              </div>
               {state.cutout.cached && state.cutout.url && (
                 <span className="text-[10px] font-light text-emerald-700">
                   ✓ בידוד מהמטמון — ללא חיוב

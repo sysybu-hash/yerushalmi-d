@@ -136,6 +136,9 @@ export function studioReducer(
         ...state,
         busyAction: null,
         cutout: { url: action.url, status: "done", cached: action.cached },
+        // בידוד חדש מבטל תצוגה ותוצאה שנבנו על הבידוד הקודם
+        preview: { ...INITIAL_STUDIO_STATE.preview },
+        result: { ...INITIAL_STUDIO_STATE.result },
       };
 
     case "PREVIEW_DONE":

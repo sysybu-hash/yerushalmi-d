@@ -27,6 +27,7 @@ export async function POST(request: Request) {
       projectId?: number;
       cutoutUrl?: string;
       idempotencyKey?: string;
+      force?: boolean;
     };
     if (!body.imageUrl?.trim()) {
       return studioJsonError(
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
         mode: body.mode,
         projectId: body.projectId,
         cutoutUrl: body.cutoutUrl,
+        force: body.force,
       })
     );
     return studioJsonOk(data);

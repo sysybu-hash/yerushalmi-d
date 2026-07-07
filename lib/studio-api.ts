@@ -104,6 +104,7 @@ export async function studioApiRemoveBackground(
     projectId?: number;
     cutoutUrl?: string;
     idempotencyKey?: string;
+    force?: boolean;
   } = {}
 ): Promise<StudioActionResult<{ url: string; cached?: boolean }>> {
   try {
@@ -118,6 +119,7 @@ export async function studioApiRemoveBackground(
         projectId: options.projectId,
         cutoutUrl: options.cutoutUrl,
         idempotencyKey: options.idempotencyKey,
+        force: options.force,
       }),
     });
     return parseStudioResponse(response);

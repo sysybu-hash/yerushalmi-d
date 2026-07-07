@@ -37,6 +37,8 @@ export async function studioRemoveBackground(
     mode?: StudioPipelineMode;
     projectId?: number;
     cached?: boolean;
+    /** דילוג על הניסיון הפרוצדורלי — ישר ל-AI (בידוד מחדש מאולץ) */
+    skipProcedural?: boolean;
   } = {}
 ): Promise<{ url: string }> {
   const usageMode: AiUsageMode = options.mode ?? "catalog";
@@ -54,10 +56,12 @@ export async function studioRemoveBackground(
     return { url: imageUrl };
   }
 
-  const sourceResponse = await fetch(rembgSourceUrl(imageUrl), {
-    signal: AbortSignal.timeout(60_000),
-  });
-  if (sourceResponse.ok) {
+  const sourceResponse = options.skipProcedural
+    ? null
+    : await fetch(rembgSourceUrl(imageUrl), {
+        signal: AbortSignal.timeout(60_000),
+      });
+  if (sourceResponse?.ok) {
     const procedural = await tryProceduralJewelryCutout(
       Buffer.from(await sourceResponse.arrayBuffer())
     );

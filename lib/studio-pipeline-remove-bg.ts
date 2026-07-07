@@ -20,6 +20,8 @@ export async function pipelineRemoveBackground(
     mode?: StudioPipelineMode;
     projectId?: number;
     cutoutUrl?: string;
+    /** בידוד מחדש מאולץ — מתעלם ממטמון ומפרוצדורלי, ישר ל-AI */
+    force?: boolean;
   } = {}
 ) {
   assertStudioEnv();
@@ -32,13 +34,15 @@ export async function pipelineRemoveBackground(
     false
   );
 
-  if (options.cutoutUrl?.trim()) {
-    return { url: options.cutoutUrl.trim(), cached: true };
-  }
+  if (!options.force) {
+    if (options.cutoutUrl?.trim()) {
+      return { url: options.cutoutUrl.trim(), cached: true };
+    }
 
-  const cached = await getPersistedCutout(imageUrl);
-  if (cached) {
-    return { url: cached, cached: true };
+    const cached = await getPersistedCutout(imageUrl);
+    if (cached) {
+      return { url: cached, cached: true };
+    }
   }
 
   const result = await executeWithEngineFallback(
@@ -48,6 +52,7 @@ export async function pipelineRemoveBackground(
       studioRemoveBackground(imageUrl, cutoutEngine, {
         mode: studioMode,
         projectId: options.projectId,
+        skipProcedural: options.force,
       }),
     // cutout זול יחסית — מותר fallback רק כשהכשל לא חִייב (401/402/rate limit)
     { fallbackPolicy: "billing-errors" }

@@ -257,17 +257,60 @@ export async function normalizeJewelryCutout(buffer: Buffer): Promise<Buffer> {
   return current;
 }
 
-/** cutout פרוצדורלי לצילום על רקע לבן/אפור — שומר פיקסels מקוריים, בלי AI */
+/**
+ * המסלול הפרוצדורלי בטוח רק כשהרקע באמת אחיד ובהיר.
+ * בודקים את שולי התמונה: אם פחות מ-92% מפיקסלי המסגרת בהירים ואחידים —
+ * זה צילום עם קופסה/צללים/רקע עמוס, ורק AI (Bria) יבודד נכון.
+ */
+async function hasUniformLightBorder(buffer: Buffer): Promise<boolean> {
+  const sharp = await loadSharp();
+  const { data, info } = await sharp(buffer)
+    .resize(256, 256, { fit: "fill" })
+    .removeAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  const border = Math.max(4, Math.round(info.width * 0.06));
+  let total = 0;
+  let light = 0;
+
+  for (let y = 0; y < info.height; y++) {
+    const edgeRow = y < border || y >= info.height - border;
+    for (let x = 0; x < info.width; x++) {
+      if (!edgeRow && x >= border && x < info.width - border) continue;
+      const i = (y * info.width + x) * 3;
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      const min = Math.min(r, g, b);
+      const spread = Math.max(r, g, b) - min;
+      total++;
+      if (min >= 175 && spread <= 40) light++;
+    }
+  }
+
+  return total > 0 && light / total >= 0.92;
+}
+
+/** התכשיט בצילום מקרו על רקע אחיד תופס בדרך כלל פחות מ-45% מהפריים */
+const PROCEDURAL_MAX_OPAQUE_RATIO = 0.45;
+
+/** cutout פרוצדורלי לצילום על רקע לבן/אפור — שומר פיקסלים מקוריים, בלי AI */
 export async function proceduralJewelryCutout(buffer: Buffer): Promise<Buffer> {
+  if (!(await hasUniformLightBorder(buffer))) {
+    throw new Error("procedural_cutout_background_not_uniform");
+  }
+
   let current = await stripLightBackground(buffer, 38);
   let metrics = await analyzeCutout(current);
 
-  if (metrics.opaqueRatio > MAX_OPAQUE_RATIO) {
+  if (metrics.opaqueRatio > PROCEDURAL_MAX_OPAQUE_RATIO) {
     current = await stripLightBackground(current, 55);
     metrics = await analyzeCutout(current);
   }
 
-  if (metrics.opaqueRatio > MAX_OPAQUE_RATIO) {
+  // אם אחרי שני מעברים עדיין נשאר הרבה "תוכן" — כנראה קופסה/רקע, לא תכשיט
+  if (metrics.opaqueRatio > PROCEDURAL_MAX_OPAQUE_RATIO) {
     throw new Error("procedural_cutout_background_too_busy");
   }
 
