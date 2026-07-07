@@ -24,6 +24,7 @@ const BUSY_LABELS: Record<string, string> = {
  */
 export function StudioCanvas({ state }: { state: StudioV2State }) {
   const [showBefore, setShowBefore] = React.useState(false);
+  const [mediaError, setMediaError] = React.useState<string | null>(null);
 
   const current = React.useMemo(() => {
     // ניסיון נבחר מהגלריה גובר על הכול — ניווט והשוואה
@@ -104,6 +105,12 @@ export function StudioCanvas({ state }: { state: StudioV2State }) {
             loop
             muted
             playsInline
+            onLoadedData={() => setMediaError(null)}
+            onError={() =>
+              setMediaError(
+                "הווידאו לא נטען — ייתכן שהקובץ עדיין בעיבוד או שהקישור פג. נסו לרענן או ליצור מחדש."
+              )
+            }
             className="h-full w-full object-contain"
           />
         ) : (
@@ -114,6 +121,10 @@ export function StudioCanvas({ state }: { state: StudioV2State }) {
             className="object-contain"
             sizes="(min-width: 1024px) 60vw, 100vw"
             unoptimized
+            onLoad={() => setMediaError(null)}
+            onError={() =>
+              setMediaError("התמונה לא נטענה — נסו לרענן או ליצור מחדש.")
+            }
           />
         )
       ) : (
@@ -126,6 +137,12 @@ export function StudioCanvas({ state }: { state: StudioV2State }) {
         <span className="absolute right-2 top-2 bg-black/60 px-2 py-0.5 text-[10px] font-light text-white">
           {displayed.label}
         </span>
+      )}
+
+      {mediaError && displayed && (
+        <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 border border-amber-400 bg-amber-50/95 px-4 py-3 text-center text-sm font-light text-amber-800">
+          {mediaError}
+        </div>
       )}
 
       {canCompare && (

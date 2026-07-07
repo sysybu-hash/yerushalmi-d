@@ -199,6 +199,12 @@ async function stripCheckerboardBackground(buffer: Buffer): Promise<Buffer> {
 }
 
 /** הסרת רקע כרומה ירוק (Gemini) */
+/**
+ * הסרת רקע צבעוני אחיד (מסך ירוק/כל צבע ש-Gemini מצייר):
+ * דוגמים את צבע שולי התמונה; אם הוא רווי (לא אפור/לבן) — מוחקים כל
+ * פיקסל שקרוב אליו בצבע, עם despill וניקוי רעש. עובד על כל גוון,
+ * גם ירוק כהה שהסף הישן פספס.
+ */
 async function chromaKeyGreenBackground(buffer: Buffer): Promise<Buffer> {
   const sharp = await loadSharp();
   const { data, info } = await sharp(buffer)
@@ -209,60 +215,93 @@ async function chromaKeyGreenBackground(buffer: Buffer): Promise<Buffer> {
   const w = info.width;
   const h = info.height;
   const out = Buffer.from(data);
-  let keyed = 0;
 
-  // מעבר 1 — ירוק מובהק (מסך ירוק נקי)
-  for (let i = 0; i < out.length; i += 4) {
-    const r = out[i];
-    const g = out[i + 1];
-    const b = out[i + 2];
-
-    const isGreen =
-      g > 160 && g > r + 35 && g > b + 35 && g - Math.max(r, b) > 40;
-
-    if (isGreen) {
-      out[i + 3] = 0;
-      keyed++;
+  // דגימת צבע השוליים (6% מסגרת) — חציון לכל ערוץ
+  const border = Math.max(4, Math.round(Math.min(w, h) * 0.06));
+  const rs: number[] = [];
+  const gs: number[] = [];
+  const bs: number[] = [];
+  for (let y = 0; y < h; y++) {
+    const edgeRow = y < border || y >= h - border;
+    for (let x = 0; x < w; x++) {
+      if (!edgeRow && x >= border && x < w - border) continue;
+      const i = (y * w + x) * 4;
+      if (out[i + 3] < 64) continue;
+      rs.push(out[i]);
+      gs.push(out[i + 1]);
+      bs.push(out[i + 2]);
     }
   }
+  if (rs.length < 32) return buffer;
 
-  if (keyed < w * h * 0.02) return buffer;
+  const median = (arr: number[]) => {
+    const sorted = [...arr].sort((a, b) => a - b);
+    return sorted[Math.floor(sorted.length / 2)];
+  };
+  const bgR = median(rs);
+  const bgG = median(gs);
+  const bgB = median(bs);
+  const spread = Math.max(bgR, bgG, bgB) - Math.min(bgR, bgG, bgB);
 
-  // זו תמונת מסך-ירוק — Gemini מצייר ירוק מרוקם ולא אחיד,
-  // אז מעבר 2 מוריד גם ירוק חלש/בהיר וגם רעש בהיר שנשאר סביבו
-  let greenish = 0;
+  // רקע אפור/לבן — לא מסך צבע; יטופל ע"י stripLightBackground
+  const greenDominant = bgG > bgR + 20 && bgG > bgB + 20;
+  if (spread < 40 && !greenDominant) return buffer;
+
+  // כמה מהשוליים באמת קרובים לצבע הזה? אם מעט — אין מסך אחיד
+  const dist = (i: number) =>
+    Math.abs(out[i] - bgR) + Math.abs(out[i + 1] - bgG) + Math.abs(out[i + 2] - bgB);
+  let borderMatches = 0;
+  let borderTotal = 0;
+  for (let y = 0; y < h; y++) {
+    const edgeRow = y < border || y >= h - border;
+    for (let x = 0; x < w; x++) {
+      if (!edgeRow && x >= border && x < w - border) continue;
+      const i = (y * w + x) * 4;
+      if (out[i + 3] < 64) continue;
+      borderTotal++;
+      if (dist(i) < 150) borderMatches++;
+    }
+  }
+  if (borderTotal === 0 || borderMatches / borderTotal < 0.55) return buffer;
+
+  // מחיקה לפי קרבת צבע + זיהוי ירוק-דומיננטי (למרקמים לא אחידים)
+  let keyed = 0;
   for (let i = 0; i < out.length; i += 4) {
     if (out[i + 3] === 0) continue;
     const r = out[i];
     const g = out[i + 1];
     const b = out[i + 2];
 
-    if (g > 90 && g >= r + 14 && g >= b + 14) {
+    const closeToBg = dist(i) < 165;
+    const greenish =
+      greenDominant && g > 70 && g >= r + 14 && g >= b + 14;
+
+    if (closeToBg || greenish) {
       out[i + 3] = 0;
-      greenish++;
+      keyed++;
       continue;
     }
 
-    // הסרת שאריות ירקרקות (despill) בקצוות — מנטרל הילה ירוקה
-    if (g > r && g > b && g - Math.max(r, b) > 6) {
+    // despill — ניטרול הילה בגוון הרקע על קצוות המתכת
+    if (greenDominant && g > r && g > b && g - Math.max(r, b) > 6) {
       out[i + 1] = Math.max(r, b);
     }
   }
 
-  // ניקוי פיקסלים בודדים שנותרו "צפים" בתוך אזור שנוקה (רעש נקודתי)
-  if (keyed + greenish > w * h * 0.1) {
-    const alphaAt = (x: number, y: number) => out[(y * w + x) * 4 + 3];
-    for (let y = 1; y < h - 1; y++) {
-      for (let x = 1; x < w - 1; x++) {
-        const i = (y * w + x) * 4;
-        if (out[i + 3] === 0) continue;
-        let clearNeighbors = 0;
-        if (alphaAt(x - 1, y) === 0) clearNeighbors++;
-        if (alphaAt(x + 1, y) === 0) clearNeighbors++;
-        if (alphaAt(x, y - 1) === 0) clearNeighbors++;
-        if (alphaAt(x, y + 1) === 0) clearNeighbors++;
-        if (clearNeighbors >= 3) out[i + 3] = 0;
-      }
+  if (keyed < w * h * 0.05) return buffer;
+
+  // ניקוי פיקסלים בודדים "צפים" בתוך אזור שנוקה
+  const alphaAt = (x: number, y: number) => out[(y * w + x) * 4 + 3];
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const i = (y * w + x) * 4;
+      if (out[i + 3] === 0) continue;
+      let clearNeighbors = 0;
+      if (alphaAt(x - 1, y) === 0) clearNeighbors++;
+      if (alphaAt(x + 1, y) === 0) clearNeighbors++;
+      if (alphaAt(x, y - 1) === 0) clearNeighbors++;
+      if (alphaAt(x, y + 1) === 0) clearNeighbors++;
+      if (clearNeighbors >= 3) out[i + 3] = 0;
     }
   }
 
@@ -287,6 +326,13 @@ export async function normalizeJewelryCutout(buffer: Buffer): Promise<Buffer> {
   if (metrics.opaqueRatio > MAX_OPAQUE_RATIO) {
     current = await stripLightBackground(current, 52);
     metrics = await analyzeCutout(current);
+  }
+
+  // הרקע לא הוסר באמת — עצירה קשיחה במקום להעביר זבל להרכבה ולמטמון
+  if (metrics.opaqueRatio > 0.85) {
+    throw new Error(
+      "הסרת הרקע לא הצליחה — הרקע נשאר בתמונה. לחצו 'בידוד מחדש עם AI' או נסו צילום עם רקע אחיד ובהיר."
+    );
   }
 
   await validateJewelryCutout(current);
@@ -661,12 +707,17 @@ export async function compositeProductImage(
 
   const rawJewelry = Buffer.from(await jewelryRes.arrayBuffer());
 
-  const jewelryInput = isProcessedStudioCutoutUrl(jewelryPngUrl)
-    ? await (async () => {
+  const jewelryInput = await (async () => {
+    if (isProcessedStudioCutoutUrl(jewelryPngUrl)) {
+      // גם cutout "מעובד" נבדק — אם נשאר רקע (מטמון ישן פגום), מנקים שוב
+      const metrics = await analyzeCutout(rawJewelry);
+      if (metrics.opaqueRatio <= 0.85) {
         await validateJewelryCutout(rawJewelry);
         return rawJewelry;
-      })()
-    : await normalizeJewelryCutout(rawJewelry);
+      }
+    }
+    return normalizeJewelryCutout(rawJewelry);
+  })();
 
   const skipFeather = await hasSoftAlphaMatte(jewelryInput);
   const jewelryMaxWidth = Math.round(canvasSize * JEWELRY_CANVAS_RATIO);
