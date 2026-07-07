@@ -156,3 +156,8 @@ export function buildSourceVideoStudioUrl(
 export function isCloudinaryVideoUrl(url: string): boolean {
   return url.includes("/video/upload/");
 }
+
+/** וידאו מונפש מתמונה (zoompan + fl_animated) — טרנספורמציות נוספות שוברות את ה-URL */
+export function isCloudinaryAnimatedDeliveryUrl(url: string): boolean {
+  return url.includes("fl_animated") || url.includes("e_zoompan");
+}

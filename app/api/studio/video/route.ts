@@ -5,6 +5,10 @@ import {
   studioRouteGuard,
 } from "@/lib/studio-route";
 import { QuotaExceededError } from "@/lib/ai-usage";
+import {
+  IdempotencyConflictError,
+  withIdempotency,
+} from "@/lib/studio-idempotency";
 import type { GenerateVideoOptions } from "@/lib/studio-types";
 
 export const runtime = "nodejs";
@@ -18,6 +22,7 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as {
       imageUrl?: string;
+      idempotencyKey?: string;
     } & GenerateVideoOptions;
 
     if (!body.imageUrl?.trim()) {
@@ -28,9 +33,14 @@ export async function POST(request: Request) {
       );
     }
 
-    const data = await pipelineGenerateVideo(body.imageUrl.trim(), body);
+    const data = await withIdempotency(body.idempotencyKey, () =>
+      pipelineGenerateVideo(body.imageUrl!.trim(), body)
+    );
     return studioJsonOk(data);
   } catch (error) {
+    if (error instanceof IdempotencyConflictError) {
+      return studioJsonError(error, error.message, 409);
+    }
     if (error instanceof QuotaExceededError) {
       return studioJsonError(error, error.message, 429);
     }

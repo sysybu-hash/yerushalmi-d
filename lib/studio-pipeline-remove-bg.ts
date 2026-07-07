@@ -3,8 +3,8 @@ import { studioRemoveBackground } from "@/lib/ai-studio-media";
 import { getResolvedAiEngines, executeWithEngineFallback } from "@/lib/ai-engine-resolve";
 import { assertStudioEnv } from "@/lib/studio-env";
 import {
-  getCachedCutout,
-  setCachedCutout,
+  getPersistedCutout,
+  persistCutout,
 } from "@/lib/studio-cutout-cache";
 
 function assertCloudinaryUrl(imageUrl: string) {
@@ -36,7 +36,7 @@ export async function pipelineRemoveBackground(
     return { url: options.cutoutUrl.trim(), cached: true };
   }
 
-  const cached = getCachedCutout(imageUrl);
+  const cached = await getPersistedCutout(imageUrl);
   if (cached) {
     return { url: cached, cached: true };
   }
@@ -48,9 +48,11 @@ export async function pipelineRemoveBackground(
       studioRemoveBackground(imageUrl, cutoutEngine, {
         mode: studioMode,
         projectId: options.projectId,
-      })
+      }),
+    // cutout זול יחסית — מותר fallback רק כשהכשל לא חִייב (401/402/rate limit)
+    { fallbackPolicy: "billing-errors" }
   );
 
-  setCachedCutout(imageUrl, result.url);
+  await persistCutout(imageUrl, result.url);
   return { url: result.url, cached: false };
 }

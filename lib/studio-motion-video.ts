@@ -2,13 +2,14 @@ import {
   buildSourceVideoStudioUrl,
   buildZoompanVideoUrl,
 } from "@/lib/cloudinary-url";
+import { uploadBufferToCloudinary } from "@/lib/studio-replicate";
 import { parseStudioVideoDuration, type StudioVideoDurationSec } from "@/lib/studio-video-duration";
 
-async function verifyCloudinaryDelivery(
+async function fetchCloudinaryDeliveryBuffer(
   deliveryUrl: string,
   label: string,
   minBytes = 2048
-): Promise<void> {
+): Promise<Buffer> {
   const response = await fetch(deliveryUrl, {
     signal: AbortSignal.timeout(180_000),
   });
@@ -25,11 +26,13 @@ async function verifyCloudinaryDelivery(
   if (buffer.length < minBytes) {
     throw new Error("קובץ הווידאו הקטלוגי ריק או פגום");
   }
+
+  return buffer;
 }
 
 /**
  * וידאו קטלוגי מתמונת הרכבה — זום עדין בלבד, בלי AI.
- * מחזיר URL ישירות מ-Cloudinary (ללא העלאה חוזרת — ה-preset לרוב מיועד לתמונות).
+ * מוריד את ה-MP4 מ-zoompan ומעלה ל-/video/upload לתצוגה תקינה בדפדפן.
  */
 export async function generatePreservedMotionVideo(
   compositeImageUrl: string,
@@ -42,8 +45,19 @@ export async function generatePreservedMotionVideo(
     width: 1920,
   });
 
-  await verifyCloudinaryDelivery(motionUrl, "zoompan");
-  return { url: motionUrl };
+  const buffer = await fetchCloudinaryDeliveryBuffer(motionUrl, "zoompan");
+
+  try {
+    const url = await uploadBufferToCloudinary(
+      buffer,
+      `studio-video-preserve-${Date.now()}.mp4`,
+      "video"
+    );
+    return { url };
+  } catch (uploadError) {
+    console.warn("studio_video_upload_fallback", uploadError);
+    return { url: motionUrl };
+  }
 }
 
 /**
@@ -55,6 +69,6 @@ export async function generateProfessionalSourceVideo(
 ): Promise<{ url: string }> {
   const seconds = parseStudioVideoDuration(duration);
   const deliveryUrl = buildSourceVideoStudioUrl(sourceVideoUrl, seconds, 1080);
-  await verifyCloudinaryDelivery(deliveryUrl, "source_video", 4096);
+  await fetchCloudinaryDeliveryBuffer(deliveryUrl, "source_video", 4096);
   return { url: deliveryUrl };
 }

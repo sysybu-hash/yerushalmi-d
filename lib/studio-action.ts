@@ -2,7 +2,7 @@ import { normalizeStudioError } from "@/lib/studio-replicate";
 
 export type StudioActionResult<T> =
   | { ok: true; data: T }
-  | { ok: false; error: string };
+  | { ok: false; error: string; retryable?: boolean; status?: number };
 
 export async function runStudioAction<T>(
   fn: () => Promise<T>,

@@ -99,13 +99,13 @@ async function resolveBackgroundBuffer(
       },
       engines.background
     );
-  } catch {
-    const { generatePresetBackground } = await import("@/lib/studio-backgrounds");
-    return generatePresetBackground({
-      preset,
-      lightingHints,
-      size: STUDIO_CANVAS_SIZE,
-    });
+  } catch (error) {
+    // בלי fallback שקט — המשתמש ביקש רקע AI ושילם על הניסיון;
+    // מחזירים שגיאה ברורה במקום רקע פרוצדורלי שנראה כמו הצלחה.
+    console.error("studio_ai_background_failed", error);
+    throw new Error(
+      "יצירת רקע ה-AI נכשלה — נסו שוב, או בטלו את אפשרות רקע ה-AI לקבלת רקע פרוצדורלי (חינם)."
+    );
   }
 }
 

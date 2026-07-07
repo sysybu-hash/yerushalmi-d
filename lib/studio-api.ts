@@ -43,7 +43,8 @@ async function parseStudioResponse<T>(
   response: Response
 ): Promise<StudioActionResult<T>> {
   const raw = await response.text();
-  let body: { ok?: boolean; data?: T; error?: string } = {};
+  let body: { ok?: boolean; data?: T; error?: string; retryable?: boolean } =
+    {};
 
   try {
     body = raw ? (JSON.parse(raw) as typeof body) : {};
@@ -79,6 +80,19 @@ async function parseStudioResponse<T>(
     error: humanizeStudioError(
       body.error ?? `שגיאת שרת (${response.status})`
     ),
+    retryable: body.retryable ?? [500, 502, 503, 504].includes(response.status),
+    status: response.status,
+  };
+}
+
+/** שגיאת רשת בצד הלקוח — תמיד retryable (הבקשה אולי לא הגיעה לשרת) */
+function networkFailure(error: unknown): StudioActionResult<never> {
+  return {
+    ok: false,
+    error: humanizeStudioError(
+      error instanceof Error ? error.message : "שגיאת רשת"
+    ),
+    retryable: true,
   };
 }
 
@@ -89,6 +103,7 @@ export async function studioApiRemoveBackground(
     mode?: GenerateImageOptions["mode"];
     projectId?: number;
     cutoutUrl?: string;
+    idempotencyKey?: string;
   } = {}
 ): Promise<StudioActionResult<{ url: string; cached?: boolean }>> {
   try {
@@ -102,22 +117,18 @@ export async function studioApiRemoveBackground(
         mode: options.mode,
         projectId: options.projectId,
         cutoutUrl: options.cutoutUrl,
+        idempotencyKey: options.idempotencyKey,
       }),
     });
     return parseStudioResponse(response);
   } catch (error) {
-    return {
-      ok: false,
-      error: humanizeStudioError(
-        error instanceof Error ? error.message : "שגיאת רשת"
-      ),
-    };
+    return networkFailure(error);
   }
 }
 
 export async function studioApiCompositeImage(
   cutoutUrl: string,
-  options: GenerateImageOptions = {}
+  options: GenerateImageOptions & { idempotencyKey?: string } = {}
 ): Promise<StudioActionResult<{ url: string }>> {
   try {
     const response = await fetch("/api/studio/composite", {
@@ -128,18 +139,13 @@ export async function studioApiCompositeImage(
     });
     return parseStudioResponse(response);
   } catch (error) {
-    return {
-      ok: false,
-      error: humanizeStudioError(
-        error instanceof Error ? error.message : "שגיאת רשת"
-      ),
-    };
+    return networkFailure(error);
   }
 }
 
 export async function studioApiGenerateImage(
   sourceUrl: string,
-  options: GenerateImageOptions = {}
+  options: GenerateImageOptions & { idempotencyKey?: string } = {}
 ): Promise<StudioActionResult<StudioGenerateResult>> {
   try {
     const response = await fetch("/api/studio/generate", {
@@ -150,18 +156,13 @@ export async function studioApiGenerateImage(
     });
     return parseStudioResponse(response);
   } catch (error) {
-    return {
-      ok: false,
-      error: humanizeStudioError(
-        error instanceof Error ? error.message : "שגיאת רשת"
-      ),
-    };
+    return networkFailure(error);
   }
 }
 
 export async function studioApiGenerateVideo(
   imageUrl: string,
-  options: GenerateVideoOptions = {}
+  options: GenerateVideoOptions & { idempotencyKey?: string } = {}
 ): Promise<StudioActionResult<{ url: string; provider: "kling" | "veo" | "preserve" }>> {
   try {
     const response = await fetch("/api/studio/video", {
@@ -172,12 +173,7 @@ export async function studioApiGenerateVideo(
     });
     return parseStudioResponse(response);
   } catch (error) {
-    return {
-      ok: false,
-      error: humanizeStudioError(
-        error instanceof Error ? error.message : "שגיאת רשת"
-      ),
-    };
+    return networkFailure(error);
   }
 }
 
@@ -194,6 +190,7 @@ export async function studioApiEnhanceVideo(
     stylePreset?: StudioStylePresetId;
     mode?: GenerateImageOptions["mode"];
     projectId?: number;
+    idempotencyKey?: string;
   } = {}
 ): Promise<StudioActionResult<{ url: string }>> {
   try {
@@ -210,16 +207,12 @@ export async function studioApiEnhanceVideo(
         stylePreset: options.stylePreset,
         mode: options.mode,
         projectId: options.projectId,
+        idempotencyKey: options.idempotencyKey,
       }),
     });
     return parseStudioResponse(response);
   } catch (error) {
-    return {
-      ok: false,
-      error: humanizeStudioError(
-        error instanceof Error ? error.message : "שגיאת רשת"
-      ),
-    };
+    return networkFailure(error);
   }
 }
 export type SourceEnhancePreset = "complete" | "cleanup" | "enhance";
@@ -231,6 +224,7 @@ export async function studioApiEnhanceSource(
     customPrompt?: string;
     mode?: GenerateImageOptions["mode"];
     projectId?: number;
+    idempotencyKey?: string;
   } = {}
 ): Promise<StudioActionResult<{ url: string }>> {
   try {
@@ -244,15 +238,11 @@ export async function studioApiEnhanceSource(
         customPrompt: options.customPrompt,
         mode: options.mode,
         projectId: options.projectId,
+        idempotencyKey: options.idempotencyKey,
       }),
     });
     return parseStudioResponse(response);
   } catch (error) {
-    return {
-      ok: false,
-      error: humanizeStudioError(
-        error instanceof Error ? error.message : "שגיאת רשת"
-      ),
-    };
+    return networkFailure(error);
   }
 }

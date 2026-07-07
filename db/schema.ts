@@ -211,6 +211,15 @@ export const studioProjects = pgTable("studio_projects", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+/** נעילות idempotency ומטמון מתמיד לסטודיו — מונע חיוב כפול על אותה פעולה */
+export const studioActionLocks = pgTable("studio_action_locks", {
+  key: varchar("key", { length: 160 }).primaryKey(),
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
+  resultJson: jsonb("result_json").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 /** מעקב שימושי API — סטודיו ומילוי אוטומטי */
 export const aiUsageEvents = pgTable("ai_usage_events", {
   id: serial("id").primaryKey(),
@@ -262,3 +271,4 @@ export type StudioProject = typeof studioProjects.$inferSelect;
 export type NewStudioProject = typeof studioProjects.$inferInsert;
 export type AiUsageEvent = typeof aiUsageEvents.$inferSelect;
 export type NewAiUsageEvent = typeof aiUsageEvents.$inferInsert;
+export type StudioActionLock = typeof studioActionLocks.$inferSelect;

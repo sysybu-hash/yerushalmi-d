@@ -3,7 +3,7 @@ import { loadSharp } from "@/lib/sharp-loader";
 import { getCloudinaryServerAuth } from "@/lib/cloudinary-server";
 import { createHash } from "node:crypto";
 import {
-  assertStudioQuota,
+  reserveStudioQuota,
   extractReplicatePredictTime,
   trackAiUsage,
   type AiUsageCapability,
@@ -176,7 +176,7 @@ export async function runTrackedReplicate(
     metadata?: Record<string, unknown>;
   }
 ): Promise<unknown> {
-  await assertStudioQuota(options.capability);
+  const quota = await reserveStudioQuota(options.capability);
   const started = Date.now();
   let success = false;
   let billedUnits: number | null = null;
@@ -203,6 +203,7 @@ export async function runTrackedReplicate(
       projectId: options.projectId ?? null,
       metadata: options.metadata,
     });
+    await quota.release();
   }
 }
 

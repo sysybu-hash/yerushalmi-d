@@ -30,6 +30,7 @@ import {
   DEFAULT_VIDEO_ADJUSTMENTS,
   JEWELRY_CATALOG_VIDEO_PREVIEW_ADJUSTMENTS,
   buildTransformedUrl,
+  studioVideoPreviewUrl,
   hasVideoEdits,
   type AspectId,
   type VideoAdjustments,
@@ -67,7 +68,7 @@ export function StudioVideoPrep({
   const [busy, setBusy] = React.useState(false);
 
   const previewUrl = React.useMemo(
-    () => buildTransformedUrl(videoUrl, "video", adjustments, { quality: "best" }),
+    () => studioVideoPreviewUrl(videoUrl, adjustments, { quality: "best" }),
     [videoUrl, adjustments]
   );
 

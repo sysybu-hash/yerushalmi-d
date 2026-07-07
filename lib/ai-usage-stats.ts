@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { aiUsageEvents } from "@/db/schema";
-import { and, count, eq, gte, lt, sql, sum } from "drizzle-orm";
+import { and, count, eq, gte, lt, ne, sql, sum } from "drizzle-orm";
 
 export type MonthBounds = { start: Date; end: Date };
 
@@ -13,7 +13,9 @@ export function monthBounds(year: number, month: number): MonthBounds {
 function monthWhere(bounds: MonthBounds) {
   return and(
     gte(aiUsageEvents.createdAt, bounds.start),
-    lt(aiUsageEvents.createdAt, bounds.end)
+    lt(aiUsageEvents.createdAt, bounds.end),
+    // שורות שריון מכסה אינן קריאות אמיתיות
+    ne(aiUsageEvents.modelId, "quota-reservation")
   );
 }
 

@@ -6,6 +6,10 @@ import {
   studioRouteGuard,
 } from "@/lib/studio-route";
 import { QuotaExceededError } from "@/lib/ai-usage";
+import {
+  IdempotencyConflictError,
+  withIdempotency,
+} from "@/lib/studio-idempotency";
 import type { StudioPipelineMode } from "@/lib/ai-engines";
 
 export const runtime = "nodejs";
@@ -25,6 +29,7 @@ export async function POST(request: Request) {
       customPrompt?: string;
       mode?: StudioPipelineMode;
       projectId?: number;
+      idempotencyKey?: string;
     };
 
     if (!body.imageUrl?.trim()) {
@@ -44,15 +49,20 @@ export async function POST(request: Request) {
       );
     }
 
-    const data = await studioEnhanceSource(body.imageUrl.trim(), {
-      preset,
-      customPrompt: body.customPrompt,
-      mode: body.mode,
-      projectId: body.projectId,
-    });
+    const data = await withIdempotency(body.idempotencyKey, () =>
+      studioEnhanceSource(body.imageUrl!.trim(), {
+        preset,
+        customPrompt: body.customPrompt,
+        mode: body.mode,
+        projectId: body.projectId,
+      })
+    );
 
     return studioJsonOk(data);
   } catch (error) {
+    if (error instanceof IdempotencyConflictError) {
+      return studioJsonError(error, error.message, 409);
+    }
     if (error instanceof QuotaExceededError) {
       return studioJsonError(error, error.message, 429);
     }

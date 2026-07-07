@@ -5,6 +5,7 @@
 
 import type { VideoAudioStyleId } from "@/lib/studio-audio-presets";
 import { cloudinaryAudioLayerId } from "@/lib/studio-audio-cloudinary";
+import { isCloudinaryAnimatedDeliveryUrl } from "@/lib/cloudinary-url";
 
 /** נתיבי אודיו ב-Cloudinary (לאחר העלאה ראשונה) — לתצוגה מקדימה בדפדפן */
 export const STUDIO_AUDIO_CLOUDINARY_IDS: Partial<
@@ -209,6 +210,21 @@ export function hasVideoEdits(adj: VideoAdjustments): boolean {
   return videoComponents(adj).length > 0;
 }
 
+/** תצוגת וידאו בסטודיו — לא שובר zoompan/fl_animated */
+export function studioVideoPreviewUrl(
+  videoUrl: string,
+  adjustments: VideoAdjustments,
+  options: {
+    quality?: "good" | "best";
+    audioPublicId?: string | null;
+  } = {}
+): string {
+  if (isCloudinaryAnimatedDeliveryUrl(videoUrl)) {
+    return videoUrl;
+  }
+  return buildTransformedUrl(videoUrl, "video", adjustments, options);
+}
+
 export function buildTransformedUrl(
   secureUrl: string,
   type: MediaResourceType,
@@ -219,6 +235,14 @@ export function buildTransformedUrl(
     audioPublicId?: string | null;
   } = {}
 ): string {
+  if (
+    type === "video" &&
+    isCloudinaryAnimatedDeliveryUrl(secureUrl) &&
+    !options.download
+  ) {
+    return secureUrl;
+  }
+
   const components: string[] = [];
 
   const imageQuality =

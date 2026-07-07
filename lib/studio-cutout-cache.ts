@@ -1,3 +1,9 @@
+import {
+  persistentCacheKey,
+  readPersistentCache,
+  writePersistentCache,
+} from "@/lib/studio-idempotency";
+
 const CACHE_TTL_MS = 60 * 60 * 1000;
 
 type CutoutEntry = {
@@ -51,5 +57,33 @@ export function setCachedComposite(
     cutoutUrl,
     compositeUrl,
     expiresAt: Date.now() + CACHE_TTL_MS,
+  });
+}
+
+/**
+ * מטמון cutout מתמיד (DB) — שורד deploy והפעלה מחדש.
+ * L1: המפה בזיכרון למעלה; L2: טבלת studio_action_locks.
+ */
+export async function getPersistedCutout(
+  sourceUrl: string
+): Promise<string | null> {
+  const inMemory = getCachedCutout(sourceUrl);
+  if (inMemory) return inMemory;
+
+  const stored = await readPersistentCache(
+    persistentCacheKey("cutout", sourceUrl.trim())
+  );
+  const url = typeof stored?.cutoutUrl === "string" ? stored.cutoutUrl : null;
+  if (url) setCachedCutout(sourceUrl, url);
+  return url;
+}
+
+export async function persistCutout(
+  sourceUrl: string,
+  cutoutUrl: string
+): Promise<void> {
+  setCachedCutout(sourceUrl, cutoutUrl);
+  await writePersistentCache(persistentCacheKey("cutout", sourceUrl.trim()), {
+    cutoutUrl,
   });
 }

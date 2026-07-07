@@ -5,6 +5,10 @@ import {
   studioRouteGuard,
 } from "@/lib/studio-route";
 import { QuotaExceededError } from "@/lib/ai-usage";
+import {
+  IdempotencyConflictError,
+  withIdempotency,
+} from "@/lib/studio-idempotency";
 import type { GenerateImageOptions } from "@/lib/studio-types";
 
 export const runtime = "nodejs";
@@ -18,6 +22,7 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as {
       sourceUrl?: string;
+      idempotencyKey?: string;
     } & GenerateImageOptions;
 
     if (!body.sourceUrl?.trim()) {
@@ -28,19 +33,24 @@ export async function POST(request: Request) {
       );
     }
 
-    const data = await pipelineGenerateImage(body.sourceUrl.trim(), {
-      customPrompt: body.customPrompt,
-      stylePreset: body.stylePreset,
-      engines: body.engines,
-      mode: body.mode,
-      cutoutUrl: body.cutoutUrl,
-      useAiBackground: body.useAiBackground,
-      highQualityBackground: body.highQualityBackground,
-      projectId: body.projectId,
-    });
+    const data = await withIdempotency(body.idempotencyKey, () =>
+      pipelineGenerateImage(body.sourceUrl!.trim(), {
+        customPrompt: body.customPrompt,
+        stylePreset: body.stylePreset,
+        engines: body.engines,
+        mode: body.mode,
+        cutoutUrl: body.cutoutUrl,
+        useAiBackground: body.useAiBackground,
+        highQualityBackground: body.highQualityBackground,
+        projectId: body.projectId,
+      })
+    );
 
     return studioJsonOk(data);
   } catch (error) {
+    if (error instanceof IdempotencyConflictError) {
+      return studioJsonError(error, error.message, 409);
+    }
     if (error instanceof QuotaExceededError) {
       return studioJsonError(error, error.message, 429);
     }
