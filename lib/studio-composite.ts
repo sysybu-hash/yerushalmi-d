@@ -474,6 +474,57 @@ async function refineCutoutEdges(
   return sharp(rgb).joinChannel(alpha).png().toBuffer();
 }
 
+type ContactCluster = { start: number; end: number };
+
+/**
+ * מזהה היכן התכשיט באמת "נוגע" במשטח: עמודות עם תוכן ברצועת התחתית.
+ * טבעת = אשכול אחד רחב; זוג עגילים = שני אשכולות; תליון תלוי = כמעט כלום.
+ */
+async function findContactClusters(
+  jewelryPng: Buffer
+): Promise<{ clusters: ContactCluster[]; width: number } | null> {
+  const sharp = await loadSharp();
+  const { data, info } = await sharp(jewelryPng)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  const stripTop = Math.max(0, info.height - Math.max(4, Math.round(info.height * 0.06)));
+  const occupied: boolean[] = new Array(info.width).fill(false);
+
+  for (let y = stripTop; y < info.height; y++) {
+    for (let x = 0; x < info.width; x++) {
+      if (data[(y * info.width + x) * 4 + 3] > 140) occupied[x] = true;
+    }
+  }
+
+  const clusters: ContactCluster[] = [];
+  const gapTolerance = Math.round(info.width * 0.04);
+  let start = -1;
+  let gap = 0;
+  for (let x = 0; x < info.width; x++) {
+    if (occupied[x]) {
+      if (start < 0) start = x;
+      gap = 0;
+    } else if (start >= 0) {
+      gap++;
+      if (gap > gapTolerance) {
+        clusters.push({ start, end: x - gap });
+        start = -1;
+        gap = 0;
+      }
+    }
+  }
+  if (start >= 0) clusters.push({ start, end: info.width - 1 });
+
+  const meaningful = clusters.filter(
+    (c) => c.end - c.start >= info.width * 0.05
+  );
+  return meaningful.length > 0
+    ? { clusters: meaningful, width: info.width }
+    : null;
+}
+
 async function createContactShadow(
   jewelryPng: Buffer,
   left: number,
@@ -482,52 +533,73 @@ async function createContactShadow(
   jHeight: number,
   canvasSize: number,
   preset: StudioStylePresetId
-): Promise<Buffer> {
+): Promise<Buffer | null> {
   const sharp = await loadSharp();
+
+  // צל רק במקומות שבהם התכשיט נוגע במשטח; תכשיט תלוי (עגילים) — בלי צל
+  const contact = await findContactClusters(jewelryPng);
+  if (!contact) return null;
+
+  const totalContact = contact.clusters.reduce(
+    (sum, c) => sum + (c.end - c.start),
+    0
+  );
+  if (totalContact < contact.width * 0.12) return null;
+
   const dramatic = DRAMATIC_SHADOW_PRESETS.has(preset);
-  const shadowW = Math.round(jWidth * 0.72);
-  const shadowH = Math.max(8, Math.round(jHeight * 0.08));
-  const shadowLeft = Math.round(left + (jWidth - shadowW) / 2);
-  const shadowTop = Math.min(
-    canvasSize - shadowH - 2,
-    top + jHeight - Math.round(jHeight * 0.01)
-  );
   const opacity = dramatic ? 0.28 : 0.18;
+  const scale = jWidth / contact.width;
 
-  const ellipse = Buffer.from(
-    `<svg width="${shadowW}" height="${shadowH}">
-      <ellipse cx="${shadowW / 2}" cy="${shadowH / 2}" rx="${shadowW / 2}" ry="${shadowH / 2}" fill="black"/>
-    </svg>`
-  );
+  const layers: { input: Buffer; left: number; top: number }[] = [];
 
-  const shadow = await sharp(ellipse)
-    .blur(Math.max(4, Math.round(shadowH * 0.45)))
-    .ensureAlpha()
-    .png()
-    .toBuffer();
+  for (const cluster of contact.clusters) {
+    const clusterW = Math.round((cluster.end - cluster.start) * scale);
+    const shadowW = Math.max(12, Math.round(clusterW * 0.92));
+    const shadowH = Math.max(8, Math.round(shadowW * 0.12));
+    const shadowLeft = Math.round(
+      left + cluster.start * scale + (clusterW - shadowW) / 2
+    );
+    const shadowTop = Math.min(
+      canvasSize - shadowH - 2,
+      top + jHeight - Math.round(jHeight * 0.01)
+    );
 
-  const faded = await sharp(shadow)
-    .composite([
-      {
-        input: Buffer.from([0, 0, 0, Math.round(255 * opacity)]),
-        raw: { width: 1, height: 1, channels: 4 },
-        tile: true,
-        blend: "dest-in",
-      },
-    ])
-    .png()
-    .toBuffer();
+    const ellipse = Buffer.from(
+      `<svg width="${shadowW}" height="${shadowH}">
+        <ellipse cx="${shadowW / 2}" cy="${shadowH / 2}" rx="${shadowW / 2}" ry="${shadowH / 2}" fill="black"/>
+      </svg>`
+    );
 
-  const fadedSize = await readImageSize(faded);
-  const shadowPos = clampCompositePosition(
-    canvasSize,
-    fadedSize.width,
-    fadedSize.height,
-    shadowLeft,
-    shadowTop
-  );
+    const shadow = await sharp(ellipse)
+      .blur(Math.max(4, Math.round(shadowH * 0.45)))
+      .ensureAlpha()
+      .png()
+      .toBuffer();
 
-  const canvas = await sharp({
+    const faded = await sharp(shadow)
+      .composite([
+        {
+          input: Buffer.from([0, 0, 0, Math.round(255 * opacity)]),
+          raw: { width: 1, height: 1, channels: 4 },
+          tile: true,
+          blend: "dest-in",
+        },
+      ])
+      .png()
+      .toBuffer();
+
+    const fadedSize = await readImageSize(faded);
+    const pos = clampCompositePosition(
+      canvasSize,
+      fadedSize.width,
+      fadedSize.height,
+      shadowLeft,
+      shadowTop
+    );
+    layers.push({ input: faded, left: pos.left, top: pos.top });
+  }
+
+  return sharp({
     create: {
       width: canvasSize,
       height: canvasSize,
@@ -535,17 +607,9 @@ async function createContactShadow(
       background: { r: 0, g: 0, b: 0, alpha: 0 },
     },
   } as SharpOptions)
-    .composite([
-      {
-        input: faded,
-        left: shadowPos.left,
-        top: shadowPos.top,
-      },
-    ])
+    .composite(layers)
     .png()
     .toBuffer();
-
-  return canvas;
 }
 
 async function harmonizeJewelry(
@@ -672,7 +736,9 @@ export async function compositeProductImage(
       canvasSize,
       stylePreset
     );
-    composites.push({ input: shadowLayer, blend: "multiply" });
+    if (shadowLayer) {
+      composites.push({ input: shadowLayer, blend: "multiply" });
+    }
   }
 
   composites.push({ input: jewelryPng, left, top });
