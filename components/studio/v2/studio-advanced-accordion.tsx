@@ -156,14 +156,18 @@ export function StudioAdvancedAccordion({
 
           <div className="space-y-1.5">
             <p className="text-xs font-light tracking-[0.1em] text-muted-foreground">
-              מנועי AI (ברירת מחדל: אוטומטי)
+              מנוע בידוד ורקע (ברירת מחדל: אוטומטי)
             </p>
+            {/*
+              מנוע הווידאו נבחר רק בפאנל "אפשרויות וידאו" (StudioVideoOptions) —
+              לא כאן, כדי שלא יהיו שני פקדים שונים לאותו state.aiEngines.video.
+            */}
             <AiEngineSelector
               value={state.aiEngines}
               onChange={(engines: AiEngineConfig) =>
                 dispatch({ type: "SET_ENGINES", engines })
               }
-              capabilities={["cutout", "video"]}
+              capabilities={["cutout"]}
               showBackground
               compact
               disabled={disabled}
