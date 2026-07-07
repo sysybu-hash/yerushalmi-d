@@ -796,9 +796,11 @@ export async function compositeProductImage(
 
   const bgColor = await sampleBackgroundColor(backgroundBuffer);
 
+  // הרקע והתכשיט כבר חודדו כל אחד בנפרד (למעלה) — חידוד שלישי על
+  // התמונה המורכבת יצר טבעת/הילה (ringing) סביב נקודות הברק הבוהקות
+  // ביותר על היהלום, נראה כמו קרני אור רדיאליות. בלי חידוד נוסף כאן.
   const composed = sharp(background)
     .composite(composites)
-    .sharpen({ sigma: 0.4, m1: 0.55, m2: 0.18, x1: 2, y2: 10, y3: 20 })
     .flatten({ background: bgColor })
     .png({ compressionLevel: 2 });
 
