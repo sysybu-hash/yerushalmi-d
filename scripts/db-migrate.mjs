@@ -44,6 +44,18 @@ const usage = await client.query(
 );
 const hasUsageTable = Boolean(usage.rows[0]?.exists);
 
+// מיגרציות שקדמו למעקב drizzle (הסכימה הראשונית נוצרה עם db:push) —
+// אלו היחידות שמותר "לבסס" (baseline) בלי להריץ SQL בפועל. כל מיגרציה
+// חדשה חייבת לרוץ בפועל, אחרת שינויי סכימה נעלמים בשקט (כפי שקרה
+// ל-0006_sticky_carmella_unuscione — studio_action_locks מעולם לא נוצרה).
+const LEGACY_BASELINE_ONLY_TAGS = new Set([
+  "0000_unusual_layla_miller",
+  "0001_tiny_war_machine",
+  "0002_chubby_exodus",
+  "0003_strong_gladiator",
+  "0004_stormy_alex_power",
+]);
+
 for (const entry of journal.entries) {
   const tag = entry.tag;
   const hash = migrationHash(tag);
@@ -56,7 +68,7 @@ for (const entry of journal.entries) {
     .map((s) => s.trim())
     .filter(Boolean);
 
-  const isLegacy = tag !== "0005_ai_usage_events";
+  const isLegacy = LEGACY_BASELINE_ONLY_TAGS.has(tag);
 
   if (isLegacy && dbHasData) {
     await client.query(

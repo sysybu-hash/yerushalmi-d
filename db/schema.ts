@@ -1,8 +1,10 @@
 import { relations } from "drizzle-orm";
 import {
+  date,
   integer,
   pgTable,
   pgEnum,
+  primaryKey,
   serial,
   text,
   numeric,
@@ -210,6 +212,19 @@ export const studioProjects = pgTable("studio_projects", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+
+/**
+ * מונה מכסה יומית אטומי — UPSERT עם count = count + 1 מסתמך על נעילת
+ * שורה של Postgres, ולכן עמיד לעומס מקביל אמיתי (בניגוד לספירת שורות
+ * ב-ai_usage_events, שאינה אטומית מול הכנסות מקבילות מאותה רגע).
+ */
+export const studioQuotaCounters = pgTable("studio_quota_counters", {
+  day: date("day").notNull(),
+  scopeKey: varchar("scope_key", { length: 20 }).notNull(),
+  count: integer("count").notNull().default(0),
+}, (table) => ({
+  pk: primaryKey({ columns: [table.day, table.scopeKey] }),
+}));
 
 /** נעילות idempotency ומטמון מתמיד לסטודיו — מונע חיוב כפול על אותה פעולה */
 export const studioActionLocks = pgTable("studio_action_locks", {

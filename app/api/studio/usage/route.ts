@@ -1,4 +1,4 @@
-import { and, count, eq, gte, ne, sql, sum } from "drizzle-orm";
+import { and, count, eq, ne, sql, sum } from "drizzle-orm";
 
 import { db } from "@/db";
 import { aiUsageEvents } from "@/db/schema";
@@ -18,11 +18,10 @@ export async function GET() {
   if (denied) return denied;
 
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
+    // "היום" נמדד בשעון ה-DB (לא new Date() ב-Node) — נמנע מפער שעון
+    // בין שרת האפליקציה לשרת ה-DB (ראו הערה ב-lib/ai-usage.ts)
     const realCallsToday = and(
-      gte(aiUsageEvents.createdAt, today),
+      sql`${aiUsageEvents.createdAt} >= date_trunc('day', now())`,
       eq(aiUsageEvents.success, true),
       eq(aiUsageEvents.cached, false),
       ne(aiUsageEvents.modelId, "quota-reservation")

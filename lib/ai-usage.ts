@@ -1,8 +1,8 @@
 import { db } from "@/db";
-import { aiUsageEvents } from "@/db/schema";
+import { aiUsageEvents, studioQuotaCounters } from "@/db/schema";
 import { estimateCostUsd } from "@/lib/ai-cost-rates";
 import { getSiteSettings } from "@/lib/site-settings";
-import { and, count, eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 
 export type AiUsageCapability =
   | "cutout"
@@ -59,35 +59,27 @@ export async function trackAiUsage(input: TrackAiUsageInput): Promise<void> {
   }
 }
 
-function startOfToday(): Date {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-const QUOTA_RESERVATION_MODEL = "quota-reservation";
-/** שריון pending שלא שוחרר (קריסה) פג אחרי 10 דקות */
-const RESERVATION_TTL_MS = 10 * 60 * 1000;
-
 export type QuotaReservation = { release: () => Promise<void> };
 
 const NOOP_RESERVATION: QuotaReservation = { release: async () => {} };
 
+type QuotaScopeKey = "video" | "image";
+
 function quotaScope(capability: AiUsageCapability): {
-  capabilities: AiUsageCapability[];
+  scopeKey: QuotaScopeKey;
   limitKey: "studioDailyVideoLimit" | "studioDailyImageLimit";
   message: string;
 } | null {
   if (capability === "video") {
     return {
-      capabilities: ["video"],
+      scopeKey: "video",
       limitKey: "studioDailyVideoLimit",
       message: "הגעתם למכסה היומית לווידאו — נסו מחר או השתמשו בעריכה ללא AI",
     };
   }
   if (capability === "cutout" || capability === "background") {
     return {
-      capabilities: ["cutout", "background"],
+      scopeKey: "image",
       limitKey: "studioDailyImageLimit",
       message:
         "הגעתם למכסה היומית לתמונות AI — נסו מחר או השתמשו ברקע פרוצדורלי",
@@ -97,10 +89,14 @@ function quotaScope(capability: AiUsageCapability): {
 }
 
 /**
- * בדיקת מכסה עמידה למרוץ (Neon HTTP — בלי טרנזקציות):
- * מכניסים שורת שריון pending ואז סופרים; אם עברנו את המכסה —
- * מוחקים את השריון וזורקים. שתי בקשות מקבילות לא יעברו יחד את הגבול.
- * חובה לקרוא release() ב-finally אחרי שהאירוע האמיתי נרשם.
+ * בדיקת מכסה עמידה לעומס אמיתי — מונה אטומי (studio_quota_counters)
+ * עם UPSERT ‏`count = count + 1`. ספירת שורות ב-ai_usage_events (הגישה
+ * הקודמת) נכשלה בבדיקת עומס: Postgres CTE אחיות (insert+select באותה
+ * שאילתה) לא רואות זו את זו, אז עדיין הוחמצו שריונים במקביל אמיתי
+ * (8 עברו במקום 5). UPDATE אטומי על שורה יחידה נעול ע"י Postgres —
+ * מבטיח ספירה מדויקת גם תחת עשרות בקשות מקבילות באותה מילישנייה.
+ * "היום" הוא current_date בשרת ה-DB (לא new Date() ב-Node) — נמנע
+ * מפער שעון (clock skew) בין שרת האפליקציה לשרת ה-DB.
  */
 export async function reserveStudioQuota(
   capability: AiUsageCapability
@@ -112,52 +108,29 @@ export async function reserveStudioQuota(
   const limit = parseInt(settings[scope.limitKey] || "0", 10);
   if (!limit || limit <= 0) return NOOP_RESERVATION;
 
-  const today = startOfToday();
-  const reservedSince = new Date(Date.now() - RESERVATION_TTL_MS);
-  const capabilityList = sql.join(
-    scope.capabilities.map((c) => sql`${c}`),
-    sql`, `
-  );
-
-  const [reserved] = await db
-    .insert(aiUsageEvents)
-    .values({
-      provider: "replicate",
-      capability,
-      modelId: QUOTA_RESERVATION_MODEL,
-      mode: "catalog",
-      success: false,
-      cached: true,
-      estimatedCostUsd: "0",
-      metadata: { pending: true },
-    })
-    .returning({ id: aiUsageEvents.id });
+  const result = await db.execute<{ count: number }>(sql`
+    INSERT INTO ${studioQuotaCounters} (day, scope_key, count)
+    VALUES (current_date, ${scope.scopeKey}, 1)
+    ON CONFLICT (day, scope_key)
+    DO UPDATE SET count = ${studioQuotaCounters.count} + 1
+    RETURNING count
+  `);
+  const newCount =
+    (result as unknown as { rows: { count: number }[] }).rows?.[0]?.count ?? 0;
 
   const release: QuotaReservation["release"] = async () => {
-    if (!reserved?.id) return;
     try {
-      await db.delete(aiUsageEvents).where(eq(aiUsageEvents.id, reserved.id));
+      await db.execute(sql`
+        UPDATE ${studioQuotaCounters}
+        SET count = GREATEST(0, count - 1)
+        WHERE day = current_date AND scope_key = ${scope.scopeKey}
+      `);
     } catch (error) {
       console.error("ai_quota_release_failed", error);
     }
   };
 
-  const [row] = await db
-    .select({ total: count() })
-    .from(aiUsageEvents)
-    .where(
-      and(
-        sql`${aiUsageEvents.capability} IN (${capabilityList})`,
-        sql`(
-          (${aiUsageEvents.success} = true AND ${aiUsageEvents.cached} = false AND ${aiUsageEvents.createdAt} >= ${today})
-          OR
-          (${aiUsageEvents.modelId} = ${QUOTA_RESERVATION_MODEL} AND ${aiUsageEvents.createdAt} >= ${reservedSince})
-        )`
-      )
-    );
-
-  // הספירה כוללת את השריון של עצמנו, לכן ההשוואה היא > ולא >=
-  if ((row?.total ?? 0) > limit) {
+  if (newCount > limit) {
     await release();
     throw new QuotaExceededError(scope.message);
   }
