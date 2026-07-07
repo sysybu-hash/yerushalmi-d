@@ -1,7 +1,23 @@
 "use client";
 
 import * as React from "react";
-import { Copy, Download, FolderHeart, Store, Loader2, Wand2 } from "lucide-react";
+import {
+  Copy,
+  Download,
+  FolderHeart,
+  Store,
+  Loader2,
+  Wand2,
+  Repeat,
+} from "lucide-react";
+
+import { ToggleChip } from "@/components/studio/studio-adjust-ui";
+import {
+  ASPECT_OPTIONS,
+  buildTransformedUrl,
+  DEFAULT_IMAGE_ADJUSTMENTS,
+  type AspectId,
+} from "@/lib/studio-transform";
 
 import {
   generateStudioListing,
@@ -20,12 +36,16 @@ export function StudioPublishBar({
   state,
   onTitleChange,
   onPriceChange,
+  onAspectChange,
+  onContinueEditing,
   showToast,
   onPublished,
 }: {
   state: StudioV2State;
   onTitleChange: (value: string) => void;
   onPriceChange: (value: string) => void;
+  onAspectChange: (value: AspectId) => void;
+  onContinueEditing: () => void;
   showToast: (message: string) => void;
   onPublished: (productId: number) => void;
 }) {
@@ -39,9 +59,21 @@ export function StudioPublishBar({
 
   if (!result.url || !result.kind || !state.source.url) return null;
 
-  const resultUrl = result.url;
   const resultKind = result.kind;
   const sourceUrl = state.source.url;
+  // יחס גובה-רוחב מוחל על כל היציאות (הורדה/קישור/פרסום) — טרנספורמציה חינמית
+  const resultUrl =
+    resultKind === "image" && state.resultAspect !== "original"
+      ? buildTransformedUrl(result.url, "image", {
+          ...DEFAULT_IMAGE_ADJUSTMENTS,
+          autoEnhance: false,
+          autoColor: false,
+          sharpen: false,
+          contrast: 0,
+          upscale: false,
+          aspect: state.resultAspect,
+        })
+      : result.url;
 
   async function copyUrl() {
     await navigator.clipboard.writeText(resultUrl);
@@ -116,6 +148,24 @@ export function StudioPublishBar({
         התוצאה מוכנה — מה עושים איתה?
       </p>
 
+      {resultKind === "image" && (
+        <div className="space-y-1.5">
+          <p className="text-[11px] font-light text-muted-foreground">
+            פורמט (חינם — חל על ההורדה והפרסום)
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {ASPECT_OPTIONS.map((option) => (
+              <ToggleChip
+                key={option.id}
+                label={option.label}
+                active={state.resultAspect === option.id}
+                onClick={() => onAspectChange(option.id)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-2">
         <Button
           size="sm"
@@ -151,6 +201,19 @@ export function StudioPublishBar({
           )}
           שמירה בספרייה
         </Button>
+        {resultKind === "image" && (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy !== null}
+            onClick={onContinueEditing}
+            title="התוצאה הופכת למקור לסיבוב עיצוב נוסף"
+            className="rounded-none text-xs font-light"
+          >
+            <Repeat className="ml-1.5 h-3.5 w-3.5" />
+            המשך עריכה מהתוצאה
+          </Button>
+        )}
       </div>
 
       {resultKind === "image" && (

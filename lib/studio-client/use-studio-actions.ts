@@ -4,12 +4,22 @@ import * as React from "react";
 
 import {
   studioApiCompositeImage,
+  studioApiEnhanceSource,
+  studioApiEnhanceVideo,
   studioApiGenerateVideo,
   studioApiRemoveBackground,
+  type SourceEnhancePreset,
 } from "@/lib/studio-api";
 import type { StudioActionResult } from "@/lib/studio-action";
+import { STUDIO_STYLE_PRESETS } from "@/lib/studio-presets";
 import type { StudioAction } from "./reducer";
 import type { StudioV2State } from "./state";
+
+function presetLabel(presetId: string): string {
+  return (
+    STUDIO_STYLE_PRESETS.find((p) => p.id === presetId)?.label ?? presetId
+  );
+}
 
 /** ניסיון חוזר אוטומטי אחד לשגיאות רשת/זמניות — עם אותו מפתח idempotency */
 const RETRY_DELAY_MS = 1500;
@@ -18,7 +28,7 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-type PaidActionName = "cutout" | "preview" | "image" | "video";
+type PaidActionName = "cutout" | "preview" | "image" | "video" | "enhance";
 
 export function useStudioActions(
   state: StudioV2State,
@@ -163,7 +173,13 @@ export function useStudioActions(
         }),
       (data) => {
         previewUrl = data.url;
-        dispatch({ type: "PREVIEW_DONE", url: data.url, kind: "image" });
+        dispatch({
+          type: "PREVIEW_DONE",
+          url: data.url,
+          kind: "image",
+          label: presetLabel(stylePreset),
+          free: true,
+        });
       }
     );
     return previewUrl;
@@ -191,6 +207,8 @@ export function useStudioActions(
         url: preview.url,
         kind: "image",
         provider: "procedural",
+        label: presetLabel(stylePreset),
+        free: true,
       });
       return true;
     }
@@ -214,6 +232,10 @@ export function useStudioActions(
           url: data.url,
           kind: "image",
           provider: useAiBackground ? "ai-background" : "procedural",
+          label: useAiBackground
+            ? `${presetLabel(stylePreset)} · רקע AI`
+            : presetLabel(stylePreset),
+          free: !useAiBackground,
         });
       }
     );
@@ -264,6 +286,146 @@ export function useStudioActions(
           url: data.url,
           kind: "video",
           provider: data.provider,
+          label:
+            data.provider === "preserve"
+              ? "וידאו זום עדין"
+              : `וידאו ${data.provider === "kling" ? "Kling" : "Veo"}`,
+          free: data.provider === "preserve",
+        });
+      }
+    );
+  }, [runPaidAction, dispatch]);
+
+  /** עוד 2 סגנונות מאותו בידוד — הרכבות פרוצדורליות, חינם */
+  const makeVariants = React.useCallback(async (): Promise<void> => {
+    const { cutout, stylePreset, customPrompt, attempts } = stateRef.current;
+    if (!cutout.url) return;
+
+    const used = new Set(
+      [stylePreset, ...attempts.map((a) => a.label)].map(String)
+    );
+    const candidates = STUDIO_STYLE_PRESETS.filter(
+      (p) => p.id !== stylePreset && !used.has(p.label)
+    ).slice(0, 2);
+
+    for (const preset of candidates) {
+      const ok = await runPaidAction(
+        "preview",
+        `preview:${cutout.url}:${preset.id}`,
+        (idempotencyKey) =>
+          studioApiCompositeImage(cutout.url!, {
+            stylePreset: preset.id,
+            customPrompt,
+            mode: "catalog",
+            useAiBackground: false,
+            idempotencyKey,
+          }),
+        (data) => {
+          dispatch({
+            type: "ATTEMPT_ADDED",
+            url: data.url,
+            kind: "image",
+            label: preset.label,
+            free: true,
+          });
+        }
+      );
+      if (!ok) break;
+    }
+  }, [runPaidAction, dispatch]);
+
+  /** שיפור צילום המקור ב-AI (Gemini) — מחליף את המקור */
+  const enhanceSource = React.useCallback(
+    async (preset: SourceEnhancePreset): Promise<boolean> => {
+      const { source, customPrompt, flow } = stateRef.current;
+      if (!source.url || source.kind !== "image") return false;
+
+      return runPaidAction(
+        "enhance",
+        `enhance-source:${source.url}:${preset}`,
+        (idempotencyKey) =>
+          studioApiEnhanceSource(source.url!, {
+            preset,
+            customPrompt,
+            mode: flow,
+            idempotencyKey,
+          }),
+        (data) => {
+          dispatch({
+            type: "ATTEMPT_ADDED",
+            url: data.url,
+            kind: "image",
+            label: "מקור משופר AI",
+            free: false,
+          });
+          dispatch({ type: "SOURCE_UPLOADED", url: data.url, kind: "image" });
+        }
+      );
+    },
+    [runPaidAction, dispatch]
+  );
+
+  /** מיטוב וידאו שהועלה — שומר את התנועה המקורית (חינם, Cloudinary) */
+  const enhanceSourceVideo = React.useCallback(async (): Promise<boolean> => {
+    const { source, videoDuration } = stateRef.current;
+    if (!source.url || source.kind !== "video") return false;
+
+    return runPaidAction(
+      "video",
+      `source-video:${source.url}:${videoDuration}`,
+      (idempotencyKey) =>
+        studioApiGenerateVideo(source.url!, {
+          motionMode: "preserve",
+          useSourceVideoMotion: true,
+          sourceVideoUrl: source.url!,
+          duration: videoDuration,
+          skipImagePipeline: true,
+          idempotencyKey,
+        }),
+      (data) => {
+        dispatch({
+          type: "RESULT_DONE",
+          url: data.url,
+          kind: "video",
+          provider: data.provider,
+          label: "וידאו מקורי ממוטב",
+          free: true,
+        });
+      }
+    );
+  }, [runPaidAction, dispatch]);
+
+  /** מיטוב וידאו ב-AI (Veo) — משפר תאורה ותנועה, בתשלום */
+  const enhanceVideoAi = React.useCallback(async (): Promise<boolean> => {
+    const current = stateRef.current;
+    const videoUrl =
+      current.result.kind === "video" && current.result.url
+        ? current.result.url
+        : current.source.kind === "video"
+          ? current.source.url
+          : null;
+    if (!videoUrl) return false;
+
+    return runPaidAction(
+      "enhance",
+      `enhance-video:${videoUrl}`,
+      (idempotencyKey) =>
+        studioApiEnhanceVideo(videoUrl, {
+          preset: "catalog",
+          provider: "gemini",
+          duration: current.videoDuration,
+          stylePreset: current.stylePreset,
+          mode: current.flow,
+          idempotencyKey,
+        }),
+      (data) => {
+        dispatch({
+          type: "RESULT_DONE",
+          url: data.url,
+          kind: "video",
+          provider: "veo",
+          label: "וידאו משופר AI",
+          free: false,
         });
       }
     );
@@ -285,6 +447,10 @@ export function useStudioActions(
     makePreview,
     generateImage,
     generateVideo,
+    makeVariants,
+    enhanceSource,
+    enhanceSourceVideo,
+    enhanceVideoAi,
     retryFailed,
     refreshUsage,
   };

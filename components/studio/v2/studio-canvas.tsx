@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 
 import type { StudioV2State } from "@/lib/studio-client/state";
 import { cutoutDisplayUrl } from "@/lib/cloudinary-url";
+import { buildTransformedUrl, DEFAULT_IMAGE_ADJUSTMENTS } from "@/lib/studio-transform";
 import { cn } from "@/lib/utils";
 
 const BUSY_LABELS: Record<string, string> = {
@@ -25,11 +26,32 @@ export function StudioCanvas({ state }: { state: StudioV2State }) {
   const [showBefore, setShowBefore] = React.useState(false);
 
   const current = React.useMemo(() => {
+    // ניסיון נבחר מהגלריה גובר על הכול — ניווט והשוואה
+    if (state.selectedAttemptId) {
+      const attempt = state.attempts.find(
+        (a) => a.id === state.selectedAttemptId
+      );
+      if (attempt) {
+        return { url: attempt.url, kind: attempt.kind, label: attempt.label };
+      }
+    }
     if (state.result.url && state.result.kind === "video") {
       return { url: state.result.url, kind: "video" as const, label: "תוצאה" };
     }
     if (state.result.url) {
-      return { url: state.result.url, kind: "image" as const, label: "תוצאה" };
+      const url =
+        state.resultAspect !== "original"
+          ? buildTransformedUrl(state.result.url, "image", {
+              ...DEFAULT_IMAGE_ADJUSTMENTS,
+              autoEnhance: false,
+              autoColor: false,
+              sharpen: false,
+              contrast: 0,
+              upscale: false,
+              aspect: state.resultAspect,
+            })
+          : state.result.url;
+      return { url, kind: "image" as const, label: "תוצאה" };
     }
     if (state.preview.url) {
       return {
@@ -46,10 +68,18 @@ export function StudioCanvas({ state }: { state: StudioV2State }) {
       };
     }
     if (state.source.url) {
-      return { url: state.source.url, kind: "image" as const, label: "מקור" };
+      return { url: state.source.url, kind: state.source.kind, label: "מקור" };
     }
     return null;
-  }, [state.result, state.preview, state.cutout.url, state.source.url]);
+  }, [
+    state.selectedAttemptId,
+    state.attempts,
+    state.result,
+    state.resultAspect,
+    state.preview,
+    state.cutout.url,
+    state.source,
+  ]);
 
   const canCompare =
     Boolean(state.source.url) &&

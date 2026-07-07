@@ -5,6 +5,13 @@ import type { StudioVideoDurationSec } from "@/lib/studio-video-duration";
 import type { StudioVideoMotionMode } from "@/lib/studio-types";
 import type { MultiShotTemplateId } from "@/lib/studio-multishot";
 import {
+  DEFAULT_IMAGE_ADJUSTMENTS,
+  DEFAULT_VIDEO_ADJUSTMENTS,
+  type AspectId,
+  type ImageAdjustments,
+  type VideoAdjustments,
+} from "@/lib/studio-transform";
+import {
   EMPTY_STUDIO_SNAPSHOT,
   normalizeSnapshot,
   type StudioClientState,
@@ -34,6 +41,20 @@ export type StudioErrorInfo = {
 };
 
 export type StudioSourceKind = "image" | "video";
+
+/**
+ * ניסיון בגלריה — כל תצוגה מקדימה ותוצאה נשמרות,
+ * כך שאפשר לנווט אחורה ולהשוות בין עיצובים.
+ */
+export type StudioAttempt = {
+  id: string;
+  url: string;
+  kind: StudioSourceKind;
+  /** תיאור קצר: שם הסגנון / המנוע / "מקור ערוך" */
+  label: string;
+  free: boolean;
+  createdAt: number;
+};
 
 export type StudioV2State = {
   flow: StudioFlow;
@@ -77,6 +98,16 @@ export type StudioV2State = {
   advancedOpen: boolean;
   productTitle: string;
   productPrice: string;
+  /** גלריית כל הניסיונות — ניווט והשוואה בין עיצובים */
+  attempts: StudioAttempt[];
+  /** הניסיון שמוצג בקנבס (null = האחרון/הזרימה הרגילה) */
+  selectedAttemptId: string | null;
+  /** עריכת צילום המקור (חינם — Cloudinary) */
+  sourceAdj: ImageAdjustments;
+  /** יחס גובה-רוחב לתוצאה (פוסט/סטורי/רוחב) */
+  resultAspect: AspectId;
+  /** התאמות ואודיו לתוצאת/מקור וידאו (חינם — Cloudinary) */
+  videoAdj: VideoAdjustments;
   usage: {
     imagesToday: number;
     imageLimit: number;
@@ -108,6 +139,11 @@ export const INITIAL_STUDIO_STATE: StudioV2State = {
   advancedOpen: false,
   productTitle: "",
   productPrice: "",
+  attempts: [],
+  selectedAttemptId: null,
+  sourceAdj: { ...DEFAULT_IMAGE_ADJUSTMENTS, autoEnhance: false, autoColor: false, sharpen: false, contrast: 0, upscale: false },
+  resultAspect: "original",
+  videoAdj: DEFAULT_VIDEO_ADJUSTMENTS,
   usage: null,
   error: null,
   busyAction: null,
@@ -166,6 +202,7 @@ export function stateToSnapshot(state: StudioV2State): StudioProjectSnapshot {
     useAiBackground: state.useAiBackground,
     highQualityBackground: state.highQualityBackground,
     cutoutUrl: state.cutout.url ?? "",
+    attempts: state.attempts,
   });
 }
 
@@ -211,5 +248,6 @@ export function snapshotToState(raw: StudioProjectSnapshot): StudioV2State {
     aiEngines: snapshot.aiEngines,
     productTitle: snapshot.productTitle,
     productPrice: snapshot.productPrice,
+    attempts: snapshot.attempts ?? [],
   };
 }

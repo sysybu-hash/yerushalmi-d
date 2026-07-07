@@ -3,14 +3,36 @@ import type { StudioStylePresetId } from "@/lib/studio-presets";
 import type { StudioVideoDurationSec } from "@/lib/studio-video-duration";
 import type { StudioVideoMotionMode } from "@/lib/studio-types";
 import type { MultiShotTemplateId } from "@/lib/studio-multishot";
+import type {
+  AspectId,
+  ImageAdjustments,
+  VideoAdjustments,
+} from "@/lib/studio-transform";
 import {
   INITIAL_STUDIO_STATE,
+  type StudioAttempt,
   type StudioBusyAction,
   type StudioErrorInfo,
   type StudioFlow,
   type StudioSourceKind,
   type StudioV2State,
 } from "./state";
+
+/** מוסיף ניסיון לגלריה — בלי כפילויות לפי URL, החדש ראשון */
+function appendAttempt(
+  attempts: StudioAttempt[],
+  attempt: Omit<StudioAttempt, "id" | "createdAt">
+): StudioAttempt[] {
+  if (attempts.some((a) => a.url === attempt.url)) return attempts;
+  return [
+    {
+      ...attempt,
+      id: `att-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      createdAt: Date.now(),
+    },
+    ...attempts,
+  ].slice(0, 40);
+}
 
 export type StudioAction =
   | { type: "RESET" }
@@ -37,13 +59,35 @@ export type StudioAction =
   | { type: "SET_PRODUCT_PRICE"; value: string }
   | { type: "ACTION_STARTED"; action: Exclude<StudioBusyAction, null> }
   | { type: "CUTOUT_DONE"; url: string; cached: boolean }
-  | { type: "PREVIEW_DONE"; url: string; kind: StudioSourceKind }
+  | {
+      type: "PREVIEW_DONE";
+      url: string;
+      kind: StudioSourceKind;
+      label?: string;
+      free?: boolean;
+    }
   | {
       type: "RESULT_DONE";
       url: string;
       kind: StudioSourceKind;
       provider?: string | null;
+      label?: string;
+      free?: boolean;
     }
+  | {
+      type: "ATTEMPT_ADDED";
+      url: string;
+      kind: StudioSourceKind;
+      label: string;
+      free: boolean;
+    }
+  | { type: "SELECT_ATTEMPT"; id: string | null }
+  | { type: "DELETE_ATTEMPT"; id: string }
+  | { type: "USE_ATTEMPT_AS_RESULT"; id: string }
+  | { type: "SET_RESULT_ASPECT"; value: AspectId }
+  | { type: "SET_SOURCE_ADJ"; value: ImageAdjustments }
+  | { type: "SET_VIDEO_ADJ"; value: VideoAdjustments }
+  | { type: "CONTINUE_FROM_RESULT" }
   | { type: "ACTION_FAILED"; error: StudioErrorInfo }
   | { type: "CLEAR_ERROR" }
   | { type: "USAGE_LOADED"; usage: NonNullable<StudioV2State["usage"]> }
@@ -152,25 +196,100 @@ export function studioReducer(
       return {
         ...state,
         busyAction: null,
+        selectedAttemptId: null,
         preview: {
           url: action.url,
           kind: action.kind,
           status: "done",
           presetId: state.stylePreset,
         },
+        attempts: appendAttempt(state.attempts, {
+          url: action.url,
+          kind: action.kind,
+          label: action.label ?? "תצוגה מקדימה",
+          free: action.free ?? true,
+        }),
       };
 
     case "RESULT_DONE":
       return {
         ...state,
         busyAction: null,
+        selectedAttemptId: null,
         result: {
           url: action.url,
           kind: action.kind,
           status: "done",
           provider: action.provider ?? null,
         },
+        attempts: appendAttempt(state.attempts, {
+          url: action.url,
+          kind: action.kind,
+          label: action.label ?? "תוצאה",
+          free: action.free ?? false,
+        }),
       };
+
+    case "ATTEMPT_ADDED":
+      return {
+        ...state,
+        attempts: appendAttempt(state.attempts, {
+          url: action.url,
+          kind: action.kind,
+          label: action.label,
+          free: action.free,
+        }),
+      };
+
+    case "SELECT_ATTEMPT":
+      return { ...state, selectedAttemptId: action.id };
+
+    case "DELETE_ATTEMPT":
+      return {
+        ...state,
+        attempts: state.attempts.filter((a) => a.id !== action.id),
+        selectedAttemptId:
+          state.selectedAttemptId === action.id
+            ? null
+            : state.selectedAttemptId,
+      };
+
+    case "USE_ATTEMPT_AS_RESULT": {
+      const attempt = state.attempts.find((a) => a.id === action.id);
+      if (!attempt) return state;
+      return {
+        ...state,
+        selectedAttemptId: null,
+        result: {
+          url: attempt.url,
+          kind: attempt.kind,
+          status: "done",
+          provider: null,
+        },
+      };
+    }
+
+    case "SET_RESULT_ASPECT":
+      return { ...state, resultAspect: action.value };
+
+    case "SET_SOURCE_ADJ":
+      return { ...state, sourceAdj: action.value };
+
+    case "SET_VIDEO_ADJ":
+      return { ...state, videoAdj: action.value };
+
+    case "CONTINUE_FROM_RESULT": {
+      if (!state.result.url || state.result.kind !== "image") return state;
+      return {
+        ...state,
+        source: { url: state.result.url, kind: "image", duration: null },
+        cutout: { ...INITIAL_STUDIO_STATE.cutout },
+        preview: { ...INITIAL_STUDIO_STATE.preview },
+        result: { ...INITIAL_STUDIO_STATE.result },
+        selectedAttemptId: null,
+        error: null,
+      };
+    }
 
     case "ACTION_FAILED":
       return {

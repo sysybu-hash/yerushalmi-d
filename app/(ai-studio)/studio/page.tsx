@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { RotateCcw, Scissors, Sparkles } from "lucide-react";
+import { RotateCcw, Scissors, Shuffle, Sparkles } from "lucide-react";
 
 import {
   createStudioProject,
@@ -26,6 +26,9 @@ import { studioReducer } from "@/lib/studio-client/reducer";
 import { useStudioActions } from "@/lib/studio-client/use-studio-actions";
 import { StudioPortfolioPanel } from "@/components/studio/studio-portfolio-panel";
 import { StudioActionPanel } from "@/components/studio/v2/studio-action-panel";
+import { StudioAttemptsRail } from "@/components/studio/v2/studio-attempts-rail";
+import { StudioSourceTools } from "@/components/studio/v2/studio-source-tools";
+import { StudioVideoTools } from "@/components/studio/v2/studio-video-tools";
 import { StudioAdvancedAccordion } from "@/components/studio/v2/studio-advanced-accordion";
 import { StudioCanvas } from "@/components/studio/v2/studio-canvas";
 import { StudioConfirmDialog } from "@/components/studio/v2/studio-confirm-dialog";
@@ -237,13 +240,25 @@ function StudioV2Content() {
         {/* קנבס מרכזי */}
         <div className="space-y-3 lg:sticky lg:top-4 lg:self-start">
           <StudioCanvas state={state} />
+          <StudioAttemptsRail
+            attempts={state.attempts}
+            selectedId={state.selectedAttemptId}
+            currentUrl={state.result.url ?? state.preview.url}
+            onSelect={(id) => dispatch({ type: "SELECT_ATTEMPT", id })}
+            onUseAsResult={(id) => {
+              dispatch({ type: "USE_ATTEMPT_AS_RESULT", id });
+              showToast("הניסיון נבחר כתוצאה — אפשר לפרסם או להמשיך לעבוד");
+            }}
+            onDelete={(id) => dispatch({ type: "DELETE_ATTEMPT", id })}
+            disabled={busy}
+          />
           {state.source.url && (
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <StudioUploadZone
                   hasSource
-                  onUploaded={(url) =>
-                    dispatch({ type: "SOURCE_UPLOADED", url, kind: "image" })
+                  onUploaded={(url, kind, duration) =>
+                    dispatch({ type: "SOURCE_UPLOADED", url, kind, duration })
                   }
                   disabled={busy}
                 />
@@ -281,11 +296,71 @@ function StudioV2Content() {
           {!state.source.url ? (
             <StudioUploadZone
               hasSource={false}
-              onUploaded={(url) =>
-                dispatch({ type: "SOURCE_UPLOADED", url, kind: "image" })
+              onUploaded={(url, kind, duration) =>
+                dispatch({ type: "SOURCE_UPLOADED", url, kind, duration })
               }
               disabled={busy}
             />
+          ) : state.source.kind === "video" ? (
+            /* וידאו שהועלה — עריכה, מוזיקה ומיטוב בלי AI */
+            <>
+              <div className="border border-gold/30 bg-gold/5 p-3 text-xs font-light text-muted-foreground">
+                הועלה וידאו — ערכו אותו למטה (חינם), או מיטבו תנועה מקורית.
+              </div>
+              <Button
+                disabled={busy}
+                onClick={() => void actions.enhanceSourceVideo()}
+                className="w-full rounded-none bg-gold text-sm font-light text-black hover:bg-gold/90"
+              >
+                מיטוב הווידאו המקורי (חינם) — חדות, צבע ותנועה
+              </Button>
+              <StudioVideoTools
+                videoUrl={
+                  state.result.kind === "video" && state.result.url
+                    ? state.result.url
+                    : state.source.url
+                }
+                adjustments={state.videoAdj}
+                onAdjustmentsChange={(value) =>
+                  dispatch({ type: "SET_VIDEO_ADJ", value })
+                }
+                onApplied={(url, label) => {
+                  dispatch({
+                    type: "RESULT_DONE",
+                    url,
+                    kind: "video",
+                    label,
+                    free: true,
+                  });
+                  showToast("הגרסה הערוכה נשמרה בגלריה");
+                }}
+                disabled={busy}
+              />
+              <StudioPublishBar
+                state={state}
+                onTitleChange={(value) =>
+                  dispatch({ type: "SET_PRODUCT_TITLE", value })
+                }
+                onPriceChange={(value) =>
+                  dispatch({ type: "SET_PRODUCT_PRICE", value })
+                }
+                onAspectChange={(value) =>
+                  dispatch({ type: "SET_RESULT_ASPECT", value })
+                }
+                onContinueEditing={() =>
+                  dispatch({ type: "CONTINUE_FROM_RESULT" })
+                }
+                showToast={showToast}
+                onPublished={(productId) => {
+                  if (activeProjectId) {
+                    void markStudioProjectPublished(activeProjectId, {
+                      kind: "catalog",
+                      productId,
+                    }).then(refreshProjects);
+                  }
+                }}
+              />
+            </>
           ) : (
             <>
               <StudioStyleRail
@@ -293,6 +368,27 @@ function StudioV2Content() {
                 onChange={(presetId) =>
                   dispatch({ type: "SET_PRESET", presetId })
                 }
+                disabled={busy}
+              />
+
+              <StudioSourceTools
+                sourceUrl={state.source.url}
+                adjustments={state.sourceAdj}
+                onAdjustmentsChange={(value) =>
+                  dispatch({ type: "SET_SOURCE_ADJ", value })
+                }
+                onSourceReplaced={(url, label) => {
+                  dispatch({
+                    type: "ATTEMPT_ADDED",
+                    url,
+                    kind: "image",
+                    label,
+                    free: true,
+                  });
+                  dispatch({ type: "SOURCE_UPLOADED", url, kind: "image" });
+                  showToast("המקור עודכן — הבידוד ירוץ מחדש על הגרסה הערוכה");
+                }}
+                onAiEnhance={(preset) => void actions.enhanceSource(preset)}
                 disabled={busy}
               />
 
@@ -327,6 +423,43 @@ function StudioV2Content() {
 
               <StudioActionPanel state={state} onAction={handleAction} />
 
+              {/* וריאציות חינמיות מאותו בידוד */}
+              {state.cutout.url &&
+                state.result.url &&
+                state.result.kind === "image" && (
+                  <Button
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => void actions.makeVariants()}
+                    className="w-full rounded-none border-gold/40 text-xs font-light text-gold-dark hover:bg-gold/10"
+                  >
+                    <Shuffle className="ml-1.5 h-3.5 w-3.5" />
+                    עוד 2 סגנונות מאותו בידוד — חינם, נשמרים בגלריה
+                  </Button>
+                )}
+
+              {/* ליטוש וידאו אחרי תוצאת וידאו */}
+              {state.result.url && state.result.kind === "video" && (
+                <StudioVideoTools
+                  videoUrl={state.result.url}
+                  adjustments={state.videoAdj}
+                  onAdjustmentsChange={(value) =>
+                    dispatch({ type: "SET_VIDEO_ADJ", value })
+                  }
+                  onApplied={(url, label) => {
+                    dispatch({
+                      type: "RESULT_DONE",
+                      url,
+                      kind: "video",
+                      label,
+                      free: true,
+                    });
+                    showToast("הגרסה הערוכה נשמרה בגלריה");
+                  }}
+                  disabled={busy}
+                />
+              )}
+
               <StudioPublishBar
                 state={state}
                 onTitleChange={(value) =>
@@ -335,6 +468,13 @@ function StudioV2Content() {
                 onPriceChange={(value) =>
                   dispatch({ type: "SET_PRODUCT_PRICE", value })
                 }
+                onAspectChange={(value) =>
+                  dispatch({ type: "SET_RESULT_ASPECT", value })
+                }
+                onContinueEditing={() => {
+                  dispatch({ type: "CONTINUE_FROM_RESULT" });
+                  showToast("התוצאה הפכה למקור — אפשר לעצב סיבוב נוסף");
+                }}
                 showToast={showToast}
                 onPublished={(productId) => {
                   if (activeProjectId) {

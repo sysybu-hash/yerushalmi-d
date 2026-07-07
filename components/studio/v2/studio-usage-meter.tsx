@@ -3,6 +3,7 @@
 import { Gauge } from "lucide-react";
 
 import type { StudioV2State } from "@/lib/studio-client/state";
+import { ILS_PER_USD } from "./studio-cost-chip";
 import { cn } from "@/lib/utils";
 
 /** מד שימוש יומי — כמה נוצל מהמכסה וכמה עלה היום */
@@ -37,7 +38,9 @@ export function StudioUsageMeter({
         וידאו {usage.videosToday}
         {usage.videoLimit > 0 ? `/${usage.videoLimit}` : ""}
       </span>
-      <span dir="ltr">${usage.costTodayUsd.toFixed(2)}</span>
+      <span dir="ltr" title={`$${usage.costTodayUsd.toFixed(2)}`}>
+        ₪{(usage.costTodayUsd * ILS_PER_USD).toFixed(2)}
+      </span>
     </div>
   );
 }

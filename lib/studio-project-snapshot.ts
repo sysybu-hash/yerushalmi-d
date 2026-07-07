@@ -79,6 +79,16 @@ export type StudioClientState =
     }
   | { status: "error"; source: string; message: string };
 
+/** ניסיון שמור בגלריית העבודה — מאפשר חזרה והשוואה גם אחרי טעינה מחדש */
+export type StudioSnapshotAttempt = {
+  id: string;
+  url: string;
+  kind: "image" | "video";
+  label: string;
+  free: boolean;
+  createdAt: number;
+};
+
 export type StudioProjectSnapshot = {
   version: 1;
   mode: "create" | "edit";
@@ -104,6 +114,8 @@ export type StudioProjectSnapshot = {
   highQualityBackground: boolean;
   cutoutUrl: string;
   edit: StudioEditSnapshot;
+  /** גלריית ניסיונות (אופציונלי — נוסף ב-v2) */
+  attempts?: StudioSnapshotAttempt[];
 };
 
 export function normalizeSnapshot(
@@ -137,6 +149,7 @@ export function normalizeSnapshot(
     highQualityBackground: Boolean(raw.highQualityBackground),
     cutoutUrl: raw.cutoutUrl ?? "",
     videoDuration: parseStudioVideoDuration(raw.videoDuration),
+    attempts: Array.isArray(raw.attempts) ? raw.attempts : [],
   };
 }
 

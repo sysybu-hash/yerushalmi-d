@@ -8,7 +8,10 @@ import type { StudioAction } from "@/lib/studio-client/reducer";
 import { AiEngineSelector } from "@/components/studio/ai-engine-selector";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { STUDIO_PROMPT_EXAMPLES } from "@/lib/studio-presets";
+import {
+  STUDIO_PROMPT_EXAMPLES,
+  STUDIO_VIDEO_PROMPT_EXAMPLES,
+} from "@/lib/studio-presets";
 import { cn } from "@/lib/utils";
 import { StudioCostChip, STUDIO_COST_LABELS } from "./studio-cost-chip";
 
@@ -63,6 +66,21 @@ export function StudioAdvancedAccordion({
               placeholder={STUDIO_PROMPT_EXAMPLES[0]}
               className="rounded-none text-sm font-light"
             />
+            <div className="flex flex-wrap gap-1.5">
+              {STUDIO_PROMPT_EXAMPLES.slice(0, 4).map((example) => (
+                <button
+                  key={example}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() =>
+                    dispatch({ type: "SET_CUSTOM_PROMPT", value: example })
+                  }
+                  className="border border-border/50 px-2 py-0.5 text-[10px] font-light text-muted-foreground hover:border-gold/50 hover:text-foreground"
+                >
+                  {example}
+                </button>
+              ))}
+            </div>
           </div>
 
           {state.flow === "marketing" && (
@@ -81,6 +99,21 @@ export function StudioAdvancedAccordion({
                 placeholder="מצלמה קבועה, נצנוץ עדין על היהלומים בלבד"
                 className="rounded-none text-sm font-light"
               />
+              <div className="flex flex-wrap gap-1.5">
+                {STUDIO_VIDEO_PROMPT_EXAMPLES.slice(0, 3).map((example) => (
+                  <button
+                    key={example}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() =>
+                      dispatch({ type: "SET_VIDEO_PROMPT", value: example })
+                    }
+                    className="border border-border/50 px-2 py-0.5 text-[10px] font-light text-muted-foreground hover:border-gold/50 hover:text-foreground"
+                  >
+                    {example}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 

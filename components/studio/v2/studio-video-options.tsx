@@ -20,8 +20,8 @@ const VIDEO_ENGINE_CHOICES: {
   hint: string;
 }[] = [
   { value: "auto", label: "אוטומטי", hint: "Kling, ומעבר ל-Veo אם אין קרדיט" },
-  { value: "replicate", label: "Kling 3", hint: "תנועה עקבית, ~$0.35 — דרך Replicate" },
-  { value: "gemini", label: "Veo 3.1", hint: "איכות קולנועית, ~$0.40–0.60 — דרך Google" },
+  { value: "replicate", label: "Kling 3", hint: "תנועה עקבית, ‎₪1.30~ — דרך Replicate" },
+  { value: "gemini", label: "Veo 3.1", hint: "איכות קולנועית, ‎₪1.50–2.20~ — דרך Google" },
 ];
 
 export function StudioVideoOptions({
