@@ -235,6 +235,8 @@ export function useStudioActions(
       videoMotion,
       videoDuration,
       videoPrompt,
+      videoNativeAudio,
+      videoMultiShot,
       stylePreset,
       aiEngines,
       flow,
@@ -242,7 +244,7 @@ export function useStudioActions(
 
     return runPaidAction(
       "video",
-      `video:${baseImage}:${videoMotion}:${videoDuration}`,
+      `video:${baseImage}:${videoMotion}:${videoDuration}:${videoMultiShot}:${videoNativeAudio ? "snd" : "mute"}`,
       (idempotencyKey) =>
         studioApiGenerateVideo(baseImage, {
           motionMode: videoMotion,
@@ -252,6 +254,8 @@ export function useStudioActions(
           engines: aiEngines,
           studioMode: flow,
           skipImagePipeline: true,
+          generateAudio: videoNativeAudio,
+          multiShotTemplate: videoMultiShot,
           idempotencyKey,
         }),
       (data) => {

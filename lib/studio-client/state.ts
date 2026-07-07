@@ -3,6 +3,7 @@ import { DEFAULT_AI_ENGINES } from "@/lib/ai-engines";
 import type { StudioStylePresetId } from "@/lib/studio-presets";
 import type { StudioVideoDurationSec } from "@/lib/studio-video-duration";
 import type { StudioVideoMotionMode } from "@/lib/studio-types";
+import type { MultiShotTemplateId } from "@/lib/studio-multishot";
 import {
   EMPTY_STUDIO_SNAPSHOT,
   normalizeSnapshot,
@@ -66,6 +67,10 @@ export type StudioV2State = {
   videoPrompt: string;
   videoDuration: StudioVideoDurationSec;
   videoMotion: StudioVideoMotionMode;
+  /** אודיו נטיבי של Kling */
+  videoNativeAudio: boolean;
+  /** תבנית מולטי-שוט של Kling */
+  videoMultiShot: MultiShotTemplateId;
   useAiBackground: boolean;
   highQualityBackground: boolean;
   aiEngines: AiEngineConfig;
@@ -95,6 +100,8 @@ export const INITIAL_STUDIO_STATE: StudioV2State = {
   videoPrompt: "",
   videoDuration: 5 as StudioVideoDurationSec,
   videoMotion: "preserve",
+  videoNativeAudio: false,
+  videoMultiShot: "none",
   useAiBackground: false,
   highQualityBackground: false,
   aiEngines: DEFAULT_AI_ENGINES,

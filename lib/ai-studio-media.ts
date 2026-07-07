@@ -24,6 +24,8 @@ import {
 } from "@/lib/studio-video-duration";
 import { generatePreservedMotionVideo, generateProfessionalSourceVideo } from "@/lib/studio-motion-video";
 import { isCloudinaryVideoUrl } from "@/lib/cloudinary-url";
+import { buildKlingMultiPrompt, type MultiShotTemplateId } from "@/lib/studio-multishot";
+import { JEWELRY_STRUCTURE_LOCK } from "@/lib/studio-presets";
 import type { StudioVideoMotionMode } from "@/lib/studio-types";
 import { reserveStudioQuota, trackAiUsage } from "@/lib/ai-usage";
 import type { AiUsageMode } from "@/lib/ai-usage";
@@ -251,6 +253,8 @@ export async function studioGenerateVideo(
     motionMode?: StudioVideoMotionMode;
     sourceVideoUrl?: string;
     useSourceVideoMotion?: boolean;
+    generateAudio?: boolean;
+    multiShotTemplate?: MultiShotTemplateId;
   },
   engine: AiResolvedProvider
 ): Promise<{ url: string; provider: StudioVideoProvider }> {
@@ -317,6 +321,12 @@ export async function studioGenerateVideo(
     parseStudioVideoDuration(options.duration ?? 5)
   );
 
+  const multiPrompt = buildKlingMultiPrompt(
+    options.multiShotTemplate ?? "none",
+    replicateDuration,
+    JEWELRY_STRUCTURE_LOCK
+  );
+
   const output = await runTrackedReplicate(
     MODELS.kling,
     {
@@ -325,12 +335,16 @@ export async function studioGenerateVideo(
       negative_prompt: options.negativePrompt,
       duration: replicateDuration,
       mode: options.mode ?? "pro",
-      generate_audio: false,
+      generate_audio: Boolean(options.generateAudio),
+      ...(multiPrompt ? { multi_prompt: multiPrompt } : {}),
     },
     {
       capability: "video",
       mode: usageMode,
       projectId: options.projectId,
+      metadata: multiPrompt
+        ? { multiShot: options.multiShotTemplate }
+        : undefined,
     }
   );
 

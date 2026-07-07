@@ -232,6 +232,8 @@ export async function pipelineGenerateVideo(
           motionMode,
           sourceVideoUrl: options.sourceVideoUrl,
           useSourceVideoMotion: options.useSourceVideoMotion,
+          generateAudio: options.generateAudio,
+          multiShotTemplate: options.multiShotTemplate,
         },
         videoEngine
       ),

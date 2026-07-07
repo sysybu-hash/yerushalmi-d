@@ -1,6 +1,7 @@
 import type { StudioStylePresetId } from "@/lib/studio-presets";
 import type { AiEngineConfig, StudioPipelineMode } from "@/lib/ai-engines";
 import type { StudioVideoDurationSec } from "@/lib/studio-video-duration";
+import type { MultiShotTemplateId } from "@/lib/studio-multishot";
 
 export type GenerateImageOptions = {
   customPrompt?: string;
@@ -33,6 +34,10 @@ export type GenerateVideoOptions = {
   compositeUrl?: string;
   skipImagePipeline?: boolean;
   projectId?: number;
+  /** אודיו נטיבי של Kling (סאונד שנוצר עם הווידאו) */
+  generateAudio?: boolean;
+  /** תבנית מולטי-שוט של Kling — עד 6 צילומים בקליפ */
+  multiShotTemplate?: MultiShotTemplateId;
 };
 
 export type StudioGenerateResult = {

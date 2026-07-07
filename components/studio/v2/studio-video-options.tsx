@@ -3,6 +3,10 @@
 import type { AiEngineProvider } from "@/lib/ai-engines";
 import type { StudioVideoMotionMode } from "@/lib/studio-types";
 import {
+  MULTISHOT_TEMPLATES,
+  type MultiShotTemplateId,
+} from "@/lib/studio-multishot";
+import {
   STUDIO_VIDEO_DURATION_OPTIONS,
   type StudioVideoDurationSec,
 } from "@/lib/studio-video-duration";
@@ -24,19 +28,29 @@ export function StudioVideoOptions({
   duration,
   motion,
   videoEngine,
+  nativeAudio,
+  multiShot,
   onDurationChange,
   onMotionChange,
   onVideoEngineChange,
+  onNativeAudioChange,
+  onMultiShotChange,
   disabled,
 }: {
   duration: StudioVideoDurationSec;
   motion: StudioVideoMotionMode;
   videoEngine: AiEngineProvider;
+  nativeAudio: boolean;
+  multiShot: MultiShotTemplateId;
   onDurationChange: (value: StudioVideoDurationSec) => void;
   onMotionChange: (value: StudioVideoMotionMode) => void;
   onVideoEngineChange: (value: AiEngineProvider) => void;
+  onNativeAudioChange: (value: boolean) => void;
+  onMultiShotChange: (value: MultiShotTemplateId) => void;
   disabled?: boolean;
 }) {
+  // מולטי-שוט ואודיו נטיבי — יכולות של Kling בלבד (לא Veo)
+  const klingFeatures = motion === "ai" && videoEngine !== "gemini";
   return (
     <div className="space-y-3">
       <div className="space-y-1.5">
@@ -102,6 +116,62 @@ export function StudioVideoOptions({
           <p className="text-[10px] font-light text-muted-foreground">
             {VIDEO_ENGINE_CHOICES.find((c) => c.value === videoEngine)?.hint}
           </p>
+        </div>
+      )}
+
+      {klingFeatures && (
+        <div className="space-y-1.5">
+          <p className="text-xs font-light tracking-[0.1em] text-muted-foreground">
+            תבנית צילומים (מולטי-שוט)
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => onMultiShotChange("none")}
+              className={cn(
+                "border px-2 py-1.5 text-xs font-light transition-colors disabled:opacity-50",
+                multiShot === "none"
+                  ? "border-gold bg-gold/10"
+                  : "border-border/60 hover:border-gold/40"
+              )}
+            >
+              צילום אחד רציף
+            </button>
+            {MULTISHOT_TEMPLATES.map((template) => (
+              <button
+                key={template.id}
+                type="button"
+                disabled={disabled}
+                title={template.description}
+                onClick={() => onMultiShotChange(template.id)}
+                className={cn(
+                  "border px-2 py-1.5 text-xs font-light transition-colors disabled:opacity-50",
+                  multiShot === template.id
+                    ? "border-gold bg-gold/10"
+                    : "border-border/60 hover:border-gold/40"
+                )}
+              >
+                {template.label}
+              </button>
+            ))}
+          </div>
+          {multiShot !== "none" && (
+            <p className="text-[10px] font-light text-muted-foreground">
+              {MULTISHOT_TEMPLATES.find((t) => t.id === multiShot)?.description}
+            </p>
+          )}
+
+          <label className="flex items-center justify-between gap-2 pt-1 text-xs font-light">
+            <span>אודיו נטיבי של Kling (סאונד שנוצר עם הווידאו)</span>
+            <input
+              type="checkbox"
+              checked={nativeAudio}
+              disabled={disabled}
+              onChange={(e) => onNativeAudioChange(e.target.checked)}
+              className="h-4 w-4 accent-[#c9a961]"
+            />
+          </label>
         </div>
       )}
 

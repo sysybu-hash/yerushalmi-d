@@ -2,6 +2,7 @@ import type { AiEngineConfig } from "@/lib/ai-engines";
 import type { StudioStylePresetId } from "@/lib/studio-presets";
 import type { StudioVideoDurationSec } from "@/lib/studio-video-duration";
 import type { StudioVideoMotionMode } from "@/lib/studio-types";
+import type { MultiShotTemplateId } from "@/lib/studio-multishot";
 import {
   INITIAL_STUDIO_STATE,
   type StudioBusyAction,
@@ -26,6 +27,8 @@ export type StudioAction =
   | { type: "SET_VIDEO_PROMPT"; value: string }
   | { type: "SET_VIDEO_DURATION"; value: StudioVideoDurationSec }
   | { type: "SET_VIDEO_MOTION"; value: StudioVideoMotionMode }
+  | { type: "SET_VIDEO_NATIVE_AUDIO"; value: boolean }
+  | { type: "SET_VIDEO_MULTISHOT"; value: MultiShotTemplateId }
   | { type: "SET_USE_AI_BACKGROUND"; value: boolean }
   | { type: "SET_HIGH_QUALITY_BACKGROUND"; value: boolean }
   | { type: "SET_ENGINES"; engines: AiEngineConfig }
@@ -102,6 +105,10 @@ export function studioReducer(
       return { ...state, videoDuration: action.value };
     case "SET_VIDEO_MOTION":
       return { ...state, videoMotion: action.value };
+    case "SET_VIDEO_NATIVE_AUDIO":
+      return { ...state, videoNativeAudio: action.value };
+    case "SET_VIDEO_MULTISHOT":
+      return { ...state, videoMultiShot: action.value };
     case "SET_USE_AI_BACKGROUND":
       return { ...state, useAiBackground: action.value };
     case "SET_HIGH_QUALITY_BACKGROUND":

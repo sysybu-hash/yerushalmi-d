@@ -301,6 +301,8 @@ function StudioV2Content() {
                   duration={state.videoDuration}
                   motion={state.videoMotion}
                   videoEngine={state.aiEngines.video}
+                  nativeAudio={state.videoNativeAudio}
+                  multiShot={state.videoMultiShot}
                   onDurationChange={(value) =>
                     dispatch({ type: "SET_VIDEO_DURATION", value })
                   }
@@ -312,6 +314,12 @@ function StudioV2Content() {
                       type: "SET_ENGINES",
                       engines: { ...state.aiEngines, video: value },
                     })
+                  }
+                  onNativeAudioChange={(value) =>
+                    dispatch({ type: "SET_VIDEO_NATIVE_AUDIO", value })
+                  }
+                  onMultiShotChange={(value) =>
+                    dispatch({ type: "SET_VIDEO_MULTISHOT", value })
                   }
                   disabled={busy}
                 />
