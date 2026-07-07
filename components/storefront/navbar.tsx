@@ -65,7 +65,7 @@ export function Navbar({
   return (
     <header className="fixed top-0 z-50 w-full">
       <div className="bg-charcoal px-4 py-1.5 text-center">
-        <p className="text-[11px] font-light tracking-[0.15em] text-ivory/90">
+        <p className="text-[12px] font-light tracking-[0.1em] text-ivory/90 sm:tracking-[0.15em]">
           {announcementText}
           <a
             href={`tel:${contactPhone}`}
