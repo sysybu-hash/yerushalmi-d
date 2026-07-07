@@ -234,6 +234,8 @@ export async function pipelineGenerateVideo(
           useSourceVideoMotion: options.useSourceVideoMotion,
         },
         videoEngine
-      )
+      ),
+    // מעבר ל-Veo רק כש-Kling נכשל בלי לחייב (401/402/קרדיט) — לא חיוב כפול
+    { fallbackPolicy: "billing-errors" }
   );
 }

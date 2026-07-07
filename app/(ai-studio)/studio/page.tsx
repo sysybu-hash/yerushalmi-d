@@ -300,11 +300,18 @@ function StudioV2Content() {
                 <StudioVideoOptions
                   duration={state.videoDuration}
                   motion={state.videoMotion}
+                  videoEngine={state.aiEngines.video}
                   onDurationChange={(value) =>
                     dispatch({ type: "SET_VIDEO_DURATION", value })
                   }
                   onMotionChange={(value) =>
                     dispatch({ type: "SET_VIDEO_MOTION", value })
+                  }
+                  onVideoEngineChange={(value) =>
+                    dispatch({
+                      type: "SET_ENGINES",
+                      engines: { ...state.aiEngines, video: value },
+                    })
                   }
                   disabled={busy}
                 />
