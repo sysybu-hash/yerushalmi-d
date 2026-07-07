@@ -1,9 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { Copy, Download, FolderHeart, Store, Loader2 } from "lucide-react";
+import { Copy, Download, FolderHeart, Store, Loader2, Wand2 } from "lucide-react";
 
 import {
+  generateStudioListing,
   publishProductToCatalog,
   saveAssetToCloudinary,
   saveToMediaLibrary,
@@ -11,6 +12,8 @@ import {
 import type { StudioV2State } from "@/lib/studio-client/state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { PRODUCT_CATEGORIES } from "@/components/workspace/product-constants";
 
 /** פס פרסום — מופיע רק כשיש תוצאה מוכנה */
 export function StudioPublishBar({
@@ -27,6 +30,11 @@ export function StudioPublishBar({
   onPublished: (productId: number) => void;
 }) {
   const [busy, setBusy] = React.useState<string | null>(null);
+  const [description, setDescription] = React.useState("");
+  const [category, setCategory] = React.useState("rings");
+  const [productType, setProductType] = React.useState<"natural" | "lab">(
+    "natural"
+  );
   const result = state.result;
 
   if (!result.url || !result.kind || !state.source.url) return null;
@@ -53,6 +61,26 @@ export function StudioPublishBar({
     }
   }
 
+  async function fillWithAi() {
+    setBusy("ai-fill");
+    try {
+      const generated = await generateStudioListing(resultUrl);
+      if (!generated.ok) {
+        showToast(generated.error);
+        return;
+      }
+      onTitleChange(generated.data.title);
+      setDescription(generated.data.description);
+      setCategory(generated.data.category);
+      setProductType(generated.data.type);
+      showToast("הפרטים מולאו ב-AI — בדקו והשלימו מחיר");
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "מילוי ה-AI נכשל");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function publishProduct() {
     const price = Number(state.productPrice);
     if (!state.productTitle.trim()) {
@@ -67,9 +95,10 @@ export function StudioPublishBar({
     try {
       const { productId } = await publishProductToCatalog({
         title: state.productTitle,
+        description: description.trim() || undefined,
         price,
-        category: "rings",
-        type: "natural",
+        category,
+        type: productType,
         imageUrl: resultUrl,
       });
       showToast("המוצר פורסם לקטלוג");
@@ -126,6 +155,20 @@ export function StudioPublishBar({
 
       {resultKind === "image" && (
         <div className="space-y-2 border-t border-emerald-600/20 pt-3">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy !== null}
+            onClick={fillWithAi}
+            className="w-full rounded-none border-gold/40 text-xs font-light text-gold-dark hover:bg-gold/10"
+          >
+            {busy === "ai-fill" ? (
+              <Loader2 className="ml-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Wand2 className="ml-1.5 h-3.5 w-3.5" />
+            )}
+            מילוי שם, תיאור וקטגוריה ב-AI
+          </Button>
           <div className="grid grid-cols-2 gap-2">
             <Input
               dir="rtl"
@@ -142,6 +185,39 @@ export function StudioPublishBar({
               onChange={(e) => onPriceChange(e.target.value)}
               className="rounded-none text-sm font-light"
             />
+          </div>
+          <Textarea
+            dir="rtl"
+            rows={2}
+            placeholder="תיאור המוצר (אופציונלי)"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="rounded-none text-sm font-light"
+          />
+          <div className="grid grid-cols-2 gap-2">
+            <select
+              dir="rtl"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="h-9 border border-input bg-background px-2 text-sm font-light"
+            >
+              {PRODUCT_CATEGORIES.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+            <select
+              dir="rtl"
+              value={productType}
+              onChange={(e) =>
+                setProductType(e.target.value === "lab" ? "lab" : "natural")
+              }
+              className="h-9 border border-input bg-background px-2 text-sm font-light"
+            >
+              <option value="natural">יהלום טבעי</option>
+              <option value="lab">יהלום מעבדה</option>
+            </select>
           </div>
           <Button
             size="sm"

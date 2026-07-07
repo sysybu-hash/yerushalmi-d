@@ -253,3 +253,20 @@ export async function publishProductToCatalog(
 
   return { productId: created.id };
 }
+
+/** מילוי שם/תיאור/קטגוריה אוטומטי ב-AI מתוך תמונת התוצאה */
+export async function generateStudioListing(
+  imageUrl: string
+): Promise<StudioActionResult<import("@/lib/listing-ai").GeneratedListingContent>> {
+  const { generateListingContent } = await import("@/lib/listing-ai");
+  return runStudioAction(async () => {
+    await requireAdmin();
+    if (!imageUrl.startsWith("https://res.cloudinary.com/")) {
+      throw new Error("נדרשת תמונה שמורה ב-Cloudinary");
+    }
+    return generateListingContent({
+      imageUrls: [imageUrl],
+      mode: "fill",
+    });
+  }, "מילוי הפרטים ב-AI נכשל — נסו שוב");
+}
