@@ -211,24 +211,60 @@ async function chromaKeyGreenBackground(buffer: Buffer): Promise<Buffer> {
   const out = Buffer.from(data);
   let keyed = 0;
 
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const i = (y * w + x) * 4;
-      const r = out[i];
-      const g = out[i + 1];
-      const b = out[i + 2];
+  // מעבר 1 — ירוק מובהק (מסך ירוק נקי)
+  for (let i = 0; i < out.length; i += 4) {
+    const r = out[i];
+    const g = out[i + 1];
+    const b = out[i + 2];
 
-      const isGreen =
-        g > 160 && g > r + 35 && g > b + 35 && g - Math.max(r, b) > 40;
+    const isGreen =
+      g > 160 && g > r + 35 && g > b + 35 && g - Math.max(r, b) > 40;
 
-      if (isGreen) {
-        out[i + 3] = 0;
-        keyed++;
-      }
+    if (isGreen) {
+      out[i + 3] = 0;
+      keyed++;
     }
   }
 
   if (keyed < w * h * 0.02) return buffer;
+
+  // זו תמונת מסך-ירוק — Gemini מצייר ירוק מרוקם ולא אחיד,
+  // אז מעבר 2 מוריד גם ירוק חלש/בהיר וגם רעש בהיר שנשאר סביבו
+  let greenish = 0;
+  for (let i = 0; i < out.length; i += 4) {
+    if (out[i + 3] === 0) continue;
+    const r = out[i];
+    const g = out[i + 1];
+    const b = out[i + 2];
+
+    if (g > 90 && g >= r + 14 && g >= b + 14) {
+      out[i + 3] = 0;
+      greenish++;
+      continue;
+    }
+
+    // הסרת שאריות ירקרקות (despill) בקצוות — מנטרל הילה ירוקה
+    if (g > r && g > b && g - Math.max(r, b) > 6) {
+      out[i + 1] = Math.max(r, b);
+    }
+  }
+
+  // ניקוי פיקסלים בודדים שנותרו "צפים" בתוך אזור שנוקה (רעש נקודתי)
+  if (keyed + greenish > w * h * 0.1) {
+    const alphaAt = (x: number, y: number) => out[(y * w + x) * 4 + 3];
+    for (let y = 1; y < h - 1; y++) {
+      for (let x = 1; x < w - 1; x++) {
+        const i = (y * w + x) * 4;
+        if (out[i + 3] === 0) continue;
+        let clearNeighbors = 0;
+        if (alphaAt(x - 1, y) === 0) clearNeighbors++;
+        if (alphaAt(x + 1, y) === 0) clearNeighbors++;
+        if (alphaAt(x, y - 1) === 0) clearNeighbors++;
+        if (alphaAt(x, y + 1) === 0) clearNeighbors++;
+        if (clearNeighbors >= 3) out[i + 3] = 0;
+      }
+    }
+  }
 
   return sharp(out, {
     raw: { width: w, height: h, channels: 4 },
@@ -430,7 +466,8 @@ async function refineCutoutEdges(
   const alpha = await sharp(jewelryPng)
     .ensureAlpha()
     .extractChannel(3)
-    .blur(0.15)
+    // sharp דורש sigma בין 0.3 ל-1000
+    .blur(0.3)
     .png()
     .toBuffer();
 
