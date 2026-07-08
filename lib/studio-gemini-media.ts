@@ -231,8 +231,16 @@ export async function geminiGenerateLuxuryBackground(prompt: string): Promise<Bu
   ]);
 }
 
-function mapVeoResolution(mode: "standard" | "pro"): "720p" | "1080p" {
-  return mode === "pro" ? "1080p" : "720p";
+/**
+ * Veo תומך ב-1080p רק עבור קליפים של 8 שניות בדיוק — בכל משך אחר
+ * (4 או 6 שניות) ה-API מחזיר שגיאה "1080p is not supported for a
+ * duration of X seconds". חובה לרדת ל-720p בכל משך שאינו 8.
+ */
+function mapVeoResolution(
+  mode: "standard" | "pro",
+  durationSeconds: number
+): "720p" | "1080p" {
+  return mode === "pro" && durationSeconds === 8 ? "1080p" : "720p";
 }
 
 async function pollVeoOperation(operationName: string): Promise<string> {
@@ -293,7 +301,7 @@ export async function geminiGenerateVideoFromImage(options: {
   const durationSeconds = mapDurationForVeo(
     parseStudioVideoDuration(options.duration ?? 5)
   );
-  const resolution = mapVeoResolution(options.mode ?? "pro");
+  const resolution = mapVeoResolution(options.mode ?? "pro", durationSeconds);
 
   const prompt = [
     JEWELRY_STRUCTURE_LOCK,

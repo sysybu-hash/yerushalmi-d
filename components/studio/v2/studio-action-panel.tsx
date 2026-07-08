@@ -34,7 +34,12 @@ export function resolveNextAction(state: StudioV2State): NextAction | null {
   );
 
   if (state.flow === "catalog") {
-    if (state.result.url && state.result.kind === "image") return null;
+    // מסתירים את הכפתור רק אם באמת אין מה לעדכן — יש תוצאה סופית
+    // *וגם* התצוגה המקדימה תואמת לסגנון הנבחר כרגע. אם המשתמש בחר
+    // סגנון רקע חדש, previewReady הופך ל-false וצריך להציע שוב פעולה.
+    if (state.result.url && state.result.kind === "image" && previewReady) {
+      return null;
+    }
     if (!previewReady) {
       return {
         id: "preview",
@@ -66,8 +71,9 @@ export function resolveNextAction(state: StudioV2State): NextAction | null {
   }
 
   // שיווק — וידאו. אין חובת בידוד/תצוגה מקדימה: אם יש מקור או תוצאה
-  // שמישים, אפשר ליצור וידאו ישירות מהם.
-  if (state.result.url && state.result.kind === "video") return null;
+  // שמישים, אפשר ליצור וידאו ישירות מהם. לא מסתירים את הכפתור גם אם
+  // כבר נוצר וידאו קודם — צריך אפשרות ליצור עוד וידאו עם הגדרות חדשות
+  // (משך/תנועה/מנוע שונים), אחרת אין דרך ליצור וידאו שני מאותו פרויקט.
   if (!hasUsableBase) {
     return {
       id: "preview",
