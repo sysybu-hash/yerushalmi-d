@@ -149,23 +149,6 @@ export function hasHebrew(text: string) {
   return /[\u0590-\u05FF]/.test(text);
 }
 
-/** תרגום הנחיות עבריות לאנגלית לפרומפט AI */
-export async function translateToEnglish(text: string): Promise<string> {
-  const trimmed = text.trim();
-  if (!trimmed || !hasHebrew(trimmed)) return trimmed;
-
-  const output = await replicate.run(MODELS.llama, {
-    input: {
-      prompt: `Translate the following Hebrew text to English for use as an AI image/video generation prompt. Output ONLY the English translation, nothing else:\n\n${trimmed}`,
-      max_tokens: 400,
-      temperature: 0.1,
-    },
-  });
-
-  const translated = extractText(output);
-  return translated || trimmed;
-}
-
 export async function runTrackedReplicate(
   modelId: string,
   input: Record<string, unknown>,

@@ -164,18 +164,19 @@ const JEWELRY_VISION_PROMPT = `What jewelry is shown in this product photo?
 Answer in English with these details:
 1) jewelry type (earrings, ring, necklace, bracelet, pendant, or other)
 2) metal color and finish
-3) gemstone type, cut shape, and setting style
+3) gemstone type, cut shape, setting style, and exact number of visible stones
 4) overall design style
-Be factual — describe only what is clearly visible.`;
+5) note if the piece appears asymmetrical, damaged, or has any visible defect
+Be factual — describe only what is clearly visible. If a count or detail is unclear, say so rather than guessing.`;
 
 const LLAVA_JSON_PROMPT = `You are a luxury jewelry expert. Describe ONLY what is visible.
 Output ONLY valid JSON:
 {
   "jewelryType": "earrings | ring | necklace | bracelet | pendant | other",
   "metal": "metal color and finish",
-  "stones": "gemstone type, cut, setting",
+  "stones": "gemstone type, cut, setting, and exact number of visible stones",
   "style": "design style",
-  "description": "2-3 sentence English description"
+  "description": "2-3 sentence English description, noting any asymmetry or visible defect"
 }`;
 
 type JewelryVisualAnalysis = {

@@ -172,7 +172,9 @@ async function generateFluxBackground(prompt: string): Promise<Buffer> {
   const output = await runTrackedReplicate(
     MODELS.fluxSchnell,
     {
-      prompt: `Professional luxury jewelry photography background, empty scene, no jewelry, no people, no text: ${prompt}`,
+      // Flux Schnell has no negative_prompt field — the same exclusions
+      // enforced via BACKGROUND_NEGATIVE for SDXL are folded into the text here.
+      prompt: `Professional luxury jewelry photography background, empty scene, no jewelry, no ring, no necklace, no bracelet, no earrings, no diamond, no product, no hands, no people, no text, no watermark, no logo: ${prompt}`,
       aspect_ratio: "1:1",
       output_format: "png",
       num_outputs: 1,

@@ -14,7 +14,8 @@ import {
 } from "@/lib/studio-transform";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { StudioCostChip } from "./studio-cost-chip";
+import { StudioCostChip, STUDIO_COST_LABELS } from "./studio-cost-chip";
+import { Sparkles } from "lucide-react";
 
 /**
  * ליטוש וידאו (תוצאה או וידאו שהועלה): מוזיקה, יחס גובה-רוחב
@@ -25,6 +26,7 @@ export function StudioVideoTools({
   adjustments,
   onAdjustmentsChange,
   onApplied,
+  onRequestEnhanceAi,
   disabled,
 }: {
   videoUrl: string;
@@ -32,6 +34,8 @@ export function StudioVideoTools({
   onAdjustmentsChange: (next: VideoAdjustments) => void;
   /** מחזיר את ה-URL הערוך — נוסף לגלריה והופך לתוצאה */
   onApplied: (url: string, label: string) => void;
+  /** מבקש אישור להרצת שיפור AI (Veo) בתשלום — הדיאלוג עצמו ב-page.tsx */
+  onRequestEnhanceAi?: () => void;
   disabled?: boolean;
 }) {
   const [open, setOpen] = React.useState(true);
@@ -190,6 +194,27 @@ export function StudioVideoTools({
           </Button>
           {error && (
             <p className="text-[11px] font-light text-red-600">{error}</p>
+          )}
+
+          {onRequestEnhanceAi && (
+            <div className="space-y-2 border-t border-border/60 pt-3">
+              <p className="text-xs font-light text-muted-foreground">
+                או: שיפור תאורה ותנועה ב-AI (Veo) — בתשלום
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={disabled}
+                onClick={onRequestEnhanceAi}
+                className="w-full rounded-none border-gold/40 text-xs font-light text-gold-dark hover:bg-gold/10"
+              >
+                <Sparkles className="ml-1.5 h-3.5 w-3.5" />
+                שיפור וידאו ב-AI
+                <span className="mr-auto">
+                  <StudioCostChip label={STUDIO_COST_LABELS.videoEnhanceAi} />
+                </span>
+              </Button>
+            </div>
           )}
         </div>
       )}

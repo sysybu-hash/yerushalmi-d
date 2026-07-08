@@ -55,7 +55,14 @@ export function StudioPublishBar({
   const [productType, setProductType] = React.useState<"natural" | "lab">(
     "natural"
   );
-  const result = state.result;
+  // ניסיון נבחר בגלריה גובר על התוצאה — אותה עדיפות כמו בקנבס, כדי
+  // שמה שמפרסמים תמיד יהיה בדיוק מה שרואים על המסך (ולא תוצאה ישנה).
+  const selectedAttempt = state.selectedAttemptId
+    ? state.attempts.find((a) => a.id === state.selectedAttemptId)
+    : null;
+  const result = selectedAttempt
+    ? { url: selectedAttempt.url, kind: selectedAttempt.kind, status: "done" as const, provider: null }
+    : state.result;
 
   if (!result.url || !result.kind || !state.source.url) return null;
 

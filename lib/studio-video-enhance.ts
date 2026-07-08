@@ -2,7 +2,7 @@ import type { StudioStylePresetId } from "@/lib/studio-presets";
 import {
   DEFAULT_VIDEO_NEGATIVE_PROMPT,
   JEWELRY_STRUCTURE_LOCK,
-  STUDIO_STYLE_PRESETS,
+  STUDIO_PRESET_LIGHTING_HINTS,
 } from "@/lib/studio-presets";
 import {
   parseStudioVideoDuration,
@@ -161,7 +161,7 @@ async function studioEnhanceVideoGemini(
     const veoInputUrl = opaqueImageUrlForVideo(frameUrl);
 
     const styleSuffix = options.stylePreset
-      ? STUDIO_STYLE_PRESETS.find((p) => p.id === options.stylePreset)?.suffix
+      ? STUDIO_PRESET_LIGHTING_HINTS[options.stylePreset]
       : null;
 
     const veoPrompt = [

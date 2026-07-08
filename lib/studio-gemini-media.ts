@@ -169,7 +169,7 @@ const SOURCE_ENHANCE_PROMPTS: Record<SourceEnhancePreset, string> = {
   enhance: [
     "Enhance this jewelry product photo for a luxury catalog.",
     "Improve sharpness, exposure, and micro-contrast on the metal and stones.",
-    "Keep composition and jewelry design identical — no redesign.",
+    "Keep identical facet geometry, prong layout, stone count, stone shape, and metal color — no redesign, no added or removed gemstones.",
     "Natural studio lighting, photorealistic, high resolution.",
   ].join(" "),
 };
@@ -210,6 +210,7 @@ export async function geminiRemoveBackground(imageDataUri: string): Promise<Buff
         "Isolate this exact jewelry product on a solid flat chroma-key green background (RGB 0,255,0 only).",
         "NO checkerboard, NO transparency grid, NO gray squares, NO patterns behind the jewelry.",
         "Preserve every diamond, prong, metal edge, chain link, and reflection exactly — do not redraw the product.",
+        "Keep identical facet geometry, prong layout, stone count, stone shape, and metal color.",
         "Professional e-commerce product isolation.",
       ].join(" "),
     },

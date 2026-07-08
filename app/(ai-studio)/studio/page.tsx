@@ -57,6 +57,7 @@ function StudioV2Content() {
     null
   );
   const [confirmVideo, setConfirmVideo] = React.useState(false);
+  const [confirmEnhanceAi, setConfirmEnhanceAi] = React.useState(false);
   const hydrated = React.useRef(false);
   const skipNextSave = React.useRef(false);
 
@@ -381,6 +382,7 @@ function StudioV2Content() {
                   });
                   showToast("הגרסה הערוכה נשמרה בגלריה");
                 }}
+                onRequestEnhanceAi={() => setConfirmEnhanceAi(true)}
                 disabled={busy}
               />
               <StudioPublishBar
@@ -521,6 +523,7 @@ function StudioV2Content() {
                     });
                     showToast("הגרסה הערוכה נשמרה בגלריה");
                   }}
+                  onRequestEnhanceAi={() => setConfirmEnhanceAi(true)}
                   disabled={busy}
                 />
               )}
@@ -584,6 +587,19 @@ function StudioV2Content() {
           void actions.generateVideo();
         }}
         onCancel={() => setConfirmVideo(false)}
+      />
+
+      <StudioConfirmDialog
+        open={confirmEnhanceAi}
+        title="שיפור וידאו ב-AI"
+        description="שיפור תאורה ותנועה בווידאו הקיים באמצעות Veo — פעולה בתשלום, נפרדת מהליטוש החינמי."
+        costLabel={STUDIO_COST_LABELS.videoEnhanceAi}
+        confirmLabel="אישור ושיפור"
+        onConfirm={() => {
+          setConfirmEnhanceAi(false);
+          void actions.enhanceVideoAi();
+        }}
+        onCancel={() => setConfirmEnhanceAi(false)}
       />
 
       {/* טוסט */}

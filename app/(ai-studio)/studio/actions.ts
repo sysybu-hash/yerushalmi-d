@@ -1,13 +1,11 @@
 "use server";
 
-import { sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
-import { aiMediaAssets, products, siteSettings } from "@/db/schema";
+import { aiMediaAssets, products } from "@/db/schema";
 import { requireAdmin } from "@/lib/auth";
 import { runStudioAction, type StudioActionResult } from "@/lib/studio-action";
-import { IMAGE_SETTING_KEYS } from "@/lib/studio-presets";
 import {
   pipelineCompositeImage,
   pipelineGenerateVideo,
@@ -16,7 +14,6 @@ import {
 import { uploadBufferToCloudinary } from "@/lib/studio-replicate";
 import type { StudioVideoProvider } from "@/lib/ai-studio-media";
 import type { GenerateImageOptions, GenerateVideoOptions } from "@/lib/studio-types";
-import type { SettingKey } from "@/lib/site-settings";
 
 export type { GenerateImageOptions, GenerateVideoOptions } from "@/lib/studio-types";
 
@@ -151,37 +148,6 @@ export async function saveAssetToCloudinary(
   );
 
   return { url };
-}
-
-export async function publishImageToSite(
-  settingKey: SettingKey,
-  imageUrl: string
-) {
-  await requireAdmin();
-
-  if (!IMAGE_SETTING_KEYS.has(settingKey)) {
-    throw new Error("יעד פרסום לא תקין");
-  }
-
-  if (!imageUrl.startsWith("https://res.cloudinary.com/")) {
-    throw new Error("יש לפרסם רק תמונות שנשמרו ב-Cloudinary");
-  }
-
-  await db
-    .insert(siteSettings)
-    .values({ key: settingKey, value: imageUrl })
-    .onConflictDoUpdate({
-      target: siteSettings.key,
-      set: {
-        value: sql`excluded.value`,
-        updatedAt: sql`now()`,
-      },
-    });
-
-  revalidatePath("/", "layout");
-  revalidatePath("/workspace/settings");
-
-  return { settingKey };
 }
 
 const PRODUCT_TYPES = ["natural", "lab"] as const;

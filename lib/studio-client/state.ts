@@ -203,6 +203,7 @@ export function stateToSnapshot(state: StudioV2State): StudioProjectSnapshot {
     highQualityBackground: state.highQualityBackground,
     cutoutUrl: state.cutout.url ?? "",
     attempts: state.attempts,
+    sourceKind: state.source.kind,
   });
 }
 
@@ -222,7 +223,7 @@ export function snapshotToState(raw: StudioProjectSnapshot): StudioV2State {
     flow: snapshot.studioMode,
     source: {
       url: sourceUrl,
-      kind: resultKind === "video" ? "image" : "image",
+      kind: snapshot.sourceKind ?? "image",
       duration: null,
     },
     cutout: {

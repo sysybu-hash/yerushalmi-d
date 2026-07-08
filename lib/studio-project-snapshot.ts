@@ -116,6 +116,8 @@ export type StudioProjectSnapshot = {
   edit: StudioEditSnapshot;
   /** גלריית ניסיונות (אופציונלי — נוסף ב-v2) */
   attempts?: StudioSnapshotAttempt[];
+  /** סוג הקובץ שהועלה כמקור — תמונה או וידאו (נוסף ב-v2, נעדר בפרויקטים ישנים) */
+  sourceKind?: "image" | "video";
 };
 
 export function normalizeSnapshot(
@@ -150,6 +152,7 @@ export function normalizeSnapshot(
     cutoutUrl: raw.cutoutUrl ?? "",
     videoDuration: parseStudioVideoDuration(raw.videoDuration),
     attempts: Array.isArray(raw.attempts) ? raw.attempts : [],
+    sourceKind: raw.sourceKind === "video" ? "video" : "image",
   };
 }
 
@@ -178,6 +181,7 @@ export const EMPTY_STUDIO_SNAPSHOT: StudioProjectSnapshot = {
   highQualityBackground: false,
   cutoutUrl: "",
   edit: EMPTY_EDIT_SNAPSHOT,
+  sourceKind: "image",
 };
 
 export function snapshotThumbnailUrl(snapshot: StudioProjectSnapshot): string | null {

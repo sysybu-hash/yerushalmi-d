@@ -1,99 +1,18 @@
-import type { SettingKey } from "@/lib/site-settings";
-import { COLLECTION_SETTING_KEYS } from "@/lib/site-settings";
-import { PRODUCT_CATEGORIES } from "@/components/workspace/product-constants";
-
-function collectionLabel(slug: string) {
-  return (
-    PRODUCT_CATEGORIES.find((category) => category.value === slug)?.label ??
-    slug
-  );
-}
-
 export const STUDIO_STYLE_PRESETS = [
-  {
-    id: "luxury-marble",
-    label: "שיש שחור יוקרתי",
-    suffix:
-      "on polished black marble surface, dramatic rim lighting, deep shadows, champagne gold accents",
-  },
-  {
-    id: "black-velvet",
-    label: "קטיפה שחורה",
-    suffix:
-      "on black velvet jewelry display, soft spotlight, sparkling diamond reflections",
-  },
-  {
-    id: "white-studio",
-    label: "סטודיו לבן נקי",
-    suffix:
-      "on pure white seamless studio background, soft diffused lighting, catalog style",
-  },
-  {
-    id: "gold-bokeh",
-    label: "זהב ובוקה",
-    suffix:
-      "smooth dark charcoal gradient background, soft warm gold ambient glow, luxury catalog atmosphere, no visible circles or patterns",
-  },
-  {
-    id: "lifestyle",
-    label: "לייפסטייל אלגנטי",
-    suffix:
-      "elegant lifestyle product shot, subtle silk fabric, warm natural light, editorial magazine style",
-  },
-  {
-    id: "rose-gold-glow",
-    label: "זהב ורוד רומנטי",
-    suffix:
-      "soft rose gold gradient background, romantic warm blush tones, gentle sparkle, feminine luxury jewelry display",
-  },
-  {
-    id: "midnight-blue",
-    label: "כחול חצות",
-    suffix:
-      "deep midnight blue velvet background, cool silver highlights, elegant evening luxury atmosphere",
-  },
-  {
-    id: "champagne-silk",
-    label: "משי שמפניה",
-    suffix:
-      "champagne silk fabric draped background, warm cream tones, soft diffused glow, bridal luxury aesthetic",
-  },
-  {
-    id: "jerusalem-stone",
-    label: "אבן ירושלמית",
-    suffix:
-      "warm Jerusalem limestone texture background, honey beige tones, Mediterranean luxury, soft golden hour light",
-  },
-  {
-    id: "concrete-minimal",
-    label: "בטון מינימליסטי",
-    suffix:
-      "modern light gray concrete surface, minimalist Scandinavian luxury, clean cool studio lighting",
-  },
-  {
-    id: "botanical-soft",
-    label: "בוטני רך",
-    suffix:
-      "soft sage green botanical bokeh background, natural organic luxury, muted greenery blur, fresh editorial style",
-  },
-  {
-    id: "mirror-glass",
-    label: "זכוכית מראה",
-    suffix:
-      "reflective black glass surface, mirror-like reflections, high-end showcase display, sharp studio highlights",
-  },
-  {
-    id: "royal-purple",
-    label: "סגול מלכותי",
-    suffix:
-      "rich royal purple velvet background, regal amethyst tones, dramatic luxury spotlight, evening gala aesthetic",
-  },
-  {
-    id: "sunset-amber",
-    label: "שקיעת ענבר",
-    suffix:
-      "smooth warm amber gradient background, soft golden hour warmth, luxury catalog lighting, no sun rays or radial patterns",
-  },
+  { id: "luxury-marble", label: "שיש שחור יוקרתי" },
+  { id: "black-velvet", label: "קטיפה שחורה" },
+  { id: "white-studio", label: "סטודיו לבן נקי" },
+  { id: "gold-bokeh", label: "זהב ובוקה" },
+  { id: "lifestyle", label: "לייפסטייל אלגנטי" },
+  { id: "rose-gold-glow", label: "זהב ורוד רומנטי" },
+  { id: "midnight-blue", label: "כחול חצות" },
+  { id: "champagne-silk", label: "משי שמפניה" },
+  { id: "jerusalem-stone", label: "אבן ירושלמית" },
+  { id: "concrete-minimal", label: "בטון מינימליסטי" },
+  { id: "botanical-soft", label: "בוטני רך" },
+  { id: "mirror-glass", label: "זכוכית מראה" },
+  { id: "royal-purple", label: "סגול מלכותי" },
+  { id: "sunset-amber", label: "שקיעת ענבר" },
 ] as const;
 
 export type StudioStylePresetId = (typeof STUDIO_STYLE_PRESETS)[number]["id"];
@@ -164,43 +83,6 @@ export const STUDIO_WORKSPACE_UPLOAD_MODES = [
 
 export type StudioWorkspaceUploadModeId =
   (typeof STUDIO_WORKSPACE_UPLOAD_MODES)[number]["id"];
-
-export const STUDIO_PUBLISH_TARGETS: {
-  key: SettingKey;
-  label: string;
-  description: string;
-  previewPath: string;
-}[] = [
-  {
-    key: "heroImage",
-    label: "תמונת Hero — דף הבית",
-    description: "רקע גדול בראש דף הבית",
-    previewPath: "/",
-  },
-  ...COLLECTION_SETTING_KEYS.map((c) => ({
-    key: c.imageKey,
-    label: `באנר — ${collectionLabel(c.slug)}`,
-    description: `תמונת באנר לעמוד ${collectionLabel(c.slug)}`,
-    previewPath: c.href,
-  })),
-  {
-    key: "aboutImage",
-    label: "תמונת \"הסיפור שלנו\"",
-    description: "תמונת הסקציה בדף הבית",
-    previewPath: "/#about",
-  },
-];
-
-export const IMAGE_SETTING_KEYS = new Set<SettingKey>(
-  STUDIO_PUBLISH_TARGETS.map((t) => t.key)
-);
-
-export function styleSuffix(presetId: StudioStylePresetId) {
-  return (
-    STUDIO_STYLE_PRESETS.find((p) => p.id === presetId)?.suffix ??
-    STUDIO_STYLE_PRESETS[0].suffix
-  );
-}
 
 export const STUDIO_PIPELINE_STEPS = [
   { id: "cutout", label: "מבודד את התכשיט המקורי" },

@@ -449,7 +449,8 @@ export function useStudioActions(
     else if (failed === "preview") await makePreview();
     else if (failed === "image") await generateImage();
     else if (failed === "video") await generateVideo();
-  }, [dispatch, makeCutout, makePreview, generateImage, generateVideo]);
+    else if (failed === "enhance") await enhanceVideoAi();
+  }, [dispatch, makeCutout, makePreview, generateImage, generateVideo, enhanceVideoAi]);
 
   return {
     makeCutout,
