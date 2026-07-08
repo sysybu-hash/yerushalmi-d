@@ -126,16 +126,23 @@ export async function geminiAnalyzeImage(
   imageDataUri: string,
   prompt: string
 ): Promise<string> {
-  const match = imageDataUri.match(/^data:(.*?);base64,(.+)$/);
-  if (!match) {
+  // לא רגקס: data URI גדול (מגה-בייטים בבסיס64) עם רגקס .+/$ גורם
+  // ל-V8 "Maximum call stack size exceeded" — פירוק ידני בטוח יותר.
+  const marker = ";base64,";
+  const markerIndex = imageDataUri.startsWith("data:")
+    ? imageDataUri.indexOf(marker)
+    : -1;
+  if (markerIndex === -1) {
     throw new Error("פורמט תמונה לא תקין לניתוח Gemini");
   }
+  const mimeType = imageDataUri.slice(5, markerIndex) || "image/jpeg";
+  const data = imageDataUri.slice(markerIndex + marker.length);
 
   return geminiGenerate([
     {
       inline_data: {
-        mime_type: match[1] || "image/jpeg",
-        data: match[2],
+        mime_type: mimeType,
+        data,
       },
     },
     { text: prompt },

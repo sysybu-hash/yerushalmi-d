@@ -46,12 +46,22 @@ function getGeminiApiKey(): string {
   return key;
 }
 
+/**
+ * לא רגקס: על data URI גדול (תמונת קטלוג יכולה להגיע למגה-בייטים בבסיס64)
+ * רגקס עם .+ וסימון $ גורם ל-V8 "Maximum call stack size exceeded" —
+ * פירוק ידני בעזרת indexOf/slice בטוח ומהיר יותר.
+ */
 function parseDataUri(dataUri: string): { mimeType: string; data: string } {
-  const match = dataUri.match(/^data:(.*?);base64,(.+)$/);
-  if (!match) {
+  const marker = ";base64,";
+  const markerIndex = dataUri.startsWith("data:")
+    ? dataUri.indexOf(marker)
+    : -1;
+  if (markerIndex === -1) {
     throw new Error("פורמט תמונה לא תקין");
   }
-  return { mimeType: match[1] || "image/jpeg", data: match[2] };
+  const mimeType = dataUri.slice(5, markerIndex) || "image/jpeg";
+  const data = dataUri.slice(markerIndex + marker.length);
+  return { mimeType, data };
 }
 
 function extractGeminiImageBuffer(payload: unknown): Buffer | null {

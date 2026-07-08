@@ -468,7 +468,15 @@ function StudioV2Content() {
                   dispatch({ type: "SOURCE_UPLOADED", url, kind: "image" });
                   showToast("המקור עודכן — הבידוד ירוץ מחדש על הגרסה הערוכה");
                 }}
-                onAiEnhance={(preset) => void actions.enhanceSource(preset)}
+                onAiEnhance={(preset) =>
+                  void actions.enhanceSource(preset).then((ok) => {
+                    if (ok) {
+                      showToast(
+                        "המקור שופר ב-AI — הבידוד יתבצע מחדש על הגרסה המשופרת"
+                      );
+                    }
+                  })
+                }
                 disabled={busy}
               />
 
