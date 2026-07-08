@@ -119,7 +119,10 @@ export function buildZoompanVideoUrl(
   const width = options.width ?? 1920;
   const maxZoom = options.maxZoom ?? 1.02;
   const fps = options.fps ?? 30;
-  const flatten = `c_limit,w_${width},h_${width},b_white,f_png,q_100`;
+  // בלי f_png כאן — ברגע שיש f_ מפורש בשרשרת, Cloudinary מכבד אותו
+  // כפורמט הסופי ומתעלם מסיומת ה-.mp4 (מחזיר PNG סטטי במקום וידאו).
+  // b_white מספיק כדי להשטיח שקיפות; הפורמט הסופי נקבע ע"י tail בלבד.
+  const flatten = `c_limit,w_${width},h_${width},b_white,q_100`;
   const zoompan = `e_zoompan:du_${durationSec};maxzoom_${maxZoom};fps_${fps};to_(g_auto)`;
 
   return `${prefix}${flatten}/${zoompan}/fl_animated/q_auto:best/${tail}`;
