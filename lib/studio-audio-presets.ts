@@ -11,49 +11,63 @@ export type StudioAudioStyle = {
   label: string;
   description: string;
   fetchUrl: string | null;
+  /** false = מקור החוץ חסום/לא זמין כרגע — האפשרות מוצגת מנוטרלת בממשק */
+  available: boolean;
 };
 
-/** מוזיקת רקע חופשית (Mixkit) — אינסטרומנטלי בלבד, ללא שירה */
+/**
+ * מוזיקת רקע חופשית (Mixkit) — אינסטרומנטלי בלבד, ללא שירה.
+ * ⚠️ Mixkit חוסמים כרגע hotlink ישיר ל-preview URLs שלהם (403 לכל
+ * הכתובות, גם עם User-Agent של דפדפן) — 4 הסגנונות מסומנים
+ * available:false עד שיוחלפו בקבצי מוזיקה אמיתיים (העלאה ידנית
+ * ל-Cloudinary או מקור חלופי).
+ */
 export const STUDIO_AUDIO_STYLES: StudioAudioStyle[] = [
   {
     id: "none",
     label: "ללא מוזיקת רקע",
     description: "מושתק — ללא סאונד",
     fetchUrl: null,
+    available: true,
   },
   {
     id: "original",
     label: "אודיו מקורי",
     description: "שומר את הסאונד מהקובץ — עלול לכלול דיבור מ-AI",
     fetchUrl: null,
+    available: true,
   },
   {
     id: "luxury",
     label: "יוקרה עדינה",
-    description: "פסנתר ומיתרים אינסטרומנטליים — ללא מילים",
+    description: "פסנתר ומיתרים אינסטרומנטליים — ללא מילים (בקרוב — המקור החיצוני חסום כרגע)",
     fetchUrl:
       "https://assets.mixkit.co/music/preview/mixkit-sparse-and-minimal-orchestra-416.mp3",
+    available: false,
   },
   {
     id: "cinematic",
     label: "קולנועי",
-    description: "תזמורת עדינה אינסטרומנטלית — ללא שירה",
+    description: "תזמורת עדינה אינסטרומנטלית — ללא שירה (בקרוב — המקור החיצוני חסום כרגע)",
     fetchUrl:
       "https://assets.mixkit.co/music/preview/mixkit-silent-descent-408.mp3",
+    available: false,
   },
   {
     id: "soft",
     label: "רך ואווירתי",
-    description: "אמביינט שקט אינסטרומנטלי — ללא מילים",
+    description: "אמביינט שקט אינסטרומנטלי — ללא מילים (בקרוב — המקור החיצוני חסום כרגע)",
     fetchUrl:
       "https://assets.mixkit.co/music/preview/mixkit-serene-view-443.mp3",
+    available: false,
   },
   {
     id: "upbeat",
     label: "מודרני וקליל",
-    description: "קצב עדין אינסטרומנטלי — ללא ווקאל",
+    description: "קצב עדין אינסטרומנטלי — ללא ווקאל (בקרוב — המקור החיצוני חסום כרגע)",
     fetchUrl:
       "https://assets.mixkit.co/music/preview/mixkit-valley-sunset-127.mp3",
+    available: false,
   },
 ];
 

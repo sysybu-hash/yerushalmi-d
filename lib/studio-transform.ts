@@ -133,9 +133,19 @@ function audioOverlayComponent(
   return `l_audio:${layerId},e_volume:${volume},fl_splice,fl_layer_apply`;
 }
 
-function aspectComponent(aspect: AspectId): string | null {
+/**
+ * g_auto (חיתוך "חכם") על וידאו מפעיל עיבוד אסינכרוני (tracking-crop)
+ * ב-Cloudinary שיכול לקחת זמן ולהחזיר 423 "pending" בינתיים — בדיוק מה
+ * שגרם ל"הווידאו לא נטען עדיין". לתמונות g_auto מיידי ובטוח; לווידאו
+ * משתמשים ב-g_center הסינכרוני.
+ */
+function aspectComponent(
+  aspect: AspectId,
+  type: MediaResourceType = "image"
+): string | null {
   if (aspect === "original") return null;
-  return `c_fill,g_auto,ar_${aspect}`;
+  const gravity = type === "video" ? "g_center" : "g_auto";
+  return `c_fill,${gravity},ar_${aspect}`;
 }
 
 function imageComponents(adj: ImageAdjustments): string[] {
@@ -169,7 +179,7 @@ function videoComponents(
   }
   if (trim.length) parts.push(trim.join(","));
 
-  const aspect = aspectComponent(adj.aspect);
+  const aspect = aspectComponent(adj.aspect, "video");
   if (aspect) parts.push(aspect);
 
   if (adj.autoEnhance) parts.push("e_improve");

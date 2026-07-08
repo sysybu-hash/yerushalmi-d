@@ -12,6 +12,7 @@ import {
 } from "@/lib/studio-api";
 import type { StudioActionResult } from "@/lib/studio-action";
 import { STUDIO_STYLE_PRESETS } from "@/lib/studio-presets";
+import { opaqueImageUrlForVideo, videoFrameJpgUrl } from "@/lib/cloudinary-url";
 import type { StudioAction } from "./reducer";
 import type { StudioV2State } from "./state";
 
@@ -249,10 +250,16 @@ export function useStudioActions(
     const current = stateRef.current;
     // סדר עדיפות: תוצאת תמונה קיימת > תצוגה מקדימה > המקור כמו-שהוא
     // (בלי בידוד) — כך אפשר ליצור וידאו מכל תמונה, גם ללא הסרת רקע.
+    // אם המקור הוא וידאו שהועלה (לא תמונה) — מחלצים פריים ראשון ממנו
+    // ומשתמשים בו כבסיס ליצירת וידאו AI מסוגנן (Kling/Veo דורשים תמונה).
     const baseImage =
       (current.result.kind === "image" && current.result.url) ||
       current.preview.url ||
-      (current.source.kind === "image" ? current.source.url : null);
+      (current.source.kind === "image"
+        ? current.source.url
+        : current.source.kind === "video" && current.source.url
+          ? opaqueImageUrlForVideo(videoFrameJpgUrl(current.source.url, 0))
+          : null);
     if (!baseImage) return false;
 
     const {

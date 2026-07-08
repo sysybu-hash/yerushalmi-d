@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { ChevronDown, Film } from "lucide-react";
+import { ChevronDown, Film, Loader2 } from "lucide-react";
 
+import { ensureStudioAudioTrack } from "@/app/(ai-studio)/studio/actions";
 import { AdjustSlider, ToggleChip } from "@/components/studio/studio-adjust-ui";
 import { StudioVideoAudioPanel } from "@/components/studio/studio-video-audio-panel";
 import {
@@ -34,16 +35,52 @@ export function StudioVideoTools({
   disabled?: boolean;
 }) {
   const [open, setOpen] = React.useState(true);
+  const [applying, setApplying] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
 
   function patch(partial: Partial<VideoAdjustments>) {
     onAdjustmentsChange({ ...adjustments, ...partial });
   }
 
-  function applyEdits() {
-    const url = buildTransformedUrl(videoUrl, "video", adjustments, {
-      quality: "best",
-    });
-    onApplied(url, "וידאו ערוך");
+  async function applyEdits() {
+    setError(null);
+    setApplying(true);
+    try {
+      // מוזיקת רקע (לא none/original) חייבת קודם קיום ב-Cloudinary —
+      // בפעם הראשונה זה מעלה אותה מ-Mixkit (עד כ-30 שנ'), אחר כך מיידי.
+      let audioPublicId: string | undefined;
+      if (
+        !adjustments.mute &&
+        adjustments.audioStyle !== "none" &&
+        adjustments.audioStyle !== "original"
+      ) {
+        const ensured = await ensureStudioAudioTrack(adjustments.audioStyle);
+        if (!ensured.ok) {
+          setError(ensured.error);
+          return;
+        }
+        audioPublicId = ensured.data.publicId ?? undefined;
+      }
+
+      const url = buildTransformedUrl(videoUrl, "video", adjustments, {
+        quality: "best",
+        audioPublicId,
+      });
+
+      // בדיקת תקינות לפני שהתוצאה נכנסת לגלריה — עדיף שגיאה ברורה כאן
+      // מאשר וידאו שבור שרק מתגלה בנגן
+      const check = await fetch(url, { method: "HEAD" });
+      if (!check.ok) {
+        setError("בניית הווידאו נכשלה — נסו סגנון מוזיקה אחר או ללא מוזיקה");
+        return;
+      }
+
+      onApplied(url, "וידאו ערוך");
+    } catch {
+      setError("הליטוש נכשל — נסו שוב");
+    } finally {
+      setApplying(false);
+    }
   }
 
   return (
@@ -142,12 +179,18 @@ export function StudioVideoTools({
 
           <Button
             size="sm"
-            disabled={disabled || !hasVideoEdits(adjustments)}
-            onClick={applyEdits}
+            disabled={disabled || applying || !hasVideoEdits(adjustments)}
+            onClick={() => void applyEdits()}
             className="w-full rounded-none bg-gold text-xs font-light text-black hover:bg-gold/90"
           >
+            {applying ? (
+              <Loader2 className="ml-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : null}
             החלת הליטוש (חינם) — נשמר בגלריה
           </Button>
+          {error && (
+            <p className="text-[11px] font-light text-red-600">{error}</p>
+          )}
         </div>
       )}
     </div>

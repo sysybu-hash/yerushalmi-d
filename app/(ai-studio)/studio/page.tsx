@@ -314,6 +314,53 @@ function StudioV2Content() {
               >
                 מיטוב הווידאו המקורי (חינם) — חדות, צבע ותנועה
               </Button>
+
+              {!(state.result.url && state.result.kind === "video") && (
+                <div className="space-y-2 border border-gold/30 bg-gold/5 p-3">
+                  <p className="text-xs font-light tracking-[0.1em] text-muted-foreground">
+                    או: יצירת וידאו AI מסוגנן מהסרטון
+                  </p>
+                  <StudioVideoOptions
+                    duration={state.videoDuration}
+                    motion={state.videoMotion}
+                    videoEngine={state.aiEngines.video}
+                    nativeAudio={state.videoNativeAudio}
+                    multiShot={state.videoMultiShot}
+                    onDurationChange={(value) =>
+                      dispatch({ type: "SET_VIDEO_DURATION", value })
+                    }
+                    onMotionChange={(value) =>
+                      dispatch({ type: "SET_VIDEO_MOTION", value })
+                    }
+                    onVideoEngineChange={(value) =>
+                      dispatch({
+                        type: "SET_ENGINES",
+                        engines: { ...state.aiEngines, video: value },
+                      })
+                    }
+                    onNativeAudioChange={(value) =>
+                      dispatch({ type: "SET_VIDEO_NATIVE_AUDIO", value })
+                    }
+                    onMultiShotChange={(value) =>
+                      dispatch({ type: "SET_VIDEO_MULTISHOT", value })
+                    }
+                    disabled={busy}
+                  />
+                  <Button
+                    disabled={busy}
+                    onClick={() => handleAction("video")}
+                    className="w-full rounded-none bg-gold text-sm font-light text-black hover:bg-gold/90"
+                  >
+                    {state.videoMotion === "preserve"
+                      ? "יצירת וידאו זום עדין מפריים ראשון (חינם)"
+                      : "יצירת וידאו AI קולנועי מהסרטון"}
+                  </Button>
+                  <p className="text-[11px] font-light text-muted-foreground">
+                    מבוסס על הפריים הראשון בסרטון שהעליתם.
+                  </p>
+                </div>
+              )}
+
               <StudioVideoTools
                 videoUrl={
                   state.result.kind === "video" && state.result.url

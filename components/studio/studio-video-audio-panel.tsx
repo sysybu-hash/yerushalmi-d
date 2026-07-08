@@ -43,9 +43,9 @@ export function StudioVideoAudioPanel({
         {STUDIO_AUDIO_STYLES.map((style) => (
           <ToggleChip
             key={style.id}
-            label={style.label}
+            label={style.available ? style.label : `${style.label} (בקרוב)`}
             active={adjustments.audioStyle === style.id}
-            disabled={disabled}
+            disabled={disabled || !style.available}
             onClick={() =>
               patch({
                 audioStyle: style.id,

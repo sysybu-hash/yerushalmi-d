@@ -270,3 +270,21 @@ export async function generateStudioListing(
     });
   }, "מילוי הפרטים ב-AI נכשל — נסו שוב");
 }
+
+/**
+ * מוודא שמוזיקת הרקע שנבחרה קיימת ב-Cloudinary (מעלה מ-Mixkit בפעם
+ * הראשונה בלבד). נדרש לפני בניית URL עם l_audio — אחרת הטרנספורמציה
+ * מפנה למשאב שלא קיים ומחזירה שגיאה (400).
+ */
+export async function ensureStudioAudioTrack(
+  styleId: import("@/lib/studio-audio-presets").VideoAudioStyleId
+): Promise<StudioActionResult<{ publicId: string | null }>> {
+  const { ensureStudioAudioOnCloudinary } = await import(
+    "@/lib/studio-audio-cloudinary"
+  );
+  return runStudioAction(async () => {
+    await requireAdmin();
+    const publicId = await ensureStudioAudioOnCloudinary(styleId);
+    return { publicId };
+  }, "העלאת מוזיקת הרקע נכשלה — נסו סגנון אחר");
+}
