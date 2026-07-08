@@ -39,11 +39,14 @@ export function CartSheet() {
           variant="ghost"
           size="icon"
           aria-label="סל קניות"
-          className="relative hover:bg-transparent"
+          className="relative h-11 w-11 hover:bg-transparent sm:h-12 sm:w-12"
         >
-          <ShoppingBag className="h-5 w-5" strokeWidth={1.25} />
+          <ShoppingBag
+            className="!h-7 !w-7 sm:!h-8 sm:!w-8"
+            strokeWidth={1.25}
+          />
           {totalItems > 0 && (
-            <span className="absolute -left-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-foreground px-1 text-[10px] font-light text-background">
+            <span className="absolute -left-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-foreground px-1 text-[11px] font-light text-background">
               {totalItems}
             </span>
           )}
