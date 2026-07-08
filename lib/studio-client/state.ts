@@ -129,7 +129,8 @@ export const INITIAL_STUDIO_STATE: StudioV2State = {
   stylePreset: "luxury-marble",
   customPrompt: "",
   videoPrompt: "",
-  videoDuration: 5 as StudioVideoDurationSec,
+  // 8 שניות הוא המשך היחיד שתומך ב-1080p מלא ב-Veo — ברירת מחדל לאיכות טובה
+  videoDuration: 8 as StudioVideoDurationSec,
   videoMotion: "preserve",
   videoNativeAudio: false,
   videoMultiShot: "none",

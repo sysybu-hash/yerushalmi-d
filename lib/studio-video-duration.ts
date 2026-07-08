@@ -6,10 +6,10 @@ export const STUDIO_VIDEO_DURATION_OPTIONS: {
   label: string;
   hint: string;
 }[] = [
-  { value: 4, label: "4 שניות", hint: "Veo — קצר ומהיר" },
-  { value: 5, label: "5 שניות", hint: "Kling / Veo" },
-  { value: 6, label: "6 שניות", hint: "Veo — ברירת מחדל מומלצת" },
-  { value: 8, label: "8 שניות", hint: "מקסימום ל-Veo" },
+  { value: 4, label: "4 שניות", hint: "Veo — קצר ומהיר, 720p" },
+  { value: 5, label: "5 שניות", hint: "Kling / Veo (Veo יעוגל ל-6, 720p)" },
+  { value: 6, label: "6 שניות", hint: "Veo — 720p בלבד" },
+  { value: 8, label: "8 שניות", hint: "Veo — היחיד שתומך ב-1080p מלא (מומלץ לאיכות)" },
   { value: 10, label: "10 שניות", hint: "Kling — קליפ ארוך" },
   { value: 12, label: "12 שניות", hint: "Kling בלבד (Veo יתקצר ל-8)" },
   { value: 15, label: "15 שניות", hint: "Kling בלבד — המקסימום (Veo יתקצר ל-8)" },
