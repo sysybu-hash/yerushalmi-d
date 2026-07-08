@@ -54,8 +54,11 @@ export async function pipelineRemoveBackground(
         projectId: options.projectId,
         skipProcedural: options.force,
       }),
-    // cutout זול יחסית — מותר fallback רק כשהכשל לא חִייב (401/402/rate limit)
-    { fallbackPolicy: "billing-errors" }
+    // בלי fallback ל-Gemini: הבידוד שלו מבוסס על צביעת רקע ירוק וניקוי
+    // צבע ידני (chroma-key) — טכניקה שביר "ה שמפרקת יהלומים מנצנצים
+    // לרסיסים (הפאסטות הבוהקות מזוהות בטעות כרקע ונמחקות). עדיף כישלון
+    // ברור עם הודעה ל-Replicate מאשר בידוד הרוס שמזהם כל הפקה בהמשך.
+    { fallbackPolicy: "never" }
   );
 
   await persistCutout(imageUrl, result.url);

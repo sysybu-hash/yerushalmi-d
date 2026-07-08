@@ -117,19 +117,27 @@ export async function studioRemoveBackground(
   }
 
   const optimizedUrl = rembgSourceUrl(imageUrl);
-  const output = await runTrackedReplicate(
-    MODELS.rembg,
-    {
-      image: optimizedUrl,
-      preserve_alpha: true,
-      preserve_partial_alpha: true,
-    },
-    {
-      capability: "cutout",
-      mode: usageMode,
-      projectId: options.projectId,
-    }
-  );
+  let output: unknown;
+  try {
+    output = await runTrackedReplicate(
+      MODELS.rembg,
+      {
+        image: optimizedUrl,
+        preserve_alpha: true,
+        preserve_partial_alpha: true,
+      },
+      {
+        capability: "cutout",
+        mode: usageMode,
+        projectId: options.projectId,
+      }
+    );
+  } catch (error) {
+    console.error("studio_cutout_replicate_failed", error);
+    throw new Error(
+      "בידוד ה-AI נכשל — ייתכן שחשבון ה-Replicate חסר קרדיט. טענו קרדיט ב-replicate.com/account/billing ונסו שוב."
+    );
+  }
 
   const remoteUrl = extractUrl(output);
   const cutoutResponse = await fetch(remoteUrl, {
