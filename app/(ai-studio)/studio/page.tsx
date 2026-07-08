@@ -30,6 +30,7 @@ import { StudioAttemptsRail } from "@/components/studio/v2/studio-attempts-rail"
 import { StudioSourceTools } from "@/components/studio/v2/studio-source-tools";
 import { StudioVideoTools } from "@/components/studio/v2/studio-video-tools";
 import { StudioAdvancedAccordion } from "@/components/studio/v2/studio-advanced-accordion";
+import { StudioBackgroundEngineChoice } from "@/components/studio/v2/studio-background-engine-choice";
 import { StudioCanvas } from "@/components/studio/v2/studio-canvas";
 import { StudioConfirmDialog } from "@/components/studio/v2/studio-confirm-dialog";
 import { StudioErrorBanner } from "@/components/studio/v2/studio-error-banner";
@@ -434,6 +435,18 @@ function StudioV2Content() {
                 value={state.stylePreset}
                 onChange={(presetId) =>
                   dispatch({ type: "SET_PRESET", presetId })
+                }
+                disabled={busy}
+              />
+
+              <StudioBackgroundEngineChoice
+                useAiBackground={state.useAiBackground}
+                highQualityBackground={state.highQualityBackground}
+                onUseAiBackgroundChange={(value) =>
+                  dispatch({ type: "SET_USE_AI_BACKGROUND", value })
+                }
+                onHighQualityBackgroundChange={(value) =>
+                  dispatch({ type: "SET_HIGH_QUALITY_BACKGROUND", value })
                 }
                 disabled={busy}
               />

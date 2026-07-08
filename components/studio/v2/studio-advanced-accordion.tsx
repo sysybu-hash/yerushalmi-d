@@ -13,7 +13,6 @@ import {
   STUDIO_VIDEO_PROMPT_EXAMPLES,
 } from "@/lib/studio-presets";
 import { cn } from "@/lib/utils";
-import { StudioCostChip, STUDIO_COST_LABELS } from "./studio-cost-chip";
 
 /**
  * הגדרות מתקדמות — סגור כברירת מחדל. ברירת המחדל של הכול היא "אוטומטי":
@@ -115,43 +114,6 @@ export function StudioAdvancedAccordion({
                 ))}
               </div>
             </div>
-          )}
-
-          <label className="flex items-center justify-between gap-2 text-xs font-light">
-            <span className="flex items-center gap-2">
-              רקע AI גנרטיבי
-              <StudioCostChip label={STUDIO_COST_LABELS.aiBackground} />
-            </span>
-            <input
-              type="checkbox"
-              checked={state.useAiBackground}
-              disabled={disabled}
-              onChange={(e) =>
-                dispatch({
-                  type: "SET_USE_AI_BACKGROUND",
-                  value: e.target.checked,
-                })
-              }
-              className="h-4 w-4 accent-[#c9a961]"
-            />
-          </label>
-
-          {state.useAiBackground && (
-            <label className="flex items-center justify-between gap-2 text-xs font-light">
-              <span>איכות רקע גבוהה (SDXL — איטי ויקר יותר)</span>
-              <input
-                type="checkbox"
-                checked={state.highQualityBackground}
-                disabled={disabled}
-                onChange={(e) =>
-                  dispatch({
-                    type: "SET_HIGH_QUALITY_BACKGROUND",
-                    value: e.target.checked,
-                  })
-                }
-                className="h-4 w-4 accent-[#c9a961]"
-              />
-            </label>
           )}
 
           <div className="space-y-1.5">
