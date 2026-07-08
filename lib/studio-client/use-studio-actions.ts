@@ -247,10 +247,12 @@ export function useStudioActions(
    */
   const generateVideo = React.useCallback(async (): Promise<boolean> => {
     const current = stateRef.current;
+    // סדר עדיפות: תוצאת תמונה קיימת > תצוגה מקדימה > המקור כמו-שהוא
+    // (בלי בידוד) — כך אפשר ליצור וידאו מכל תמונה, גם ללא הסרת רקע.
     const baseImage =
-      current.result.kind === "image" && current.result.url
-        ? current.result.url
-        : current.preview.url;
+      (current.result.kind === "image" && current.result.url) ||
+      current.preview.url ||
+      (current.source.kind === "image" ? current.source.url : null);
     if (!baseImage) return false;
 
     const {

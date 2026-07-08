@@ -15,30 +15,40 @@ type NextAction = {
   icon: typeof Sparkles;
 };
 
-/** קובע את הפעולה הבאה ההגיונית לפי מצב הצינור והזרימה */
+/**
+ * קובע את הפעולה הבאה ההגיונית לפי מצב הצינור והזרימה.
+ * הבידוד (cutout) אינו שלב חובה — הוא נחוץ רק אם רוצים להרכיב את
+ * התכשיט על רקע מעוצב חדש (זרימת קטלוג) או לעצב רקע/סגנון לפני וידאו.
+ * אם יש כבר תוצאה/מקור שמישים, אפשר לדלג ישר לווידאו או לפרסום —
+ * ר' כפתור "עבודה ישירה מהתמונה" ב-page.tsx.
+ */
 export function resolveNextAction(state: StudioV2State): NextAction | null {
   if (!state.source.url) return null;
 
   const previewReady =
     state.preview.url && state.preview.presetId === state.stylePreset;
-
-  if (!previewReady) {
-    return {
-      id: "preview",
-      label: state.cutout.url
-        ? "תצוגה מקדימה בסגנון הנבחר"
-        : "בידוד התכשיט + תצוגה מקדימה",
-      hint: state.cutout.url
-        ? "הרכבה פרוצדורלית — ללא קריאת AI"
-        : "בידוד בתשלום זעום, ההרכבה חינם. נשמר במטמון — לא יחויב שוב",
-      free: Boolean(state.cutout.url),
-      costLabel: state.cutout.url ? undefined : STUDIO_COST_LABELS.cutout,
-      icon: Wand2,
-    };
-  }
+  const hasUsableBase = Boolean(
+    (state.result.kind === "image" && state.result.url) ||
+      state.preview.url ||
+      (state.source.kind === "image" && state.source.url)
+  );
 
   if (state.flow === "catalog") {
     if (state.result.url && state.result.kind === "image") return null;
+    if (!previewReady) {
+      return {
+        id: "preview",
+        label: state.cutout.url
+          ? "תצוגה מקדימה בסגנון הנבחר"
+          : "בידוד התכשיט + תצוגה מקדימה",
+        hint: state.cutout.url
+          ? "הרכבה פרוצדורלית — ללא קריאת AI"
+          : "בידוד בתשלום זעום, ההרכבה חינם. נשמר במטמון — לא יחויב שוב",
+        free: Boolean(state.cutout.url),
+        costLabel: state.cutout.url ? undefined : STUDIO_COST_LABELS.cutout,
+        icon: Wand2,
+      };
+    }
     return {
       id: "image",
       label: state.useAiBackground
@@ -55,8 +65,19 @@ export function resolveNextAction(state: StudioV2State): NextAction | null {
     };
   }
 
-  // שיווק — וידאו
+  // שיווק — וידאו. אין חובת בידוד/תצוגה מקדימה: אם יש מקור או תוצאה
+  // שמישים, אפשר ליצור וידאו ישירות מהם.
   if (state.result.url && state.result.kind === "video") return null;
+  if (!hasUsableBase) {
+    return {
+      id: "preview",
+      label: "בידוד התכשיט + תצוגה מקדימה",
+      hint: "אופציונלי — נועד לעצב רקע חדש לפני הווידאו. אפשר גם לדלג ולעבוד ישירות מהתמונה (למטה)",
+      free: false,
+      costLabel: STUDIO_COST_LABELS.cutout,
+      icon: Wand2,
+    };
+  }
   return {
     id: "video",
     label:

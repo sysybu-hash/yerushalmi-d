@@ -88,6 +88,7 @@ export type StudioAction =
   | { type: "SET_SOURCE_ADJ"; value: ImageAdjustments }
   | { type: "SET_VIDEO_ADJ"; value: VideoAdjustments }
   | { type: "CONTINUE_FROM_RESULT" }
+  | { type: "USE_SOURCE_DIRECTLY" }
   | { type: "ACTION_FAILED"; error: StudioErrorInfo }
   | { type: "CLEAR_ERROR" }
   | { type: "USAGE_LOADED"; usage: NonNullable<StudioV2State["usage"]> }
@@ -288,6 +289,31 @@ export function studioReducer(
         result: { ...INITIAL_STUDIO_STATE.result },
         selectedAttemptId: null,
         error: null,
+      };
+    }
+
+    /**
+     * "עבודה ישירה, ללא בידוד" — התמונה/וידאו שהועלו הופכים לתוצאה
+     * הנוכחית כמו-שהם, בלי לעבור הסרת רקע/הרכבה. מאפשר וידאו ופרסום
+     * מיידיים מכל תמונה, כולל כאלה שכבר בעלות רקע מוגמר.
+     */
+    case "USE_SOURCE_DIRECTLY": {
+      if (!state.source.url) return state;
+      return {
+        ...state,
+        selectedAttemptId: null,
+        result: {
+          url: state.source.url,
+          kind: state.source.kind,
+          status: "done",
+          provider: "original",
+        },
+        attempts: appendAttempt(state.attempts, {
+          url: state.source.url,
+          kind: state.source.kind,
+          label: "מקור (ללא בידוד)",
+          free: true,
+        }),
       };
     }
 

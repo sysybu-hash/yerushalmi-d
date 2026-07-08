@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { RotateCcw, Scissors, Shuffle, Sparkles } from "lucide-react";
+import { ImageIcon, RotateCcw, Scissors, Shuffle, Sparkles } from "lucide-react";
 
 import {
   createStudioProject,
@@ -363,6 +363,24 @@ function StudioV2Content() {
             </>
           ) : (
             <>
+              {!(state.result.url && state.result.kind === "image") && (
+                <Button
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => {
+                    dispatch({ type: "USE_SOURCE_DIRECTLY" });
+                    showToast(
+                      "עובדים ישירות עם התמונה — אפשר ליצור וידאו או לפרסם בלי בידוד"
+                    );
+                  }}
+                  className="w-full rounded-none border-dashed border-gold/50 text-xs font-light text-muted-foreground hover:border-gold hover:text-foreground"
+                  title="לתמונות שכבר מוכנות — פרסום או וידאו בלי הסרת רקע והרכבה מחדש"
+                >
+                  <ImageIcon className="ml-1.5 h-3.5 w-3.5" />
+                  עבודה ישירה מהתמונה (ללא בידוד) — לתמונה שכבר מוכנה
+                </Button>
+              )}
+
               <StudioStyleRail
                 value={state.stylePreset}
                 onChange={(presetId) =>

@@ -674,12 +674,17 @@ async function harmonizeJewelry(
   return pipeline.png().toBuffer();
 }
 
-/** חידוד עדין לתכשיט — RGB בלבד, שומר על אלפא */
+/**
+ * חידוד עדין לתכשיט — RGB בלבד, שומר על אלפא.
+ * m2 (עוצמת חידוד קצוות) הופחת מ-0.45 ל-0.22 — הערך הגבוה גרם ל"גרגריות"
+ * והילות (ringing) על הפאסטות הבוהקות ביותר של היהלום, בדיוק שם שהעין
+ * הכי רגישה. sigma הופחת גם כדי לצמצם את רדיוס ההילה.
+ */
 async function sharpenJewelryLayer(jewelryPng: Buffer): Promise<Buffer> {
   const sharp = await loadSharp();
   const rgb = await sharp(jewelryPng)
     .removeAlpha()
-    .sharpen({ sigma: 0.85, m1: 1.15, m2: 0.45, x1: 2, y2: 10, y3: 20 })
+    .sharpen({ sigma: 0.6, m1: 0.8, m2: 0.22, x1: 2, y2: 10, y3: 20 })
     .png()
     .toBuffer();
   const alpha = await sharp(jewelryPng)
