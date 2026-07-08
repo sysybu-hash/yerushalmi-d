@@ -79,10 +79,13 @@ export function Navbar({
 
       <div
         className={cn(
-          "relative transition-all duration-500",
+          // backdrop-blur-md נשאר קבוע (לא מוחלף) — backdrop-filter לא עובר
+          // מעבר חלק בין none לערך טשטוש, בניגוד לרקע/גבול/צל, וזה גרם
+          // למעבר "מדורג" שבו חלק מהאלמנטים דוהים וחלק קופצים בפתאומיות.
+          "relative backdrop-blur-md transition-all duration-500",
           transparent
             ? "bg-transparent"
-            : "border-b border-border/60 bg-background/95 shadow-sm backdrop-blur-md"
+            : "border-b border-border/60 bg-background/95 shadow-sm"
         )}
       >
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-8">
