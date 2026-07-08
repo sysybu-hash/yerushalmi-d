@@ -15,6 +15,8 @@ import {
   getUsageMonthSummary,
 } from "@/lib/ai-usage-stats";
 
+export const metadata = { title: "עלויות AI — שימושים" };
+
 export const dynamic = "force-dynamic";
 
 type PageProps = {
