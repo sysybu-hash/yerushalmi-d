@@ -270,90 +270,23 @@ async function stripCheckerboardBackground(buffer: Buffer): Promise<Buffer> {
     .toBuffer();
 }
 
-/**
- * הסרת הילה לבנה/אפורה חצי-שקופה (Bria, שאריות רקע).
- * רק פיקסלים בהירים שמחוברים לשקיפות — לא פאות אטומות/בוהקות של יהלום במרכז.
- */
-async function stripWhiteMatteFringe(buffer: Buffer): Promise<Buffer> {
-  const sharp = await loadSharp();
-  const { data, info } = await sharp(buffer)
-    .ensureAlpha()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-
-  const w = info.width;
-  const h = info.height;
-  const out = Buffer.from(data);
-
-  const alphaAt = (x: number, y: number) => {
-    if (x < 0 || x >= w || y < 0 || y >= h) return 0;
-    return out[(y * w + x) * 4 + 3];
-  };
-
-  const isFringePixel = (i: number): boolean => {
-    const alpha = out[i + 3];
-    // אל תיגעו בפיקסלים אטומים — זה פאות יהלום/מתכת, לא הילה
-    if (alpha >= 200 || alpha < 12) return false;
-    const r = out[i];
-    const g = out[i + 1];
-    const b = out[i + 2];
-    const min = Math.min(r, g, b);
-    const spread = Math.max(r, g, b) - min;
-    return min >= 175 && spread <= 36;
-  };
-
-  const visited = new Uint8Array(w * h);
-  const queue = new Int32Array(w * h);
-  let qHead = 0;
-  let qTail = 0;
-  let changed = 0;
-
-  const tryEnqueue = (x: number, y: number) => {
-    if (x < 0 || x >= w || y < 0 || y >= h) return;
-    const idx = y * w + x;
-    if (visited[idx]) return;
-    const i = idx * 4;
-    if (alphaAt(x, y) >= 12 && !isFringePixel(i)) return;
-    visited[idx] = 1;
-    queue[qTail++] = idx;
-  };
-
-  for (let x = 0; x < w; x++) {
-    tryEnqueue(x, 0);
-    tryEnqueue(x, h - 1);
-  }
-  for (let y = 0; y < h; y++) {
-    tryEnqueue(0, y);
-    tryEnqueue(w - 1, y);
-  }
-
-  while (qHead < qTail) {
-    const idx = queue[qHead++];
-    const x = idx % w;
-    const y = (idx - x) / w;
-    const i = idx * 4;
-
-    if (isFringePixel(i)) {
-      out[i + 3] = 0;
-      changed++;
-    }
-
-    tryEnqueue(x - 1, y);
-    tryEnqueue(x + 1, y);
-    tryEnqueue(x, y - 1);
-    tryEnqueue(x, y + 1);
-  }
-
-  if (changed === 0) return buffer;
-
-  return sharp(out, {
-    raw: { width: w, height: h, channels: 4 },
-  })
-    .png()
-    .toBuffer();
+function isStudioProcessedCutoutUrl(url: string): boolean {
+  return /studio-cutout-(bria|gemini)-/i.test(url);
 }
 
-/** הסרת רקע כרומה ירוק (Gemini) */
+/** cutout שכבר עבר ניקוי ב-Bria/Gemini — רק משבצות, בלי לגעת בפיקסלי יהלום */
+async function prepareJewelryForComposite(
+  buffer: Buffer,
+  sourceUrl: string
+): Promise<Buffer> {
+  if (isStudioProcessedCutoutUrl(sourceUrl)) {
+    const touched = await stripCheckerboardBackground(buffer);
+    await validateJewelryCutout(touched);
+    return touched;
+  }
+  return normalizeJewelryCutout(buffer);
+}
+
 /**
  * הסרת רקע צבעוני אחיד (מסך ירוק/כל צבע ש-Gemini מצייר):
  * דוגמים את צבע שולי התמונה; אם הוא רווי (לא אפור/לבן) — מוחקים כל
@@ -488,12 +421,21 @@ async function chromaKeyGreenBackground(buffer: Buffer): Promise<Buffer> {
     }
   }
 
-  // ניקוי פיקסלים בודדים "צפים" בתוך אזור שנוקה
+  // ניקוי פיקסלים בודדים "צפים" — רק גוון רקע בהיר, לא יהלום/מתכת
   const alphaAt = (x: number, y: number) => out[(y * w + x) * 4 + 3];
+  const isOrphanBackgroundSpeck = (i: number): boolean => {
+    const r = out[i];
+    const g = out[i + 1];
+    const b = out[i + 2];
+    const min = Math.min(r, g, b);
+    const spread = Math.max(r, g, b) - min;
+    return min >= 198 && spread <= 28;
+  };
   for (let y = 1; y < h - 1; y++) {
     for (let x = 1; x < w - 1; x++) {
       const i = (y * w + x) * 4;
       if (out[i + 3] === 0) continue;
+      if (!isOrphanBackgroundSpeck(i)) continue;
       let clearNeighbors = 0;
       if (alphaAt(x - 1, y) === 0) clearNeighbors++;
       if (alphaAt(x + 1, y) === 0) clearNeighbors++;
@@ -513,7 +455,6 @@ async function chromaKeyGreenBackground(buffer: Buffer): Promise<Buffer> {
 /** מכין PNG עם אלפא תקין — AI ואז fallback פרוצדורלי לרקע אחיד */
 export async function normalizeJewelryCutout(buffer: Buffer): Promise<Buffer> {
   let current = await stripCheckerboardBackground(buffer);
-  current = await stripWhiteMatteFringe(current);
   current = await chromaKeyGreenBackground(current);
   let metrics = await analyzeCutout(current);
 
@@ -907,8 +848,10 @@ export async function compositeProductImage(
 
   const rawJewelry = Buffer.from(await jewelryRes.arrayBuffer());
 
-  // תמיד מנרמלים לפני הרכבה — מטמון ישן עלול להכיל משבצות/הילה שלא נראו על רקע בהיר
-  const jewelryInput = await normalizeJewelryCutout(rawJewelry);
+  const jewelryInput = await prepareJewelryForComposite(
+    rawJewelry,
+    jewelryPngUrl
+  );
 
   const skipFeather = await hasSoftAlphaMatte(jewelryInput);
   const jewelryMaxWidth = Math.round(canvasSize * JEWELRY_CANVAS_RATIO);
@@ -935,7 +878,9 @@ export async function compositeProductImage(
 
   jewelryPng = await refineCutoutEdges(jewelryPng, skipFeather);
   jewelryPng = await harmonizeJewelry(jewelryPng, stylePreset);
-  jewelryPng = await sharpenJewelryLayer(jewelryPng);
+  if (options.forVideo) {
+    jewelryPng = await sharpenJewelryLayer(jewelryPng);
+  }
 
   const jMeta = await sharp(jewelryPng).metadata();
   const jWidth = jMeta.width ?? jewelryMaxWidth;
