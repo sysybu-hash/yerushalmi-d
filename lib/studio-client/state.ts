@@ -157,6 +157,35 @@ export const INITIAL_STUDIO_STATE: StudioV2State = {
   toast: null,
 };
 
+/** התמונה שהמשתמש רואה בקנבס — אותה סדר עדיפות כמו StudioCanvas */
+export function resolveActiveImageUrl(state: StudioV2State): string | null {
+  if (state.selectedAttemptId) {
+    const attempt = state.attempts.find(
+      (a) => a.id === state.selectedAttemptId
+    );
+    if (attempt?.kind === "image") return attempt.url;
+  }
+  if (state.result.url && state.result.kind === "image") return state.result.url;
+  if (state.preview.url && state.preview.kind === "image") {
+    return state.preview.url;
+  }
+  if (state.cutout.url) return state.cutout.url;
+  return state.source.url;
+}
+
+export function resolveActiveImageLabel(state: StudioV2State): string {
+  if (state.selectedAttemptId) {
+    const attempt = state.attempts.find(
+      (a) => a.id === state.selectedAttemptId
+    );
+    if (attempt) return attempt.label;
+  }
+  if (state.result.url && state.result.kind === "image") return "תוצאה נוכחית";
+  if (state.preview.url) return "טיוטה נוכחית";
+  if (state.cutout.url) return "בידוד נוכחי";
+  return "צילום מקור";
+}
+
 /** גזירת StudioClientState הישן — תאימות עם snapshot של פרויקטים קיימים */
 function toClientState(state: StudioV2State): StudioClientState {
   const source = state.source.url;

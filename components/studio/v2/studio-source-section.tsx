@@ -22,6 +22,7 @@ const AI_PRESETS: { id: SourceEnhancePreset; label: string; hint: string }[] = [
 /** עריכת צילום המקור — תמיד גלוי */
 export function StudioSourceSection({
   sourceUrl,
+  activeImageLabel,
   adjustments,
   onAdjustmentsChange,
   onSourceReplaced,
@@ -29,6 +30,7 @@ export function StudioSourceSection({
   disabled,
 }: {
   sourceUrl: string;
+  activeImageLabel?: string;
   adjustments: ImageAdjustments;
   onAdjustmentsChange: (next: ImageAdjustments) => void;
   onSourceReplaced: (url: string, label: string) => void;
@@ -114,6 +116,11 @@ export function StudioSourceSection({
             </p>
             <StudioCostChip label={STUDIO_COST_LABELS.sourceEnhance} />
           </div>
+          {activeImageLabel && (
+            <p className="text-[10px] font-light text-muted-foreground">
+              יחול על: {activeImageLabel}
+            </p>
+          )}
           <div className="grid grid-cols-3 gap-2">
             {AI_PRESETS.map((preset) => (
               <button

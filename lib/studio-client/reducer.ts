@@ -145,6 +145,9 @@ export function studioReducer(
         cutout: { ...INITIAL_STUDIO_STATE.cutout },
         preview: { ...INITIAL_STUDIO_STATE.preview },
         result: { ...INITIAL_STUDIO_STATE.result },
+        selectedAttemptId: action.keepOriginal
+          ? null
+          : state.selectedAttemptId,
         error: null,
         busyAction: null,
       };

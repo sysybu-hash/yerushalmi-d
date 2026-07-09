@@ -19,6 +19,8 @@ import {
 } from "@/app/(ai-studio)/studio/actions";
 import {
   INITIAL_STUDIO_STATE,
+  resolveActiveImageLabel,
+  resolveActiveImageUrl,
   snapshotToState,
   stateToSnapshot,
 } from "@/lib/studio-client/state";
@@ -486,7 +488,10 @@ function StudioV2Content() {
               />
 
               <StudioSourceSection
-                sourceUrl={state.source.url}
+                sourceUrl={
+                  resolveActiveImageUrl(state) ?? state.source.url ?? ""
+                }
+                activeImageLabel={resolveActiveImageLabel(state)}
                 adjustments={state.sourceAdj}
                 onAdjustmentsChange={(value) =>
                   dispatch({ type: "SET_SOURCE_ADJ", value })
@@ -506,7 +511,7 @@ function StudioV2Content() {
                   void actions.enhanceSource(preset).then((ok) => {
                     if (ok) {
                       showToast(
-                        "המקור שופר ב-AI — הבידוד יתבצע מחדש על הגרסה המשופרת"
+                        "התמונה שבחרתם שופרה ב-AI — הבידוד ירוץ מחדש על הגרסה החדשה"
                       );
                     }
                   })

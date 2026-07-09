@@ -14,7 +14,11 @@ import type { StudioActionResult } from "@/lib/studio-action";
 import { STUDIO_STYLE_PRESETS } from "@/lib/studio-presets";
 import { opaqueImageUrlForVideo, videoFrameJpgUrl } from "@/lib/cloudinary-url";
 import type { StudioAction } from "./reducer";
-import type { StudioV2State } from "./state";
+import {
+  resolveActiveImageLabel,
+  resolveActiveImageUrl,
+  type StudioV2State,
+} from "./state";
 
 function presetLabel(presetId: string): string {
   return (
@@ -355,19 +359,21 @@ export function useStudioActions(
   /** שיפור צילום המקור ב-AI (Gemini) — מחליף את המקור */
   const enhanceSource = React.useCallback(
     async (preset: SourceEnhancePreset): Promise<boolean> => {
-      const { source, customPrompt, flow } = stateRef.current;
-      if (!source.url || source.kind !== "image") return false;
+      const current = stateRef.current;
+      const inputUrl = resolveActiveImageUrl(current);
+      if (!inputUrl || current.source.kind !== "image") return false;
 
       lastEnhanceSourcePreset.current = preset;
+      const inputLabel = resolveActiveImageLabel(current);
 
       return runPaidAction(
         "enhance",
-        `enhance-source:${source.url}:${preset}`,
+        `enhance-source:${inputUrl}:${preset}`,
         (idempotencyKey) =>
-          studioApiEnhanceSource(source.url!, {
+          studioApiEnhanceSource(inputUrl, {
             preset,
-            customPrompt,
-            mode: flow,
+            customPrompt: current.customPrompt,
+            mode: current.flow,
             idempotencyKey,
           }),
         (data) => {
@@ -375,10 +381,15 @@ export function useStudioActions(
             type: "ATTEMPT_ADDED",
             url: data.url,
             kind: "image",
-            label: "מקור משופר AI",
+            label: `שיפור AI · ${inputLabel}`,
             free: false,
           });
-          dispatch({ type: "SOURCE_UPLOADED", url: data.url, kind: "image", keepOriginal: true });
+          dispatch({
+            type: "SOURCE_UPLOADED",
+            url: data.url,
+            kind: "image",
+            keepOriginal: true,
+          });
         },
         { enhanceKind: "source" }
       );
