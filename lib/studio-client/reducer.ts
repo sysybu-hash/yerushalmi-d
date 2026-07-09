@@ -123,7 +123,7 @@ export function studioReducer(
       return {
         ...state,
         flow: action.flow,
-        // מעבר זרימה מנקה תצוגה ותוצאה — הן תלויות-זרימה
+        cutout: { ...INITIAL_STUDIO_STATE.cutout },
         preview: { ...INITIAL_STUDIO_STATE.preview },
         result: { ...INITIAL_STUDIO_STATE.result },
         error: null,

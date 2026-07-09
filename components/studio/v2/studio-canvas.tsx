@@ -26,7 +26,7 @@ function canvasLabel(state: StudioV2State, base: string): string {
       return "תמונה מוכנה";
     }
     if (state.useAiBackground && state.flow === "catalog") {
-      return "טיוטה פרוצדורלית";
+      return "טיוטה";
     }
     return "טיוטה";
   }

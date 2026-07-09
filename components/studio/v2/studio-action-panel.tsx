@@ -16,90 +16,71 @@ type NextAction = {
 };
 
 /**
- * קובע את הפעולה הבאה ההגיונית לפי מצב הצינור והזרימה.
+ * פעולה אחת לקטלוג/שיווק — בידוד + הרכבה + רקע (פרוצדורלי או AI).
+ * בשיווק: קודם תמונה מעוצבת, אחר כך וידאו.
  */
 export function resolveNextAction(state: StudioV2State): NextAction | null {
   if (!state.source.url) return null;
 
-  const previewReady =
-    state.preview.url && state.preview.presetId === state.stylePreset;
-  const hasCatalogResult =
-    state.result.url && state.result.kind === "image" && previewReady;
+  const hasImageResult =
+    state.result.url && state.result.kind === "image";
+  const hasCutout = Boolean(state.cutout.url);
+  const useAi = state.useAiBackground;
 
-  if (state.flow === "catalog") {
-    if (hasCatalogResult) return null;
-
-    if (state.useAiBackground && previewReady) {
+  if (state.flow === "catalog" || state.flow === "marketing") {
+    if (hasImageResult && state.flow === "marketing") {
       return {
-        id: "image",
-        label: "יצירת תמונה עם רקע AI",
-        hint: "הטיוטה הפרוצדורלית היא רק תצוגה — כאן נוצרת התמונה הסופית",
-        free: false,
-        costLabel: STUDIO_COST_LABELS.aiBackground,
-        icon: Sparkles,
+        id: "video",
+        label:
+          state.videoMotion === "preserve"
+            ? "יצירת וידאו זום עדין"
+            : "יצירת וידאו AI קולנועי",
+        hint:
+          state.videoMotion === "preserve"
+            ? "Cloudinary zoompan — ללא קריאת AI"
+            : "Kling / Veo — הפעולה היקרה ביותר; נדרש אישור",
+        free: state.videoMotion === "preserve",
+        costLabel:
+          state.videoMotion === "preserve"
+            ? undefined
+            : STUDIO_COST_LABELS.aiVideo,
+        icon: Clapperboard,
       };
     }
 
-    if (state.useAiBackground && !previewReady) {
-      return {
-        id: "preview",
-        label: "יצירת טיוטה פרוצדורלית",
-        hint: "תצוגה חינמית לפני רקע AI — לא התוצאה הסופית",
-        free: Boolean(state.cutout.url),
-        costLabel: state.cutout.url ? undefined : STUDIO_COST_LABELS.cutout,
-        icon: Wand2,
-      };
-    }
+    if (hasImageResult && state.flow === "catalog") return null;
 
-    const hasCutout = Boolean(state.cutout.url);
     return {
-      id: "preview",
-      label: hasCutout
-        ? "יצירת תמונת קטלוג"
-        : "בידוד + יצירת תמונת קטלוג",
-      hint: hasCutout
-        ? "הרכבה פרוצדורלית על הרקע הנבחר"
-        : "בידוד (~₪0.02) + הרכבה חינם. נשמר במטמון — לא יחויב שוב",
-      free: hasCutout,
-      costLabel: hasCutout ? undefined : STUDIO_COST_LABELS.cutout,
-      icon: Wand2,
+      id: "image",
+      label: useAi
+        ? hasCutout
+          ? state.flow === "marketing"
+            ? "יצירת תמונת בסיס (רקע AI)"
+            : "יצירת תמונה (רקע AI)"
+          : state.flow === "marketing"
+            ? "בידוד + תמונת בסיס (רקע AI)"
+            : "בידוד + יצירת תמונה (רקע AI)"
+        : hasCutout
+          ? state.flow === "marketing"
+            ? "יצירת תמונת בסיס לוידאו"
+            : "יצירת תמונת קטלוג"
+          : state.flow === "marketing"
+            ? "בידוד + תמונת בסיס לוידאו"
+            : "בידוד + יצירת תמונת קטלוג",
+      hint: useAi
+        ? "פעולה אחת — בידוד, עיצוב והרכבה על רקע AI"
+        : "פעולה אחת — בידוד והרכבה פרוצדורלית (חינם)",
+      free: !useAi && hasCutout,
+      costLabel: useAi
+        ? STUDIO_COST_LABELS.aiBackground
+        : hasCutout
+          ? undefined
+          : STUDIO_COST_LABELS.cutout,
+      icon: useAi ? Sparkles : Wand2,
     };
   }
 
-  // שיווק — וידאו כצעד ראשי כשיש בסיס שמיש
-  const hasUsableBase = Boolean(
-    (state.result.kind === "image" && state.result.url) ||
-      state.preview.url ||
-      (state.source.kind === "image" && state.source.url) ||
-      (state.source.kind === "video" && state.source.url)
-  );
-
-  if (!hasUsableBase) {
-    return {
-      id: "preview",
-      label: "בידוד + עיצוב רקע",
-      hint: "נדרש לפני וידאו — אין תמונת בסיס שמישה",
-      free: false,
-      costLabel: STUDIO_COST_LABELS.cutout,
-      icon: Wand2,
-    };
-  }
-
-  return {
-    id: "video",
-    label:
-      state.videoMotion === "preserve"
-        ? "יצירת וידאו זום עדין"
-        : "יצירת וידאו AI קולנועי",
-    hint:
-      state.videoMotion === "preserve"
-        ? "Cloudinary zoompan — ללא קריאת AI"
-        : "Kling / Veo — הפעולה היקרה ביותר; נדרש אישור",
-    free: state.videoMotion === "preserve",
-    costLabel:
-      state.videoMotion === "preserve" ? undefined : STUDIO_COST_LABELS.aiVideo,
-    icon: Clapperboard,
-  };
+  return null;
 }
 
 export function StudioActionPanel({
@@ -119,7 +100,7 @@ export function StudioActionPanel({
     <div className="space-y-2 border border-gold/30 bg-gold/5 p-3">
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-light tracking-[0.1em] text-muted-foreground">
-          הצעד הבא
+          {next.id === "video" ? "שלב 3 — וידאו" : "שלב 3 — יצירה"}
         </p>
         <StudioCostChip free={next.free} label={next.costLabel} />
       </div>

@@ -166,7 +166,52 @@ export function useStudioActions(
     [runPaidAction, dispatch]
   );
 
-  /** יצירת תמונת קטלוג — בידוד + הרכבה; בלי רקע AI גם מעלה לתוצאה סופית */
+  /** יצירת תמונה — בידוד + הרכבה בפעולה אחת (קטלוג ושיווק) */
+  const generateStudioImage = React.useCallback(async (): Promise<boolean> => {
+    const cutoutUrl = stateRef.current.cutout.url ?? (await makeCutout());
+    if (!cutoutUrl) return false;
+
+    const {
+      stylePreset,
+      customPrompt,
+      useAiBackground,
+      highQualityBackground,
+      aiEngines,
+      flow,
+    } = stateRef.current;
+
+    const label = presetLabel(stylePreset);
+    const paidAction = useAiBackground ? "image" : "preview";
+
+    return runPaidAction(
+      paidAction,
+      `studio-image:${cutoutUrl}:${stylePreset}:${useAiBackground ? "ai" : "proc"}:${highQualityBackground ? "hq" : "std"}:${flow}`,
+      (idempotencyKey) =>
+        studioApiCompositeImage(cutoutUrl, {
+          stylePreset,
+          customPrompt,
+          mode: flow,
+          engines: aiEngines,
+          useAiBackground,
+          highQualityBackground,
+          idempotencyKey,
+        }),
+      (data) => {
+        dispatch({
+          type: "PREVIEW_AND_RESULT_DONE",
+          url: data.url,
+          kind: "image",
+          provider: useAiBackground ? "ai-background" : "procedural",
+          label: useAiBackground
+            ? `${label} · רקע AI`
+            : label,
+          free: !useAiBackground,
+        });
+      }
+    );
+  }, [runPaidAction, makeCutout, dispatch]);
+
+  /** @deprecated השתמשו ב-generateCatalogImage — נשמר לשיווק */
   const makePreview = React.useCallback(async (): Promise<string | null> => {
     const cutoutUrl = stateRef.current.cutout.url ?? (await makeCutout());
     if (!cutoutUrl) return null;
@@ -366,7 +411,7 @@ export function useStudioActions(
       lastEnhanceSourcePreset.current = preset;
       const inputLabel = resolveActiveImageLabel(current);
 
-      return runPaidAction(
+      const ok = await runPaidAction(
         "enhance",
         `enhance-source:${inputUrl}:${preset}`,
         (idempotencyKey) =>
@@ -393,8 +438,13 @@ export function useStudioActions(
         },
         { enhanceKind: "source" }
       );
+
+      if (ok) {
+        await makeCutout(true);
+      }
+      return ok;
     },
-    [runPaidAction, dispatch]
+    [runPaidAction, makeCutout, dispatch]
   );
 
   /** מיטוב וידאו שהועלה — שומר את התנועה המקורית (חינם, Cloudinary) */
@@ -471,8 +521,15 @@ export function useStudioActions(
     dispatch({ type: "CLEAR_ERROR" });
     const failed = error.action;
     if (failed === "cutout") await makeCutout();
-    else if (failed === "preview") await makePreview();
-    else if (failed === "image") await generateImage();
+    else if (failed === "preview" || failed === "image") {
+      if (
+        stateRef.current.flow === "catalog" ||
+        stateRef.current.flow === "marketing"
+      ) {
+        await generateStudioImage();
+      } else if (failed === "preview") await makePreview();
+      else await generateImage();
+    }
     else if (failed === "video") await generateVideo();
     else if (failed === "enhance") {
       if (error.enhanceKind === "source" && lastEnhanceSourcePreset.current) {
@@ -481,10 +538,11 @@ export function useStudioActions(
         await enhanceVideoAi();
       }
     }
-  }, [dispatch, makeCutout, makePreview, generateImage, generateVideo, enhanceVideoAi, enhanceSource]);
+  }, [dispatch, makeCutout, makePreview, generateStudioImage, generateImage, generateVideo, enhanceVideoAi, enhanceSource]);
 
   return {
     makeCutout,
+    generateStudioImage,
     makePreview,
     generateImage,
     generateVideo,

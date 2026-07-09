@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ImageIcon, RotateCcw, Scissors, Shuffle, Sparkles, Wand2 } from "lucide-react";
+import { RotateCcw, Scissors, Sparkles } from "lucide-react";
 
 import {
   createStudioProject,
@@ -19,29 +19,24 @@ import {
 } from "@/app/(ai-studio)/studio/actions";
 import {
   INITIAL_STUDIO_STATE,
-  resolveActiveImageLabel,
-  resolveActiveImageUrl,
+  deriveStudioStep,
   snapshotToState,
   stateToSnapshot,
 } from "@/lib/studio-client/state";
 import { studioReducer } from "@/lib/studio-client/reducer";
 import { useStudioActions } from "@/lib/studio-client/use-studio-actions";
 import { StudioPortfolioPanel } from "@/components/studio/studio-portfolio-panel";
-import { StudioActionPanel } from "@/components/studio/v2/studio-action-panel";
 import { StudioAttemptsRail } from "@/components/studio/v2/studio-attempts-rail";
-import { StudioSourceSection } from "@/components/studio/v2/studio-source-section";
+import { StudioImageSidebar } from "@/components/studio/v2/studio-image-sidebar";
 import { StudioVideoTools } from "@/components/studio/v2/studio-video-tools";
-import { StudioPromptsSection } from "@/components/studio/v2/studio-prompts-section";
-import { StudioEnginesSection } from "@/components/studio/v2/studio-engines-section";
-import { StudioBackgroundEngineChoice } from "@/components/studio/v2/studio-background-engine-choice";
 import { StudioCanvas } from "@/components/studio/v2/studio-canvas";
 import { StudioConfirmDialog } from "@/components/studio/v2/studio-confirm-dialog";
 import { StudioErrorBanner } from "@/components/studio/v2/studio-error-banner";
 import { StudioFlowSwitch } from "@/components/studio/v2/studio-flow-switch";
 import { StudioPublishBar } from "@/components/studio/v2/studio-publish-bar";
-import { StudioStyleRail } from "@/components/studio/v2/studio-style-rail";
 import { StudioUploadZone } from "@/components/studio/v2/studio-upload-zone";
 import { StudioUsageMeter } from "@/components/studio/v2/studio-usage-meter";
+import { StudioWorkflowSteps, StudioStepSection } from "@/components/studio/v2/studio-workflow-steps";
 import { StudioVideoOptions } from "@/components/studio/v2/studio-video-options";
 import { STUDIO_COST_LABELS } from "@/components/studio/v2/studio-cost-chip";
 import { cutoutMethodLabel } from "@/lib/studio-engine-ui";
@@ -199,15 +194,21 @@ function StudioV2Content() {
 
   const handleAction = React.useCallback(
     (id: "preview" | "image" | "video") => {
+      if (
+        (state.flow === "catalog" || state.flow === "marketing") &&
+        (id === "preview" || id === "image")
+      ) {
+        void actions.generateStudioImage();
+        return;
+      }
       if (id === "preview") void actions.makePreview();
       else if (id === "image") void actions.generateImage();
       else if (id === "video") {
-        // וידאו AI — הפעולה היקרה ביותר, דורשת אישור מפורש
         if (state.videoMotion === "ai") setConfirmVideo(true);
         else void actions.generateVideo();
       }
     },
-    [actions, state.videoMotion]
+    [actions, state.flow, state.videoMotion]
   );
 
   const busy = state.busyAction !== null;
@@ -300,6 +301,10 @@ function StudioV2Content() {
             disabled={busy}
           />
 
+          {state.source.url && state.source.kind === "image" && (
+            <StudioWorkflowSteps state={state} />
+          )}
+
           {!state.source.url ? (
             <StudioUploadZone
               hasSource={false}
@@ -309,24 +314,29 @@ function StudioV2Content() {
               disabled={busy}
             />
           ) : state.source.kind === "video" ? (
-            /* וידאו שהועלה — עריכה, מוזיקה ומיטוב בלי AI */
             <>
-              <div className="border border-gold/30 bg-gold/5 p-3 text-xs font-light text-muted-foreground">
-                הועלה וידאו — ערכו אותו למטה (חינם), או מיטבו תנועה מקורית.
-              </div>
-              <Button
-                disabled={busy}
-                onClick={() => void actions.enhanceSourceVideo()}
-                className="w-full rounded-none bg-gold text-sm font-light text-black hover:bg-gold/90"
+              <StudioWorkflowSteps state={state} />
+
+              <StudioStepSection
+                step={2}
+                currentStep={deriveStudioStep(state)}
+                title="מיטוב וידאו (אופציונלי)"
               >
-                מיטוב הווידאו המקורי (חינם) — חדות, צבע ותנועה
-              </Button>
+                <Button
+                  disabled={busy}
+                  onClick={() => void actions.enhanceSourceVideo()}
+                  className="w-full rounded-none bg-gold text-sm font-light text-black hover:bg-gold/90"
+                >
+                  מיטוב הווידאו המקורי (חינם) — חדות, צבע ותנועה
+                </Button>
+              </StudioStepSection>
 
               {!(state.result.url && state.result.kind === "video") && (
-                <div className="space-y-2 border border-gold/30 bg-gold/5 p-3">
-                  <p className="text-xs font-light tracking-[0.1em] text-muted-foreground">
-                    או: יצירת וידאו AI מסוגנן מהסרטון
-                  </p>
+                <StudioStepSection
+                  step={3}
+                  currentStep={deriveStudioStep(state)}
+                  title="יצירת וידאו"
+                >
                   <StudioVideoOptions
                     duration={state.videoDuration}
                     motion={state.videoMotion}
@@ -359,7 +369,7 @@ function StudioV2Content() {
                   <p className="text-[11px] font-light text-muted-foreground">
                     מבוסס על הפריים הראשון בסרטון שהעליתם.
                   </p>
-                </div>
+                </StudioStepSection>
               )}
 
               <StudioVideoTools
@@ -385,6 +395,7 @@ function StudioV2Content() {
                 onRequestEnhanceAi={() => setConfirmEnhanceAi(true)}
                 disabled={busy}
               />
+
               <StudioPublishBar
                 state={state}
                 onTitleChange={(value) =>
@@ -411,217 +422,25 @@ function StudioV2Content() {
               />
             </>
           ) : (
-            <>
-              {!(state.result.url && state.result.kind === "image") && (
-                <Button
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => {
-                    dispatch({ type: "USE_SOURCE_DIRECTLY" });
-                    showToast(
-                      "עובדים ישירות עם התמונה — אפשר ליצור וידאו או לפרסם בלי בידוד"
-                    );
-                  }}
-                  className="w-full rounded-none border-dashed border-gold/50 text-xs font-light text-muted-foreground hover:border-gold hover:text-foreground"
-                  title="לתמונות שכבר מוכנות — פרסום או וידאו בלי הסרת רקע והרכבה מחדש"
-                >
-                  <ImageIcon className="ml-1.5 h-3.5 w-3.5" />
-                  עבודה ישירה מהתמונה (ללא בידוד) — לתמונה שכבר מוכנה
-                </Button>
-              )}
-
-              <StudioStyleRail
-                value={state.stylePreset}
-                onChange={(presetId) => {
-                  const hadPreview = Boolean(state.preview.url);
-                  dispatch({ type: "SET_PRESET", presetId });
-                  if (hadPreview) {
-                    showToast(
-                      "סגנון חדש — יש ליצור תמונה מחדש. התוצאה הקודמת עדיין זמינה לפרסום"
-                    );
-                  }
-                }}
-                disabled={busy}
-              />
-
-              <StudioEnginesSection
-                flow={state.flow}
-                engines={state.aiEngines}
-                onChange={(engines) =>
-                  dispatch({ type: "SET_ENGINES", engines })
+            <StudioImageSidebar
+              state={state}
+              dispatch={dispatch}
+              actions={actions}
+              busy={busy}
+              onAction={handleAction}
+              showToast={showToast}
+              onPublished={(productId) => {
+                if (activeProjectId) {
+                  void markStudioProjectPublished(activeProjectId, {
+                    kind: "catalog",
+                    productId,
+                  }).then(refreshProjects);
                 }
-                disabled={busy}
-              />
-
-              {state.flow === "catalog" && (
-                <StudioBackgroundEngineChoice
-                  useAiBackground={state.useAiBackground}
-                  backgroundProvider={state.aiEngines.background}
-                  highQualityBackground={state.highQualityBackground}
-                  onUseAiBackgroundChange={(value) =>
-                    dispatch({ type: "SET_USE_AI_BACKGROUND", value })
-                  }
-                  onBackgroundProviderChange={(value) =>
-                    dispatch({
-                      type: "SET_ENGINES",
-                      engines: { ...state.aiEngines, background: value },
-                    })
-                  }
-                  onHighQualityBackgroundChange={(value) =>
-                    dispatch({ type: "SET_HIGH_QUALITY_BACKGROUND", value })
-                  }
-                  disabled={busy}
-                />
-              )}
-
-              <StudioPromptsSection
-                flow={state.flow}
-                customPrompt={state.customPrompt}
-                videoPrompt={state.videoPrompt}
-                onCustomPromptChange={(value) =>
-                  dispatch({ type: "SET_CUSTOM_PROMPT", value })
-                }
-                onVideoPromptChange={(value) =>
-                  dispatch({ type: "SET_VIDEO_PROMPT", value })
-                }
-                disabled={busy}
-              />
-
-              <StudioSourceSection
-                sourceUrl={
-                  resolveActiveImageUrl(state) ?? state.source.url ?? ""
-                }
-                activeImageLabel={resolveActiveImageLabel(state)}
-                adjustments={state.sourceAdj}
-                onAdjustmentsChange={(value) =>
-                  dispatch({ type: "SET_SOURCE_ADJ", value })
-                }
-                onSourceReplaced={(url, label) => {
-                  dispatch({
-                    type: "ATTEMPT_ADDED",
-                    url,
-                    kind: "image",
-                    label,
-                    free: true,
-                  });
-                  dispatch({ type: "SOURCE_UPLOADED", url, kind: "image", keepOriginal: true });
-                  showToast("המקור עודכן — הבידוד ירוץ מחדש על הגרסה הערוכה");
-                }}
-                onAiEnhance={(preset) =>
-                  void actions.enhanceSource(preset).then((ok) => {
-                    if (ok) {
-                      showToast(
-                        "התמונה שבחרתם שופרה ב-AI — הבידוד ירוץ מחדש על הגרסה החדשה"
-                      );
-                    }
-                  })
-                }
-                disabled={busy}
-              />
-
-              {state.flow === "marketing" && (
-                <StudioVideoOptions
-                  duration={state.videoDuration}
-                  motion={state.videoMotion}
-                  videoEngine={state.aiEngines.video}
-                  nativeAudio={state.videoNativeAudio}
-                  multiShot={state.videoMultiShot}
-                  onDurationChange={(value) =>
-                    dispatch({ type: "SET_VIDEO_DURATION", value })
-                  }
-                  onMotionChange={(value) =>
-                    dispatch({ type: "SET_VIDEO_MOTION", value })
-                  }
-                  onNativeAudioChange={(value) =>
-                    dispatch({ type: "SET_VIDEO_NATIVE_AUDIO", value })
-                  }
-                  onMultiShotChange={(value) =>
-                    dispatch({ type: "SET_VIDEO_MULTISHOT", value })
-                  }
-                  disabled={busy}
-                />
-              )}
-
-              {state.flow === "marketing" && state.source.kind === "image" && (
-                <Button
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => void actions.makePreview()}
-                  className="w-full rounded-none border-dashed border-gold/50 text-xs font-light text-muted-foreground hover:border-gold hover:text-foreground"
-                >
-                  <Wand2 className="ml-1.5 h-3.5 w-3.5" />
-                  עיצוב רקע לפני וידאו (אופציונלי)
-                </Button>
-              )}
-
-              <StudioActionPanel state={state} onAction={handleAction} />
-
-              {/* וריאציות חינמיות מאותו בידוד */}
-              {state.cutout.url &&
-                state.result.url &&
-                state.result.kind === "image" && (
-                  <Button
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() => void actions.makeVariants()}
-                    className="w-full rounded-none border-gold/40 text-xs font-light text-gold-dark hover:bg-gold/10"
-                  >
-                    <Shuffle className="ml-1.5 h-3.5 w-3.5" />
-                    עוד 2 סגנונות מאותו בידוד — חינם, נשמרים בגלריה
-                  </Button>
-                )}
-
-              {/* ליטוש וידאו אחרי תוצאת וידאו */}
-              {state.result.url && state.result.kind === "video" && (
-                <StudioVideoTools
-                  videoUrl={state.result.url}
-                  adjustments={state.videoAdj}
-                  onAdjustmentsChange={(value) =>
-                    dispatch({ type: "SET_VIDEO_ADJ", value })
-                  }
-                  onApplied={(url, label) => {
-                    dispatch({
-                      type: "RESULT_DONE",
-                      url,
-                      kind: "video",
-                      label,
-                      free: true,
-                    });
-                    showToast("הגרסה הערוכה נשמרה בגלריה");
-                  }}
-                  onRequestEnhanceAi={() => setConfirmEnhanceAi(true)}
-                  disabled={busy}
-                />
-              )}
-
-              <StudioPublishBar
-                state={state}
-                onTitleChange={(value) =>
-                  dispatch({ type: "SET_PRODUCT_TITLE", value })
-                }
-                onPriceChange={(value) =>
-                  dispatch({ type: "SET_PRODUCT_PRICE", value })
-                }
-                onAspectChange={(value) =>
-                  dispatch({ type: "SET_RESULT_ASPECT", value })
-                }
-                onContinueEditing={() => {
-                  dispatch({ type: "CONTINUE_FROM_RESULT" });
-                  showToast("התוצאה הפכה למקור — אפשר לעצב סיבוב נוסף");
-                }}
-                showToast={showToast}
-                onPublished={(productId) => {
-                  if (activeProjectId) {
-                    void markStudioProjectPublished(activeProjectId, {
-                      kind: "catalog",
-                      productId,
-                    }).then(refreshProjects);
-                  }
-                }}
-              />
-
-            </>
+              }}
+              onRequestEnhanceAi={() => setConfirmEnhanceAi(true)}
+            />
           )}
+
         </div>
       </div>
 

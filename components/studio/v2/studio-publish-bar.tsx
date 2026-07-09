@@ -152,7 +152,7 @@ export function StudioPublishBar({
   return (
     <div className="space-y-3 border border-emerald-600/30 bg-emerald-600/5 p-3">
       <p className="text-xs font-light tracking-[0.1em] text-emerald-700">
-        התוצאה מוכנה — מה עושים איתה?
+        שלב 4 — שמירה לספריית תוכן AI
       </p>
 
       {resultKind === "image" && (

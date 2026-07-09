@@ -127,9 +127,8 @@ export function StudioBackgroundEngineChoice({
         )}
 
         {useAiBackground && (
-          <p className="text-[10px] font-light text-amber-800/90">
-            התצוגה המקדימה תמיד פרוצדורלית (חינם). לחצו &quot;יצירת תמונה עם רקע
-            AI&quot; לתוצאה הסופית.
+          <p className="text-[10px] font-light text-muted-foreground">
+            רקע AI ייווצר ישירות בלחיצה על &quot;יצירת תמונה&quot; בשלב 3.
           </p>
         )}
       </div>

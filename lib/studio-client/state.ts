@@ -221,10 +221,22 @@ function toClientState(state: StudioV2State): StudioClientState {
 }
 
 function deriveWorkflowStep(state: StudioV2State): 1 | 2 | 3 | 4 {
+  return deriveStudioStep(state);
+}
+
+/** שלב UI לפי מודל 4 השלבים — 2+3 גלויים יחד עד שיש תוצאה */
+export function deriveStudioStep(state: StudioV2State): 1 | 2 | 3 | 4 {
+  if (!state.source.url) return 1;
   if (state.result.url) return 4;
-  if (state.preview.url) return 3;
-  if (state.cutout.url || state.source.url) return state.cutout.url ? 3 : 2;
-  return 1;
+  if (
+    state.busyAction === "cutout" ||
+    state.busyAction === "preview" ||
+    state.busyAction === "image"
+  ) {
+    return 3;
+  }
+  if (state.cutout.url || state.preview.url) return 3;
+  return 2;
 }
 
 /** המרה ל-snapshot של פרויקט — שימוש חוזר בטבלת studio_projects הקיימת */

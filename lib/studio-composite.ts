@@ -23,16 +23,20 @@ const PRESET_SURFACE_Y: Partial<Record<StudioStylePresetId, number>> = {
   "mirror-glass": 0.59,
   "royal-purple": 0.6,
   "sunset-amber": 0.61,
+  "champagne-silk": 0.6,
 };
 
 const PRESET_HARMONIZE: Partial<
   Record<StudioStylePresetId, { brightness?: number; saturation?: number }>
 > = {
-  "jerusalem-stone": { brightness: 1.03, saturation: 1.05 },
-  "midnight-blue": { brightness: 0.98, saturation: 0.95 },
-  "rose-gold-glow": { brightness: 1.02, saturation: 1.04 },
-  "sunset-amber": { brightness: 1.04, saturation: 1.06 },
+  "jerusalem-stone": { brightness: 1.01, saturation: 1.0 },
+  "midnight-blue": { brightness: 0.99, saturation: 0.9 },
+  "royal-purple": { brightness: 0.99, saturation: 0.88 },
+  "black-velvet": { brightness: 1.0, saturation: 0.9 },
+  "rose-gold-glow": { brightness: 1.02, saturation: 1.03 },
+  "sunset-amber": { brightness: 1.03, saturation: 1.04 },
   "concrete-minimal": { brightness: 1.02, saturation: 0.92 },
+  "champagne-silk": { brightness: 1.02, saturation: 1.02 },
 };
 
 const DRAMATIC_SHADOW_PRESETS = new Set<StudioStylePresetId>([

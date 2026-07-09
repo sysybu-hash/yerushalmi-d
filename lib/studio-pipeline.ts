@@ -48,6 +48,9 @@ function assertRemoteAssetUrl(url: string) {
   }
 }
 
+const JEWELRY_COLOR_LOCK =
+  "preserve exact diamond and gemstone colors, colorless neutral diamonds, no background color cast on stones, keep metal color unchanged";
+
 async function buildLightingHints(
   customPrompt?: string,
   stylePreset: StudioStylePresetId = "luxury-marble",
@@ -56,12 +59,16 @@ async function buildLightingHints(
 ) {
   const presetHints = STUDIO_PRESET_LIGHTING_HINTS[stylePreset];
   const trimmed = customPrompt?.trim();
-  if (!trimmed) return presetHints;
+  if (!trimmed) {
+    return `${presetHints}, ${JEWELRY_COLOR_LOCK}`;
+  }
   try {
     const translated = await translatePrompt(trimmed, textEngine, context);
-    return translated ? `${presetHints}, ${translated}` : presetHints;
+    return translated
+      ? `${presetHints}, ${translated}, ${JEWELRY_COLOR_LOCK}`
+      : `${presetHints}, ${JEWELRY_COLOR_LOCK}`;
   } catch {
-    return presetHints;
+    return `${presetHints}, ${JEWELRY_COLOR_LOCK}`;
   }
 }
 
