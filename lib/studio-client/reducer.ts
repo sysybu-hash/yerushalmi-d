@@ -65,13 +65,6 @@ export type StudioAction =
   | { type: "ACTION_STARTED"; action: Exclude<StudioBusyAction, null> }
   | { type: "CUTOUT_DONE"; url: string; cached: boolean }
   | {
-      type: "PREVIEW_DONE";
-      url: string;
-      kind: StudioSourceKind;
-      label?: string;
-      free?: boolean;
-    }
-  | {
       type: "PREVIEW_AND_RESULT_DONE";
       url: string;
       kind: StudioSourceKind;
@@ -101,8 +94,7 @@ export type StudioAction =
   | { type: "SET_SOURCE_ADJ"; value: ImageAdjustments }
   | { type: "SET_VIDEO_ADJ"; value: VideoAdjustments }
   | { type: "CONTINUE_FROM_RESULT" }
-  | { type: "USE_SOURCE_DIRECTLY" }
-  | { type: "ACTION_FAILED"; error: StudioErrorInfo }
+  | { type: "ACTION_FAILED"; error: StudioErrorInfo | null }
   | { type: "CLEAR_ERROR" }
   | { type: "USAGE_LOADED"; usage: NonNullable<StudioV2State["usage"]> }
   | { type: "TOAST"; message: string | null };
@@ -244,25 +236,6 @@ export function studioReducer(
         result: { ...INITIAL_STUDIO_STATE.result },
       };
 
-    case "PREVIEW_DONE":
-      return {
-        ...state,
-        busyAction: null,
-        selectedAttemptId: null,
-        preview: {
-          url: action.url,
-          kind: action.kind,
-          status: "done",
-          presetId: state.stylePreset,
-        },
-        attempts: appendAttempt(state.attempts, {
-          url: action.url,
-          kind: action.kind,
-          label: action.label ?? "תצוגה מקדימה",
-          free: action.free ?? true,
-        }),
-      };
-
     case "PREVIEW_AND_RESULT_DONE": {
       const label = action.label ?? "תמונה מוכנה";
       return {
@@ -375,43 +348,20 @@ export function studioReducer(
       };
     }
 
-    /**
-     * "עבודה ישירה, ללא בידוד" — התמונה/וידאו שהועלו הופכים לתוצאה
-     * הנוכחית כמו-שהם, בלי לעבור הסרת רקע/הרכבה. מאפשר וידאו ופרסום
-     * מיידיים מכל תמונה, כולל כאלה שכבר בעלות רקע מוגמר.
-     */
-    case "USE_SOURCE_DIRECTLY": {
-      if (!state.source.url) return state;
-      return {
-        ...state,
-        selectedAttemptId: null,
-        result: {
-          url: state.source.url,
-          kind: state.source.kind,
-          status: "done",
-          provider: "original",
-        },
-        attempts: appendAttempt(state.attempts, {
-          url: state.source.url,
-          kind: state.source.kind,
-          label: "מקור (ללא בידוד)",
-          free: true,
-        }),
-      };
-    }
-
     case "ACTION_FAILED":
+      // error: null — שחרור הנעילה בלי באנר שגיאה (למשל 409: הפעולה
+      // עדיין רצה בשרת, זה לא כשל אמיתי)
       return {
         ...state,
         busyAction: null,
         error: action.error,
-        ...(action.error.action === "cutout"
+        ...(action.error?.action === "cutout"
           ? { cutout: { ...state.cutout, status: "error" as const } }
           : {}),
-        ...(action.error.action === "preview"
+        ...(action.error?.action === "preview"
           ? { preview: { ...state.preview, status: "error" as const } }
           : {}),
-        ...(action.error.action === "image" || action.error.action === "video"
+        ...(action.error?.action === "image" || action.error?.action === "video"
           ? { result: { ...state.result, status: "error" as const } }
           : {}),
       };

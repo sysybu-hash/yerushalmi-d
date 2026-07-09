@@ -30,7 +30,6 @@ import { StudioAttemptsRail } from "@/components/studio/v2/studio-attempts-rail"
 import { StudioImageSidebar } from "@/components/studio/v2/studio-image-sidebar";
 import { StudioVideoTools } from "@/components/studio/v2/studio-video-tools";
 import { StudioCanvas } from "@/components/studio/v2/studio-canvas";
-import { StudioConfirmDialog } from "@/components/studio/v2/studio-confirm-dialog";
 import { StudioErrorBanner } from "@/components/studio/v2/studio-error-banner";
 import { StudioFlowSwitch } from "@/components/studio/v2/studio-flow-switch";
 import { StudioPublishBar } from "@/components/studio/v2/studio-publish-bar";
@@ -38,7 +37,6 @@ import { StudioUploadZone } from "@/components/studio/v2/studio-upload-zone";
 import { StudioUsageMeter } from "@/components/studio/v2/studio-usage-meter";
 import { StudioWorkflowSteps, StudioStepSection } from "@/components/studio/v2/studio-workflow-steps";
 import { StudioVideoOptions } from "@/components/studio/v2/studio-video-options";
-import { STUDIO_COST_LABELS } from "@/components/studio/v2/studio-cost-chip";
 import { cutoutMethodLabel } from "@/lib/studio-engine-ui";
 import { Button } from "@/components/ui/button";
 
@@ -56,8 +54,6 @@ function StudioV2Content() {
   const [activeProjectId, setActiveProjectId] = React.useState<number | null>(
     null
   );
-  const [confirmVideo, setConfirmVideo] = React.useState(false);
-  const [confirmEnhanceAi, setConfirmEnhanceAi] = React.useState(false);
   const hydrated = React.useRef(false);
   const skipNextSave = React.useRef(false);
 
@@ -194,21 +190,10 @@ function StudioV2Content() {
 
   const handleAction = React.useCallback(
     (id: "preview" | "image" | "video") => {
-      if (
-        (state.flow === "catalog" || state.flow === "marketing") &&
-        (id === "preview" || id === "image")
-      ) {
-        void actions.generateStudioImage();
-        return;
-      }
-      if (id === "preview") void actions.makePreview();
-      else if (id === "image") void actions.generateImage();
-      else if (id === "video") {
-        if (state.videoMotion === "ai") setConfirmVideo(true);
-        else void actions.generateVideo();
-      }
+      if (id === "video") void actions.generateVideo();
+      else void actions.generateStudioImage();
     },
-    [actions, state.flow, state.videoMotion]
+    [actions]
   );
 
   const busy = state.busyAction !== null;
@@ -392,7 +377,7 @@ function StudioV2Content() {
                   });
                   showToast("הגרסה הערוכה נשמרה בגלריה");
                 }}
-                onRequestEnhanceAi={() => setConfirmEnhanceAi(true)}
+                onRequestEnhanceAi={() => void actions.enhanceVideoAi()}
                 disabled={busy}
               />
 
@@ -437,7 +422,7 @@ function StudioV2Content() {
                   }).then(refreshProjects);
                 }
               }}
-              onRequestEnhanceAi={() => setConfirmEnhanceAi(true)}
+              onRequestEnhanceAi={() => void actions.enhanceVideoAi()}
             />
           )}
 
@@ -453,33 +438,6 @@ function StudioV2Content() {
         onSelect={(id) => void openProject(id)}
         onNewProject={startNewProject}
         showToast={showToast}
-      />
-
-      <StudioConfirmDialog
-        open={confirmVideo}
-        title="יצירת וידאו AI"
-        description={`וידאו ${state.videoDuration} שניות בתנועת AI קולנועית. זו הפעולה היקרה ביותר בסטודיו — ודאו שהתצוגה המקדימה מוצאת חן בעיניכם קודם.`}
-        costLabel={STUDIO_COST_LABELS.aiVideo}
-        previewUrl={state.result.url ?? state.preview.url}
-        confirmLabel="אישור ויצירה"
-        onConfirm={() => {
-          setConfirmVideo(false);
-          void actions.generateVideo();
-        }}
-        onCancel={() => setConfirmVideo(false)}
-      />
-
-      <StudioConfirmDialog
-        open={confirmEnhanceAi}
-        title="שיפור וידאו ב-AI"
-        description="שיפור תאורה ותנועה בווידאו הקיים באמצעות Veo — פעולה בתשלום, נפרדת מהליטוש החינמי."
-        costLabel={STUDIO_COST_LABELS.videoEnhanceAi}
-        confirmLabel="אישור ושיפור"
-        onConfirm={() => {
-          setConfirmEnhanceAi(false);
-          void actions.enhanceVideoAi();
-        }}
-        onCancel={() => setConfirmEnhanceAi(false)}
       />
 
       {/* טוסט */}

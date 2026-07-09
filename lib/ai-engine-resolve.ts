@@ -14,7 +14,6 @@ import {
   type StudioPipelineMode,
 } from "@/lib/ai-engines";
 import { getSiteSettings } from "@/lib/site-settings";
-import { QuotaExceededError } from "@/lib/ai-usage";
 
 export type ResolvedAiEngines = {
   preferences: AiEngineConfig;
@@ -87,8 +86,6 @@ export async function executeWithEngineFallback<T>(
     return await run(primary);
   } catch (error) {
     if (pref !== "auto") throw error;
-    // מכסה יומית היא גלובלית — מנוע אחר לא יעזור, רק יעלה כסף
-    if (error instanceof QuotaExceededError) throw error;
     if (policy === "never") throw error;
     if (policy === "billing-errors" && !isNonBilledFailure(error)) throw error;
 

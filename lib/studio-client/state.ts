@@ -117,9 +117,7 @@ export type StudioV2State = {
   videoAdj: VideoAdjustments;
   usage: {
     imagesToday: number;
-    imageLimit: number;
     videosToday: number;
-    videoLimit: number;
     costTodayUsd: number;
   } | null;
   error: StudioErrorInfo | null;
@@ -220,10 +218,6 @@ function toClientState(state: StudioV2State): StudioClientState {
   return { status: "uploaded", source };
 }
 
-function deriveWorkflowStep(state: StudioV2State): 1 | 2 | 3 | 4 {
-  return deriveStudioStep(state);
-}
-
 /** שלב UI לפי מודל 4 השלבים — 2+3 גלויים יחד עד שיש תוצאה */
 export function deriveStudioStep(state: StudioV2State): 1 | 2 | 3 | 4 {
   if (!state.source.url) return 1;
@@ -244,7 +238,7 @@ export function stateToSnapshot(state: StudioV2State): StudioProjectSnapshot {
   return normalizeSnapshot({
     ...EMPTY_STUDIO_SNAPSHOT,
     mode: "create",
-    workflowStep: deriveWorkflowStep(state),
+    workflowStep: deriveStudioStep(state),
     state: toClientState(state),
     customPrompt: state.customPrompt,
     stylePreset: state.stylePreset,

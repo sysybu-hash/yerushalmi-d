@@ -1,46 +1,20 @@
 /**
- * בדיקת עומסים ל-race conditions בשני המנגנונים הקריטיים:
- * 1. reserveStudioQuota — מכסה יומית לא אמורה לחרוג גם תחת בקשות מקבילות.
- * 2. withIdempotency — מפתח כפול לא אמור להריץ את הפעולה פעמיים.
+ * בדיקת עומסים ל-race conditions במנגנון הקריטי:
+ * withIdempotency — מפתח כפול לא אמור להריץ את הפעולה פעמיים.
+ * (מכסות יומיות הוסרו מהמערכת — ההגנה היחידה היא idempotency.)
  * רץ מול ה-DB האמיתי (DATABASE_URL), בלי שום קריאת AI בתשלום.
  * הרצה: npx tsx scripts/test-load-concurrency.ts
  */
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 import { db } from "../db";
-import { siteSettings, studioActionLocks } from "../db/schema";
-import { reserveStudioQuota } from "../lib/ai-usage";
+import { studioActionLocks } from "../db/schema";
 import { withIdempotency } from "../lib/studio-idempotency";
 
 const TEST_KEY_PREFIX = "loadtest";
-
-async function setLimit(key: string, value: string) {
-  await db
-    .insert(siteSettings)
-    .values({ key, value })
-    .onConflictDoUpdate({ target: siteSettings.key, set: { value } });
-}
-
-async function getLimit(key: string): Promise<string | null> {
-  const [row] = await db
-    .select()
-    .from(siteSettings)
-    .where(eq(siteSettings.key, key));
-  return row?.value ?? null;
-}
-
-async function resetVideoQuotaCounter() {
-  // מאפס את מונה הווידאו של היום ל-0 (יוצר אם חסר) — כך שהבדיקה
-  // תמיד מתחילה מ-0 בלי תלות בהרצות קודמות
-  await db.execute(sql`
-    INSERT INTO studio_quota_counters (day, scope_key, count)
-    VALUES (current_date, 'video', 0)
-    ON CONFLICT (day, scope_key) DO UPDATE SET count = 0
-  `);
-}
 
 async function cleanupTestLocks() {
   const rows = await db.select().from(studioActionLocks);
@@ -51,47 +25,9 @@ async function cleanupTestLocks() {
   }
 }
 
-/** בדיקה 1: מכסה יומית — N בקשות מקבילות, גבול נמוך, לא אמור לחרוג */
-async function testQuotaRace(): Promise<boolean> {
-  console.log("\n--- בדיקה 1: מכסה יומית תחת עומס מקביל ---");
-
-  const originalLimit = await getLimit("studioDailyVideoLimit");
-  const LIMIT = 5;
-  const CONCURRENT = 30;
-
-  await resetVideoQuotaCounter();
-  await setLimit("studioDailyVideoLimit", String(LIMIT));
-
-  const results = await Promise.allSettled(
-    Array.from({ length: CONCURRENT }, () => reserveStudioQuota("video"))
-  );
-
-  const succeeded = results.filter((r) => r.status === "fulfilled");
-  const rejected = results.filter((r) => r.status === "rejected");
-
-  console.log(`${CONCURRENT} בקשות מקבילות, מכסה=${LIMIT}`);
-  console.log(`הצליחו (שוריינו): ${succeeded.length}, נדחו: ${rejected.length}`);
-
-  // שחרור כל השריונים שהצליחו (מדמה סיום מוצלח של הקריאה)
-  for (const r of succeeded) {
-    if (r.status === "fulfilled") await r.value.release();
-  }
-
-  await resetVideoQuotaCounter();
-  if (originalLimit != null) await setLimit("studioDailyVideoLimit", originalLimit);
-
-  const ok = succeeded.length === LIMIT;
-  console.log(
-    ok
-      ? `✓ בדיוק ${LIMIT} שוריינו — אין חריגה ממכסה תחת עומס מקביל`
-      : `✗ שוריינו ${succeeded.length} במקום ${LIMIT} — יש race condition!`
-  );
-  return ok;
-}
-
-/** בדיקה 2: idempotency — N קריאות מקבילות עם אותו מפתח, פעולה רצה פעם אחת */
+/** בדיקה 1: idempotency תחת קריאות מקבילות עם אותו מפתח */
 async function testIdempotencyRace(): Promise<boolean> {
-  console.log("\n--- בדיקה 2: idempotency תחת קריאות מקבילות עם אותו מפתח ---");
+  console.log("\n--- בדיקה 1: idempotency תחת קריאות מקבילות עם אותו מפתח ---");
 
   const key = `${TEST_KEY_PREFIX}-${Date.now()}`;
   const CONCURRENT = 20;
@@ -127,9 +63,9 @@ async function testIdempotencyRace(): Promise<boolean> {
   return ok;
 }
 
-/** בדיקה 3: idempotency עם מפתחות שונים — לא אמור לחסום זה את זה */
+/** בדיקה 2: idempotency עם מפתחות שונים — לא אמור לחסום זה את זה */
 async function testIdempotencyIndependentKeys(): Promise<boolean> {
-  console.log("\n--- בדיקה 3: מפתחות שונים במקביל — לא חוסמים זה את זה ---");
+  console.log("\n--- בדיקה 2: מפתחות שונים במקביל — לא חוסמים זה את זה ---");
 
   const CONCURRENT = 15;
   let actualRuns = 0;
@@ -159,42 +95,11 @@ async function testIdempotencyIndependentKeys(): Promise<boolean> {
   return ok;
 }
 
-/** בדיקה 4: עומס קיצוני — 100 בקשות מקבילות, מכסה 20 */
-async function testHeavyQuotaRace(): Promise<boolean> {
-  console.log("\n--- בדיקה 4: עומס קיצוני (100 בקשות, מכסה 20) ---");
-
-  const originalLimit = await getLimit("studioDailyVideoLimit");
-  const LIMIT = 20;
-  const CONCURRENT = 100;
-
-  await resetVideoQuotaCounter();
-  await setLimit("studioDailyVideoLimit", String(LIMIT));
-
-  const results = await Promise.allSettled(
-    Array.from({ length: CONCURRENT }, () => reserveStudioQuota("video"))
-  );
-  const succeeded = results.filter((r) => r.status === "fulfilled");
-
-  console.log(`${CONCURRENT} בקשות מקבילות, מכסה=${LIMIT}, שוריינו=${succeeded.length}`);
-
-  for (const r of succeeded) {
-    if (r.status === "fulfilled") await r.value.release();
-  }
-  await resetVideoQuotaCounter();
-  if (originalLimit != null) await setLimit("studioDailyVideoLimit", originalLimit);
-
-  const ok = succeeded.length === LIMIT;
-  console.log(ok ? "✓ מדויק גם בעומס גבוה" : `✗ שוריינו ${succeeded.length} במקום ${LIMIT}`);
-  return ok;
-}
-
 async function run() {
-  const r1 = await testQuotaRace();
-  const r2 = await testIdempotencyRace();
-  const r3 = await testIdempotencyIndependentKeys();
-  const r4 = await testHeavyQuotaRace();
+  const r1 = await testIdempotencyRace();
+  const r2 = await testIdempotencyIndependentKeys();
 
-  const allPass = r1 && r2 && r3 && r4;
+  const allPass = r1 && r2;
   console.log(allPass ? "\nALL PASS" : "\nSOME FAILURES");
   process.exit(allPass ? 0 : 1);
 }

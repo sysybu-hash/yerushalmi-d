@@ -26,13 +26,6 @@ function presetLabel(presetId: string): string {
   );
 }
 
-/** ניסיון חוזר אוטומטי אחד לשגיאות רשת/זמניות — עם אותו מפתח idempotency */
-const RETRY_DELAY_MS = 1500;
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 type PaidActionName = "cutout" | "preview" | "image" | "video" | "enhance";
 
 type RunPaidActionOptions = {
@@ -97,13 +90,7 @@ export function useStudioActions(
       const idempotencyKey = keyFor(intent);
       dispatch({ type: "ACTION_STARTED", action });
 
-      let result = await call(idempotencyKey);
-
-      // 409 = הפעולה עדיין רצה בשרת — ממתינים ושואלים שוב באותו מפתח
-      if (!result.ok && (result.status === 409 || result.retryable)) {
-        await sleep(RETRY_DELAY_MS);
-        result = await call(idempotencyKey);
-      }
+      const result = await call(idempotencyKey);
 
       if (result.ok) {
         finishIntent(intent);
@@ -112,11 +99,31 @@ export function useStudioActions(
         return true;
       }
 
+      // כל כשל מסובב את המפתח — "נסה שוב" תמיד יוצא עם מפתח טרי ולעולם
+      // לא נתקע ב-409 מול נעילת pending מתה של ריצה שקרסה. ההגנה מפני
+      // חיוב כפול נשמרת: בזמן ריצה תקינה busyAction חוסם לחיצה נוספת,
+      // ואותו מפתח משמש לאורך כל הניסיון הבודד.
+      finishIntent(intent);
+
+      if (result.status === 409) {
+        // הפעולה עדיין רצה בשרת — לא שגיאה; מודיעים ומשחררים את הנעילה
+        dispatch({ type: "ACTION_FAILED", error: null });
+        dispatch({
+          type: "TOAST",
+          message: "הפעולה עדיין רצה ברקע — המתינו רגע ונסו שוב",
+        });
+        window.setTimeout(
+          () => dispatch({ type: "TOAST", message: null }),
+          5000
+        );
+        return false;
+      }
+
       dispatch({
         type: "ACTION_FAILED",
         error: {
           message: result.error,
-          retryable: Boolean(result.retryable || result.status === 409),
+          retryable: Boolean(result.retryable),
           action,
           enhanceKind: options.enhanceKind,
         },
@@ -205,95 +212,6 @@ export function useStudioActions(
           label: useAiBackground
             ? `${label} · רקע AI`
             : label,
-          free: !useAiBackground,
-        });
-      }
-    );
-  }, [runPaidAction, makeCutout, dispatch]);
-
-  /** @deprecated השתמשו ב-generateCatalogImage — נשמר לשיווק */
-  const makePreview = React.useCallback(async (): Promise<string | null> => {
-    const cutoutUrl = stateRef.current.cutout.url ?? (await makeCutout());
-    if (!cutoutUrl) return null;
-
-    const { stylePreset, customPrompt, flow, useAiBackground } =
-      stateRef.current;
-    const label = presetLabel(stylePreset);
-    let previewUrl: string | null = null;
-    await runPaidAction(
-      "preview",
-      `preview:${cutoutUrl}:${stylePreset}`,
-      (idempotencyKey) =>
-        studioApiCompositeImage(cutoutUrl, {
-          stylePreset,
-          customPrompt,
-          mode: "catalog",
-          useAiBackground: false,
-          idempotencyKey,
-        }),
-      (data) => {
-        previewUrl = data.url;
-        if (flow === "catalog" && !useAiBackground) {
-          dispatch({
-            type: "PREVIEW_AND_RESULT_DONE",
-            url: data.url,
-            kind: "image",
-            provider: "procedural",
-            label,
-            free: true,
-          });
-        } else {
-          dispatch({
-            type: "PREVIEW_DONE",
-            url: data.url,
-            kind: "image",
-            label,
-            free: true,
-          });
-        }
-      }
-    );
-    return previewUrl;
-  }, [runPaidAction, makeCutout, dispatch]);
-
-  /** תוצאה סופית לתמונה — רקע AI בלבד (פרוצדורלי עולה אוטומטית ב-makePreview) */
-  const generateImage = React.useCallback(async (): Promise<boolean> => {
-    const cutoutUrl = stateRef.current.cutout.url ?? (await makeCutout());
-    if (!cutoutUrl) return false;
-
-    const {
-      stylePreset,
-      customPrompt,
-      useAiBackground,
-      highQualityBackground,
-      aiEngines,
-      flow,
-    } = stateRef.current;
-
-    if (!useAiBackground) return false;
-
-    return runPaidAction(
-      "image",
-      `image:${cutoutUrl}:${stylePreset}:${useAiBackground ? "ai" : "proc"}:${highQualityBackground ? "hq" : "std"}`,
-      (idempotencyKey) =>
-        studioApiCompositeImage(cutoutUrl, {
-          stylePreset,
-          customPrompt,
-          mode: flow,
-          engines: aiEngines,
-          useAiBackground,
-          highQualityBackground,
-          idempotencyKey,
-        }),
-      (data) => {
-        dispatch({
-          type: "RESULT_DONE",
-          url: data.url,
-          kind: "image",
-          provider: useAiBackground ? "ai-background" : "procedural",
-          label: useAiBackground
-            ? `${presetLabel(stylePreset)} · רקע AI`
-            : presetLabel(stylePreset),
           free: !useAiBackground,
         });
       }
@@ -514,7 +432,7 @@ export function useStudioActions(
     );
   }, [runPaidAction, dispatch]);
 
-  /** "נסה שוב" מהבאנר — מפעיל את הפעולה שנכשלה עם אותו מפתח */
+  /** "נסה שוב" מהבאנר — מפעיל את הפעולה שנכשלה (מפתח idempotency טרי) */
   const retryFailed = React.useCallback(async () => {
     const error = stateRef.current.error;
     if (!error) return;
@@ -522,15 +440,8 @@ export function useStudioActions(
     const failed = error.action;
     if (failed === "cutout") await makeCutout();
     else if (failed === "preview" || failed === "image") {
-      if (
-        stateRef.current.flow === "catalog" ||
-        stateRef.current.flow === "marketing"
-      ) {
-        await generateStudioImage();
-      } else if (failed === "preview") await makePreview();
-      else await generateImage();
-    }
-    else if (failed === "video") await generateVideo();
+      await generateStudioImage();
+    } else if (failed === "video") await generateVideo();
     else if (failed === "enhance") {
       if (error.enhanceKind === "source" && lastEnhanceSourcePreset.current) {
         await enhanceSource(lastEnhanceSourcePreset.current);
@@ -538,13 +449,11 @@ export function useStudioActions(
         await enhanceVideoAi();
       }
     }
-  }, [dispatch, makeCutout, makePreview, generateStudioImage, generateImage, generateVideo, enhanceVideoAi, enhanceSource]);
+  }, [dispatch, makeCutout, generateStudioImage, generateVideo, enhanceVideoAi, enhanceSource]);
 
   return {
     makeCutout,
     generateStudioImage,
-    makePreview,
-    generateImage,
     generateVideo,
     makeVariants,
     enhanceSource,

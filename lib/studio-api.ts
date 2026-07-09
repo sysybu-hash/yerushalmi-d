@@ -87,6 +87,13 @@ async function parseStudioResponse<T>(
 
 /** שגיאת רשת בצד הלקוח — תמיד retryable (הבקשה אולי לא הגיעה לשרת) */
 function networkFailure(error: unknown): StudioActionResult<never> {
+  if (error instanceof DOMException && error.name === "TimeoutError") {
+    return {
+      ok: false,
+      error: "הפעולה נמשכה יותר מדי — נסו שוב",
+      retryable: true,
+    };
+  }
   return {
     ok: false,
     error: humanizeStudioError(
@@ -95,6 +102,14 @@ function networkFailure(error: unknown): StudioActionResult<never> {
     retryable: true,
   };
 }
+
+/**
+ * timeout לכל קריאת סטודיו — בלעדיו חיבור תקוע משאיר את busyAction
+ * נעול והממשק כולו קפוא ללא מוצא. וידאו רץ עד 300 שניות בשרת —
+ * מרווח ביטחון של 30 שניות מעבר.
+ */
+const VIDEO_TIMEOUT_MS = 330_000;
+const DEFAULT_TIMEOUT_MS = 150_000;
 
 export async function studioApiRemoveBackground(
   imageUrl: string,
@@ -111,6 +126,7 @@ export async function studioApiRemoveBackground(
     const response = await fetch("/api/studio/remove-background", {
       method: "POST",
       credentials: "same-origin",
+      signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         imageUrl,
@@ -136,6 +152,7 @@ export async function studioApiCompositeImage(
     const response = await fetch("/api/studio/composite", {
       method: "POST",
       credentials: "same-origin",
+      signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...options, cutoutUrl }),
     });
@@ -153,6 +170,7 @@ export async function studioApiGenerateImage(
     const response = await fetch("/api/studio/generate", {
       method: "POST",
       credentials: "same-origin",
+      signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...options, sourceUrl }),
     });
@@ -170,6 +188,7 @@ export async function studioApiGenerateVideo(
     const response = await fetch("/api/studio/video", {
       method: "POST",
       credentials: "same-origin",
+      signal: AbortSignal.timeout(VIDEO_TIMEOUT_MS),
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ imageUrl, ...options }),
     });
@@ -199,6 +218,7 @@ export async function studioApiEnhanceVideo(
     const response = await fetch("/api/studio/enhance-video", {
       method: "POST",
       credentials: "same-origin",
+      signal: AbortSignal.timeout(VIDEO_TIMEOUT_MS),
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         videoUrl,
@@ -233,6 +253,7 @@ export async function studioApiEnhanceSource(
     const response = await fetch("/api/studio/enhance-source", {
       method: "POST",
       credentials: "same-origin",
+      signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         imageUrl,

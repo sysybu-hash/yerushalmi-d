@@ -8,7 +8,7 @@ import {
   normalizeStudioError,
   runTrackedReplicate,
 } from "@/lib/studio-replicate";
-import { reserveStudioQuota, trackAiUsage } from "@/lib/ai-usage";
+import { trackAiUsage } from "@/lib/ai-usage";
 import {
   geminiAnalyzeImage,
   normalizeGeminiError,
@@ -290,7 +290,6 @@ async function runLlava(imageInput: string): Promise<string> {
 
 async function runGeminiVision(imageUrl: string): Promise<string> {
   const imageInput = await fetchImageDataUri(imageUrl);
-  const quota = await reserveStudioQuota("vision");
   const started = Date.now();
   let success = false;
   try {
@@ -310,7 +309,6 @@ async function runGeminiVision(imageUrl: string): Promise<string> {
       success,
       durationMs: Date.now() - started,
     });
-    await quota.release();
   }
 }
 

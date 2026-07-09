@@ -4,9 +4,8 @@ import { Gauge } from "lucide-react";
 
 import type { StudioV2State } from "@/lib/studio-client/state";
 import { ILS_PER_USD } from "./studio-cost-chip";
-import { cn } from "@/lib/utils";
 
-/** מד שימוש יומי — כמה נוצל מהמכסה וכמה עלה היום */
+/** מד שימוש יומי — כמה נוצר היום וכמה זה עלה. מידע בלבד, בלי מכסות. */
 export function StudioUsageMeter({
   usage,
 }: {
@@ -14,30 +13,14 @@ export function StudioUsageMeter({
 }) {
   if (!usage) return null;
 
-  const videoWarn =
-    usage.videoLimit > 0 && usage.videosToday >= usage.videoLimit * 0.8;
-  const imageWarn =
-    usage.imageLimit > 0 && usage.imagesToday >= usage.imageLimit * 0.8;
-
   return (
     <div
-      className={cn(
-        "flex items-center gap-3 border px-3 py-1.5 text-[11px] font-light",
-        videoWarn || imageWarn
-          ? "border-amber-500/50 bg-amber-500/10 text-amber-700"
-          : "border-border/60 bg-background text-muted-foreground"
-      )}
+      className="flex items-center gap-3 border border-border/60 bg-background px-3 py-1.5 text-[11px] font-light text-muted-foreground"
       title="שימוש יומי בסטודיו — קריאות AI בתשלום בלבד"
     >
       <Gauge className="h-3.5 w-3.5" />
-      <span>
-        תמונות {usage.imagesToday}
-        {usage.imageLimit > 0 ? `/${usage.imageLimit}` : ""}
-      </span>
-      <span>
-        וידאו {usage.videosToday}
-        {usage.videoLimit > 0 ? `/${usage.videoLimit}` : ""}
-      </span>
+      <span>תמונות {usage.imagesToday}</span>
+      <span>וידאו {usage.videosToday}</span>
       <span dir="ltr" title={`$${usage.costTodayUsd.toFixed(2)}`}>
         ₪{(usage.costTodayUsd * ILS_PER_USD).toFixed(2)}
       </span>

@@ -6,7 +6,7 @@ import {
   MODELS,
   replicate,
 } from "@/lib/studio-replicate";
-import { reserveStudioQuota, trackAiUsage } from "@/lib/ai-usage";
+import { trackAiUsage } from "@/lib/ai-usage";
 import type { AiUsageMode } from "@/lib/ai-usage";
 
 type TextUsageContext = { mode?: AiUsageMode; projectId?: number | null };
@@ -21,7 +21,6 @@ export async function translatePrompt(
 
   const prompt = `Translate the following Hebrew text to English for use as an AI image/video generation prompt. Output ONLY the English translation, nothing else:\n\n${trimmed}`;
 
-  const quota = await reserveStudioQuota("text");
   const started = Date.now();
   let success = false;
   try {
@@ -60,7 +59,6 @@ export async function translatePrompt(
       projectId: context.projectId ?? null,
       metadata: { task: "translate" },
     });
-    await quota.release();
   }
 }
 
@@ -70,7 +68,6 @@ export async function generateStructuredText(
   temperature = 0.25,
   context: TextUsageContext = {}
 ): Promise<string> {
-  const quota = await reserveStudioQuota("text");
   const started = Date.now();
   let success = false;
   try {
@@ -109,6 +106,5 @@ export async function generateStructuredText(
       projectId: context.projectId ?? null,
       metadata: { task: "structured-text" },
     });
-    await quota.release();
   }
 }

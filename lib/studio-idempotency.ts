@@ -12,8 +12,13 @@ export class IdempotencyConflictError extends Error {
   }
 }
 
-/** זמן מקסימלי שנעילת pending נחשבת חיה (וידאו רץ עד 300 שניות) */
-const PENDING_TTL_MS = 15 * 60 * 1000;
+/**
+ * זמן מקסימלי שנעילת pending נחשבת חיה. חייב לעלות על הריצה הלגיטימית
+ * הארוכה ביותר (וידאו: maxDuration=300 שניות) אבל להיות קצר ככל האפשר —
+ * ריצה שקרסה בלי לסמן error משאירה נעילת pending "מתה", וכל עוד היא
+ * חיה אותו מפתח נחסם ב-409. ‏6 דקות = 300 שניות ריצה + מרווח ביטחון.
+ */
+const PENDING_TTL_MS = 6 * 60 * 1000;
 
 function normalizeKey(prefix: string, raw: string): string {
   const trimmed = raw.trim();

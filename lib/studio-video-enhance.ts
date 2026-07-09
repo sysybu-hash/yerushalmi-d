@@ -10,7 +10,7 @@ import {
 } from "@/lib/studio-video-duration";
 import { assertEngineAvailable, isGeminiConfigured } from "@/lib/ai-engines";
 import type { StudioPipelineMode } from "@/lib/ai-engines";
-import { reserveStudioQuota, trackAiUsage } from "@/lib/ai-usage";
+import { trackAiUsage } from "@/lib/ai-usage";
 import type { AiUsageMode } from "@/lib/ai-usage";
 import { opaqueImageUrlForVideo, videoFrameJpgUrl } from "@/lib/cloudinary-url";
 import { geminiGenerateVideoFromImage } from "@/lib/studio-gemini-media";
@@ -118,7 +118,7 @@ async function studioEnhanceVideoCloudinary(
   } finally {
     await trackAiUsage({
       provider: "gemini",
-      capability: "vision",
+      capability: "video",
       modelId: "cloudinary-video-transform",
       mode: usageMode,
       success,
@@ -147,7 +147,6 @@ async function studioEnhanceVideoGemini(
     );
   }
   assertEngineAvailable("vision", "gemini");
-  const quota = await reserveStudioQuota("cutout");
   const usageMode: AiUsageMode = options.mode ?? "catalog";
   const started = Date.now();
   let success = false;
@@ -193,7 +192,7 @@ async function studioEnhanceVideoGemini(
   } finally {
     await trackAiUsage({
       provider: "gemini",
-      capability: "vision",
+      capability: "video",
       modelId: "gemini-video-enhance-veo",
       mode: usageMode,
       success,
@@ -201,7 +200,6 @@ async function studioEnhanceVideoGemini(
       projectId: options.projectId ?? null,
       metadata: { preset: options.preset, kind: "video-enhance-gemini" },
     });
-    await quota.release();
   }
 }
 

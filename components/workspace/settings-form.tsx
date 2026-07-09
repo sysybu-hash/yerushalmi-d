@@ -505,16 +505,6 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
         </div>
         <div className="grid gap-5 sm:grid-cols-3">
           <TextField
-            name="studioDailyImageLimit"
-            label="מכסה יומית — תמונות AI (0 = ללא הגבלה)"
-            defaultValue={settings.studioDailyImageLimit}
-          />
-          <TextField
-            name="studioDailyVideoLimit"
-            label="מכסה יומית — וידאו"
-            defaultValue={settings.studioDailyVideoLimit}
-          />
-          <TextField
             name="studioUsdToIlsRate"
             label="שער $ → ₪ לדשבורד עלויות"
             defaultValue={settings.studioUsdToIlsRate}

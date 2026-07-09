@@ -27,7 +27,7 @@ import { isCloudinaryVideoUrl } from "@/lib/cloudinary-url";
 import { buildKlingMultiPrompt, type MultiShotTemplateId } from "@/lib/studio-multishot";
 import { JEWELRY_STRUCTURE_LOCK } from "@/lib/studio-presets";
 import type { StudioVideoMotionMode } from "@/lib/studio-types";
-import { reserveStudioQuota, trackAiUsage } from "@/lib/ai-usage";
+import { trackAiUsage } from "@/lib/ai-usage";
 import type { AiUsageMode } from "@/lib/ai-usage";
 
 export type StudioVideoProvider = "kling" | "veo" | "preserve";
@@ -39,8 +39,6 @@ export async function studioRemoveBackground(
     mode?: StudioPipelineMode;
     projectId?: number;
     cached?: boolean;
-    /** דילוג על הניסיון הפרוצדורלי — ישר ל-AI (בידוד מחדש מאולץ) */
-    skipProcedural?: boolean;
   } = {}
 ): Promise<{ url: string }> {
   const usageMode: AiUsageMode = options.mode ?? "catalog";
@@ -59,7 +57,6 @@ export async function studioRemoveBackground(
   }
 
   if (engine === "gemini") {
-    const quota = await reserveStudioQuota("cutout");
     const started = Date.now();
     let success = false;
     try {
@@ -83,7 +80,6 @@ export async function studioRemoveBackground(
         durationMs: Date.now() - started,
         projectId: options.projectId ?? null,
       });
-      await quota.release();
     }
   }
 
@@ -191,7 +187,6 @@ export async function studioGenerateBackground(
   const prompt = buildBackgroundPrompt(options.preset, options.lightingHints);
 
   if (engine === "gemini") {
-    const quota = await reserveStudioQuota("background");
     const started = Date.now();
     let success = false;
     try {
@@ -208,7 +203,6 @@ export async function studioGenerateBackground(
         durationMs: Date.now() - started,
         projectId: options.projectId ?? null,
       });
-      await quota.release();
     }
   }
 
@@ -266,7 +260,6 @@ export async function studioGenerateVideo(
     options.studioMode === "marketing" ? "marketing" : "catalog";
 
   if (engine === "gemini") {
-    const quota = await reserveStudioQuota("video");
     const started = Date.now();
     let success = false;
     try {
@@ -294,7 +287,6 @@ export async function studioGenerateVideo(
         durationMs: Date.now() - started,
         projectId: options.projectId ?? null,
       });
-      await quota.release();
     }
   }
 
@@ -353,7 +345,6 @@ export async function studioEnhanceSource(
     projectId?: number;
   }
 ): Promise<{ url: string }> {
-  const quota = await reserveStudioQuota("cutout");
   const usageMode: AiUsageMode = options.mode ?? "catalog";
   const started = Date.now();
   let success = false;
@@ -382,6 +373,5 @@ export async function studioEnhanceSource(
       projectId: options.projectId ?? null,
       metadata: { preset: options.preset },
     });
-    await quota.release();
   }
 }

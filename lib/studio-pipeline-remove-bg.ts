@@ -52,7 +52,6 @@ export async function pipelineRemoveBackground(
       studioRemoveBackground(imageUrl, cutoutEngine, {
         mode: studioMode,
         projectId: options.projectId,
-        skipProcedural: options.force,
       }),
     // בלי fallback ל-Gemini: הבידוד שלו מבוסס על צביעת רקע ירוק וניקוי
     // צבע ידני (chroma-key) — טכניקה שביר "ה שמפרקת יהלומים מנצנצים

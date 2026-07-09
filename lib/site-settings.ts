@@ -90,9 +90,7 @@ export const SETTING_DEFAULTS = {
   aiEngineBackground: "auto",
   aiEngineVideo: "auto",
 
-  /* מכסות סטודיו AI — 0 = ללא הגבלה */
-  studioDailyImageLimit: "0",
-  studioDailyVideoLimit: "5",
+  /* סטודיו AI */
   studioUsdToIlsRate: "3.7",
 } as const;
 

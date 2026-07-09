@@ -4,7 +4,6 @@ import {
   studioJsonOk,
   studioRouteGuard,
 } from "@/lib/studio-route";
-import { QuotaExceededError } from "@/lib/ai-usage";
 import {
   IdempotencyConflictError,
   withIdempotency,
@@ -49,9 +48,6 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof IdempotencyConflictError) {
       return studioJsonError(error, error.message, 409);
-    }
-    if (error instanceof QuotaExceededError) {
-      return studioJsonError(error, error.message, 429);
     }
     return studioJsonError(
       error,
