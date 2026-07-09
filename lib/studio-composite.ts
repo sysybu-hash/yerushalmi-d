@@ -261,7 +261,56 @@ async function stripCheckerboardBackground(buffer: Buffer): Promise<Buffer> {
     }
   }
 
-  if (removed < w * h * 0.04) return buffer;
+  if (removed === 0) return buffer;
+
+  return sharp(out, {
+    raw: { width: w, height: h, channels: 4 },
+  })
+    .png()
+    .toBuffer();
+}
+
+/**
+ * הסרת הילה לבנה/אפורה חצי-שקופה (Bria preserve_partial_alpha, שאריות רקע).
+ * מוחקים רק פיקסלים בהירים עם אלפא חלקית — לא פאות אטומות של יהלום.
+ */
+async function stripWhiteMatteFringe(buffer: Buffer): Promise<Buffer> {
+  const sharp = await loadSharp();
+  const { data, info } = await sharp(buffer)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  const w = info.width;
+  const h = info.height;
+  const out = Buffer.from(data);
+  let changed = 0;
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      const alpha = out[i + 3];
+      if (alpha < 12 || alpha > 248) continue;
+
+      const r = out[i];
+      const g = out[i + 1];
+      const b = out[i + 2];
+      const min = Math.min(r, g, b);
+      const spread = Math.max(r, g, b) - min;
+
+      const isLightFringe =
+        min >= 188 && spread <= 32 && alpha < 235;
+      const isOpaqueCheckerRemnant =
+        alpha >= 235 && min >= 210 && spread <= 28;
+
+      if (isLightFringe || isOpaqueCheckerRemnant) {
+        out[i + 3] = 0;
+        changed++;
+      }
+    }
+  }
+
+  if (changed === 0) return buffer;
 
   return sharp(out, {
     raw: { width: w, height: h, channels: 4 },
@@ -430,6 +479,7 @@ async function chromaKeyGreenBackground(buffer: Buffer): Promise<Buffer> {
 /** מכין PNG עם אלפא תקין — AI ואז fallback פרוצדורלי לרקע אחיד */
 export async function normalizeJewelryCutout(buffer: Buffer): Promise<Buffer> {
   let current = await stripCheckerboardBackground(buffer);
+  current = await stripWhiteMatteFringe(current);
   current = await chromaKeyGreenBackground(current);
   let metrics = await analyzeCutout(current);
 
@@ -523,10 +573,6 @@ export async function tryProceduralJewelryCutout(
   } catch {
     return null;
   }
-}
-
-function isProcessedStudioCutoutUrl(url: string): boolean {
-  return /studio-cutout-(local|gemini|bria)-/i.test(url);
 }
 
 function clampCompositePosition(
@@ -827,17 +873,8 @@ export async function compositeProductImage(
 
   const rawJewelry = Buffer.from(await jewelryRes.arrayBuffer());
 
-  const jewelryInput = await (async () => {
-    if (isProcessedStudioCutoutUrl(jewelryPngUrl)) {
-      // גם cutout "מעובד" נבדק — אם נשאר רקע (מטמון ישן פגום), מנקים שוב
-      const metrics = await analyzeCutout(rawJewelry);
-      if (metrics.opaqueRatio <= 0.85) {
-        await validateJewelryCutout(rawJewelry);
-        return rawJewelry;
-      }
-    }
-    return normalizeJewelryCutout(rawJewelry);
-  })();
+  // תמיד מנרמלים לפני הרכבה — מטמון ישן עלול להכיל משבצות/הילה שלא נראו על רקע בהיר
+  const jewelryInput = await normalizeJewelryCutout(rawJewelry);
 
   const skipFeather = await hasSoftAlphaMatte(jewelryInput);
   const jewelryMaxWidth = Math.round(canvasSize * JEWELRY_CANVAS_RATIO);

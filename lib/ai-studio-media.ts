@@ -124,7 +124,7 @@ export async function studioRemoveBackground(
       {
         image: optimizedUrl,
         preserve_alpha: true,
-        preserve_partial_alpha: true,
+        preserve_partial_alpha: false,
       },
       {
         capability: "cutout",
