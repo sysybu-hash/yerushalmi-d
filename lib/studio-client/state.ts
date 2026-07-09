@@ -38,6 +38,8 @@ export type StudioErrorInfo = {
   retryable: boolean;
   /** הפעולה שנכשלה — כפתור "נסה שוב" מפעיל אותה מחדש עם אותו מפתח */
   action: Exclude<StudioBusyAction, null>;
+  /** משנה enhance — מקור תמונה או וידאו */
+  enhanceKind?: "source" | "video";
 };
 
 export type StudioSourceKind = "image" | "video";
@@ -95,7 +97,6 @@ export type StudioV2State = {
   useAiBackground: boolean;
   highQualityBackground: boolean;
   aiEngines: AiEngineConfig;
-  advancedOpen: boolean;
   productTitle: string;
   productPrice: string;
   /** גלריית כל הניסיונות — ניווט והשוואה בין עיצובים */
@@ -137,7 +138,6 @@ export const INITIAL_STUDIO_STATE: StudioV2State = {
   useAiBackground: false,
   highQualityBackground: false,
   aiEngines: DEFAULT_AI_ENGINES,
-  advancedOpen: false,
   productTitle: "",
   productPrice: "",
   attempts: [],
@@ -185,12 +185,19 @@ function toClientState(state: StudioV2State): StudioClientState {
   return { status: "uploaded", source };
 }
 
+function deriveWorkflowStep(state: StudioV2State): 1 | 2 | 3 | 4 {
+  if (state.result.url) return 4;
+  if (state.preview.url) return 3;
+  if (state.cutout.url || state.source.url) return state.cutout.url ? 3 : 2;
+  return 1;
+}
+
 /** המרה ל-snapshot של פרויקט — שימוש חוזר בטבלת studio_projects הקיימת */
 export function stateToSnapshot(state: StudioV2State): StudioProjectSnapshot {
   return normalizeSnapshot({
     ...EMPTY_STUDIO_SNAPSHOT,
     mode: "create",
-    workflowStep: state.result.url ? 4 : state.source.url ? 3 : 1,
+    workflowStep: deriveWorkflowStep(state),
     state: toClientState(state),
     customPrompt: state.customPrompt,
     stylePreset: state.stylePreset,
@@ -205,6 +212,14 @@ export function stateToSnapshot(state: StudioV2State): StudioProjectSnapshot {
     cutoutUrl: state.cutout.url ?? "",
     attempts: state.attempts,
     sourceKind: state.source.kind,
+    previewUrl: state.preview.url ?? "",
+    previewPresetId: state.preview.presetId,
+    videoMotion: state.videoMotion,
+    videoNativeAudio: state.videoNativeAudio,
+    videoMultiShot: state.videoMultiShot,
+    resultAspect: state.resultAspect,
+    sourceAdj: state.sourceAdj,
+    videoAdj: state.videoAdj,
   });
 }
 
@@ -219,6 +234,13 @@ export function snapshotToState(raw: StudioProjectSnapshot): StudioV2State {
     clientState.status === "done" ? clientState.result : null;
   const resultKind = clientState.status === "done" ? clientState.kind : null;
 
+  const previewUrl =
+    snapshot.previewUrl ||
+    (resultUrl && resultKind === "image" ? resultUrl : "");
+  const previewPresetId =
+    snapshot.previewPresetId ??
+    (previewUrl ? snapshot.stylePreset : null);
+
   return {
     ...INITIAL_STUDIO_STATE,
     flow: snapshot.studioMode,
@@ -231,6 +253,12 @@ export function snapshotToState(raw: StudioProjectSnapshot): StudioV2State {
       url: snapshot.cutoutUrl || null,
       status: snapshot.cutoutUrl ? "done" : "idle",
       cached: Boolean(snapshot.cutoutUrl),
+    },
+    preview: {
+      url: previewUrl || null,
+      kind: "image",
+      status: previewUrl ? "done" : "idle",
+      presetId: previewPresetId,
     },
     result: {
       url: resultUrl,
@@ -245,11 +273,19 @@ export function snapshotToState(raw: StudioProjectSnapshot): StudioV2State {
     customPrompt: snapshot.customPrompt,
     videoPrompt: snapshot.videoPrompt,
     videoDuration: snapshot.videoDuration,
+    videoMotion: snapshot.videoMotion ?? INITIAL_STUDIO_STATE.videoMotion,
+    videoNativeAudio:
+      snapshot.videoNativeAudio ?? INITIAL_STUDIO_STATE.videoNativeAudio,
+    videoMultiShot:
+      snapshot.videoMultiShot ?? INITIAL_STUDIO_STATE.videoMultiShot,
     useAiBackground: snapshot.useAiBackground,
     highQualityBackground: snapshot.highQualityBackground,
     aiEngines: snapshot.aiEngines,
     productTitle: snapshot.productTitle,
     productPrice: snapshot.productPrice,
     attempts: snapshot.attempts ?? [],
+    resultAspect: snapshot.resultAspect ?? INITIAL_STUDIO_STATE.resultAspect,
+    sourceAdj: snapshot.sourceAdj ?? INITIAL_STUDIO_STATE.sourceAdj,
+    videoAdj: snapshot.videoAdj ?? INITIAL_STUDIO_STATE.videoAdj,
   };
 }

@@ -31,6 +31,10 @@ function sleep(ms: number) {
 
 type PaidActionName = "cutout" | "preview" | "image" | "video" | "enhance";
 
+type RunPaidActionOptions = {
+  enhanceKind?: "source" | "video";
+};
+
 export function useStudioActions(
   state: StudioV2State,
   dispatch: React.Dispatch<StudioAction>
@@ -43,6 +47,8 @@ export function useStudioActions(
    * ניסיון חוזר אוטומטי או "נסה שוב" — כולם אותו מפתח, אותו חיוב.
    */
   const intentKeys = React.useRef(new Map<string, string>());
+
+  const lastEnhanceSourcePreset = React.useRef<SourceEnhancePreset | null>(null);
 
   const keyFor = React.useCallback((intent: string): string => {
     const existing = intentKeys.current.get(intent);
@@ -78,7 +84,8 @@ export function useStudioActions(
       action: PaidActionName,
       intent: string,
       call: (idempotencyKey: string) => Promise<StudioActionResult<T>>,
-      onSuccess: (data: T) => void
+      onSuccess: (data: T) => void,
+      options: RunPaidActionOptions = {}
     ): Promise<boolean> => {
       // נעילה גלובלית — פעולה אחת בכל רגע
       if (stateRef.current.busyAction) return false;
@@ -107,6 +114,7 @@ export function useStudioActions(
           message: result.error,
           retryable: Boolean(result.retryable || result.status === 409),
           action,
+          enhanceKind: options.enhanceKind,
         },
       });
       return false;
@@ -154,12 +162,14 @@ export function useStudioActions(
     [runPaidAction, dispatch]
   );
 
-  /** תצוגה מקדימה חינמית — קומפוזיט פרוצדורלי (Sharp, ללא AI) */
+  /** יצירת תמונת קטלוג — בידוד + הרכבה; בלי רקע AI גם מעלה לתוצאה סופית */
   const makePreview = React.useCallback(async (): Promise<string | null> => {
     const cutoutUrl = stateRef.current.cutout.url ?? (await makeCutout());
     if (!cutoutUrl) return null;
 
-    const { stylePreset, customPrompt } = stateRef.current;
+    const { stylePreset, customPrompt, flow, useAiBackground } =
+      stateRef.current;
+    const label = presetLabel(stylePreset);
     let previewUrl: string | null = null;
     await runPaidAction(
       "preview",
@@ -174,19 +184,30 @@ export function useStudioActions(
         }),
       (data) => {
         previewUrl = data.url;
-        dispatch({
-          type: "PREVIEW_DONE",
-          url: data.url,
-          kind: "image",
-          label: presetLabel(stylePreset),
-          free: true,
-        });
+        if (flow === "catalog" && !useAiBackground) {
+          dispatch({
+            type: "PREVIEW_AND_RESULT_DONE",
+            url: data.url,
+            kind: "image",
+            provider: "procedural",
+            label,
+            free: true,
+          });
+        } else {
+          dispatch({
+            type: "PREVIEW_DONE",
+            url: data.url,
+            kind: "image",
+            label,
+            free: true,
+          });
+        }
       }
     );
     return previewUrl;
   }, [runPaidAction, makeCutout, dispatch]);
 
-  /** תוצאה סופית לתמונה — פרוצדורלי (חינם) או רקע AI (בתשלום, לחיצה מפורשת) */
+  /** תוצאה סופית לתמונה — רקע AI בלבד (פרוצדורלי עולה אוטומטית ב-makePreview) */
   const generateImage = React.useCallback(async (): Promise<boolean> => {
     const cutoutUrl = stateRef.current.cutout.url ?? (await makeCutout());
     if (!cutoutUrl) return false;
@@ -198,21 +219,9 @@ export function useStudioActions(
       highQualityBackground,
       aiEngines,
       flow,
-      preview,
     } = stateRef.current;
 
-    // בלי רקע AI — התצוגה החינמית היא התוצאה; אין קריאה נוספת
-    if (!useAiBackground && preview.url && preview.presetId === stylePreset) {
-      dispatch({
-        type: "RESULT_DONE",
-        url: preview.url,
-        kind: "image",
-        provider: "procedural",
-        label: presetLabel(stylePreset),
-        free: true,
-      });
-      return true;
-    }
+    if (!useAiBackground) return false;
 
     return runPaidAction(
       "image",
@@ -349,6 +358,8 @@ export function useStudioActions(
       const { source, customPrompt, flow } = stateRef.current;
       if (!source.url || source.kind !== "image") return false;
 
+      lastEnhanceSourcePreset.current = preset;
+
       return runPaidAction(
         "enhance",
         `enhance-source:${source.url}:${preset}`,
@@ -368,7 +379,8 @@ export function useStudioActions(
             free: false,
           });
           dispatch({ type: "SOURCE_UPLOADED", url: data.url, kind: "image" });
-        }
+        },
+        { enhanceKind: "source" }
       );
     },
     [runPaidAction, dispatch]
@@ -436,20 +448,28 @@ export function useStudioActions(
           label: "וידאו משופר AI",
           free: false,
         });
-      }
+      },
+      { enhanceKind: "video" }
     );
   }, [runPaidAction, dispatch]);
 
   /** "נסה שוב" מהבאנר — מפעיל את הפעולה שנכשלה עם אותו מפתח */
   const retryFailed = React.useCallback(async () => {
-    const failed = stateRef.current.error?.action;
-    if (!failed) return;
+    const error = stateRef.current.error;
+    if (!error) return;
     dispatch({ type: "CLEAR_ERROR" });
+    const failed = error.action;
     if (failed === "cutout") await makeCutout();
     else if (failed === "preview") await makePreview();
     else if (failed === "image") await generateImage();
     else if (failed === "video") await generateVideo();
-    else if (failed === "enhance") await enhanceVideoAi();
+    else if (failed === "enhance") {
+      if (error.enhanceKind === "source" && lastEnhanceSourcePreset.current) {
+        await enhanceSource(lastEnhanceSourcePreset.current);
+      } else {
+        await enhanceVideoAi();
+      }
+    }
   }, [dispatch, makeCutout, makePreview, generateImage, generateVideo, enhanceVideoAi]);
 
   return {

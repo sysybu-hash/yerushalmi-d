@@ -54,7 +54,6 @@ export type StudioAction =
   | { type: "SET_USE_AI_BACKGROUND"; value: boolean }
   | { type: "SET_HIGH_QUALITY_BACKGROUND"; value: boolean }
   | { type: "SET_ENGINES"; engines: AiEngineConfig }
-  | { type: "SET_ADVANCED_OPEN"; open: boolean }
   | { type: "SET_PRODUCT_TITLE"; value: string }
   | { type: "SET_PRODUCT_PRICE"; value: string }
   | { type: "ACTION_STARTED"; action: Exclude<StudioBusyAction, null> }
@@ -63,6 +62,14 @@ export type StudioAction =
       type: "PREVIEW_DONE";
       url: string;
       kind: StudioSourceKind;
+      label?: string;
+      free?: boolean;
+    }
+  | {
+      type: "PREVIEW_AND_RESULT_DONE";
+      url: string;
+      kind: StudioSourceKind;
+      provider?: string | null;
       label?: string;
       free?: boolean;
     }
@@ -135,14 +142,11 @@ export function studioReducer(
       if (state.preview.presetId === action.presetId) {
         return { ...state, stylePreset: action.presetId };
       }
-      // פריסט חדש מבטל תצוגה ותוצאה ישנות — אחרת נשארת תוצאה מבוססת
-      // הפריסט הקודם על המסך (ואפילו ניתנת לפרסום) בלי שהמשתמש ידע
-      // שהיא כבר לא תואמת את הבחירה החדשה.
+      // פריסט חדש מבטל רק את התצוגה המקדימה — התוצאה הקודמת נשארת לפרסום
       return {
         ...state,
         stylePreset: action.presetId,
         preview: { ...INITIAL_STUDIO_STATE.preview },
-        result: { ...INITIAL_STUDIO_STATE.result },
       };
     }
 
@@ -164,8 +168,6 @@ export function studioReducer(
       return { ...state, highQualityBackground: action.value };
     case "SET_ENGINES":
       return { ...state, aiEngines: action.engines };
-    case "SET_ADVANCED_OPEN":
-      return { ...state, advancedOpen: action.open };
     case "SET_PRODUCT_TITLE":
       return { ...state, productTitle: action.value };
     case "SET_PRODUCT_PRICE":
@@ -215,6 +217,33 @@ export function studioReducer(
           free: action.free ?? true,
         }),
       };
+
+    case "PREVIEW_AND_RESULT_DONE": {
+      const label = action.label ?? "תמונה מוכנה";
+      return {
+        ...state,
+        busyAction: null,
+        selectedAttemptId: null,
+        preview: {
+          url: action.url,
+          kind: action.kind,
+          status: "done",
+          presetId: state.stylePreset,
+        },
+        result: {
+          url: action.url,
+          kind: action.kind,
+          status: "done",
+          provider: action.provider ?? "procedural",
+        },
+        attempts: appendAttempt(state.attempts, {
+          url: action.url,
+          kind: action.kind,
+          label,
+          free: action.free ?? true,
+        }),
+      };
+    }
 
     case "RESULT_DONE":
       return {

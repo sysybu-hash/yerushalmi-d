@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { Loader2 } from "lucide-react";
+import { ArrowLeftRight, Loader2 } from "lucide-react";
 
 import type { StudioV2State } from "@/lib/studio-client/state";
 import { cutoutDisplayUrl } from "@/lib/cloudinary-url";
@@ -12,28 +12,42 @@ import { cn } from "@/lib/utils";
 const BUSY_LABELS: Record<string, string> = {
   upload: "מעלה את הצילום…",
   cutout: "מבודד את התכשיט מהרקע…",
-  preview: "מרכיב תצוגה מקדימה — ללא עלות…",
+  preview: "יוצר תמונת קטלוג…",
   image: "יוצר את התמונה הסופית…",
   video: "יוצר וידאו — זה יכול לקחת עד 5 דקות…",
   enhance: "משפר את הצילום…",
 };
 
+function canvasLabel(state: StudioV2State, base: string): string {
+  if (base === "תוצאה" && state.result.kind === "video") return "וידאו מוכן";
+  if (base === "תוצאה") return "תמונה מוכנה";
+  if (base === "תצוגה מקדימה (חינם)") {
+    if (state.result.url && state.preview.url === state.result.url) {
+      return "תמונה מוכנה";
+    }
+    return "טיוטה";
+  }
+  return base;
+}
+
 /**
- * הקנבס המרכזי — מציג את השכבה המתקדמת ביותר:
- * תוצאה > תצוגה מקדימה > cutout > מקור. עם מתג "לפני/אחרי".
+ * הקנבס המרכזי — מציג את השכבה המתקדמת ביותר עם מתג לפני/אחרי.
  */
 export function StudioCanvas({ state }: { state: StudioV2State }) {
   const [showBefore, setShowBefore] = React.useState(false);
   const [mediaError, setMediaError] = React.useState<string | null>(null);
 
   const current = React.useMemo(() => {
-    // ניסיון נבחר מהגלריה גובר על הכול — ניווט והשוואה
     if (state.selectedAttemptId) {
       const attempt = state.attempts.find(
         (a) => a.id === state.selectedAttemptId
       );
       if (attempt) {
-        return { url: attempt.url, kind: attempt.kind, label: attempt.label };
+        return {
+          url: attempt.url,
+          kind: attempt.kind,
+          label: attempt.label,
+        };
       }
     }
     if (state.result.url && state.result.kind === "video") {
@@ -93,6 +107,10 @@ export function StudioCanvas({ state }: { state: StudioV2State }) {
       ? { url: state.source.url!, kind: "image" as const, label: "לפני" }
       : current;
 
+  const badgeLabel = displayed
+    ? canvasLabel(state, displayed.label)
+    : null;
+
   return (
     <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden border border-border/60 bg-[repeating-conic-gradient(#f4f4f5_0_25%,#ffffff_0_50%)] bg-[length:24px_24px]">
       {displayed ? (
@@ -116,7 +134,7 @@ export function StudioCanvas({ state }: { state: StudioV2State }) {
         ) : (
           <Image
             src={displayed.url}
-            alt={displayed.label}
+            alt={badgeLabel ?? displayed.label}
             fill
             className="object-contain"
             sizes="(min-width: 1024px) 60vw, 100vw"
@@ -133,9 +151,9 @@ export function StudioCanvas({ state }: { state: StudioV2State }) {
         </p>
       )}
 
-      {displayed && (
+      {badgeLabel && (
         <span className="absolute right-2 top-2 bg-black/60 px-2 py-0.5 text-[10px] font-light text-white">
-          {displayed.label}
+          {badgeLabel}
         </span>
       )}
 
@@ -152,13 +170,14 @@ export function StudioCanvas({ state }: { state: StudioV2State }) {
           onPointerUp={() => setShowBefore(false)}
           onPointerLeave={() => setShowBefore(false)}
           className={cn(
-            "absolute bottom-2 right-2 border px-3 py-1 text-[11px] font-light backdrop-blur",
+            "absolute bottom-2 right-2 flex items-center gap-1 border px-3 py-1 text-[11px] font-light backdrop-blur",
             showBefore
               ? "border-gold bg-gold/80 text-black"
               : "border-white/40 bg-black/50 text-white hover:bg-black/70"
           )}
         >
-          החזיקו להשוואה עם המקור
+          <ArrowLeftRight className="h-3 w-3" />
+          לחצו והחזיקו: לפני / אחרי
         </button>
       )}
 

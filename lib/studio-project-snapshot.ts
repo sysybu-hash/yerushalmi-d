@@ -1,5 +1,7 @@
 import type { AiEngineConfig } from "@/lib/ai-engines";
 import { DEFAULT_AI_ENGINES, mergeAiEngineConfig } from "@/lib/ai-engines";
+import type { MultiShotTemplateId } from "@/lib/studio-multishot";
+import type { StudioVideoMotionMode } from "@/lib/studio-types";
 import type { StudioVideoDurationSec } from "@/lib/studio-video-duration";
 import { parseStudioVideoDuration } from "@/lib/studio-video-duration";
 import type {
@@ -11,6 +13,7 @@ import type { SettingKey } from "@/lib/site-settings";
 import {
   DEFAULT_IMAGE_ADJUSTMENTS,
   DEFAULT_VIDEO_ADJUSTMENTS,
+  type AspectId,
   type ImageAdjustments,
   type MediaResourceType,
   type VideoAdjustments,
@@ -118,6 +121,15 @@ export type StudioProjectSnapshot = {
   attempts?: StudioSnapshotAttempt[];
   /** סוג הקובץ שהועלה כמקור — תמונה או וידאו (נוסף ב-v2, נעדר בפרויקטים ישנים) */
   sourceKind?: "image" | "video";
+  /** שדות v2 נוספים — שחזור מלא של UI */
+  previewUrl?: string;
+  previewPresetId?: StudioStylePresetId | null;
+  videoMotion?: StudioVideoMotionMode;
+  videoNativeAudio?: boolean;
+  videoMultiShot?: MultiShotTemplateId;
+  resultAspect?: AspectId;
+  sourceAdj?: ImageAdjustments;
+  videoAdj?: VideoAdjustments;
 };
 
 export function normalizeSnapshot(
@@ -153,6 +165,20 @@ export function normalizeSnapshot(
     videoDuration: parseStudioVideoDuration(raw.videoDuration),
     attempts: Array.isArray(raw.attempts) ? raw.attempts : [],
     sourceKind: raw.sourceKind === "video" ? "video" : "image",
+    previewUrl: raw.previewUrl ?? "",
+    previewPresetId: raw.previewPresetId ?? null,
+    videoMotion: raw.videoMotion === "ai" ? "ai" : "preserve",
+    videoNativeAudio: Boolean(raw.videoNativeAudio),
+    videoMultiShot: raw.videoMultiShot ?? "none",
+    resultAspect: raw.resultAspect ?? "original",
+    sourceAdj: {
+      ...DEFAULT_IMAGE_ADJUSTMENTS,
+      ...raw.sourceAdj,
+    },
+    videoAdj: {
+      ...DEFAULT_VIDEO_ADJUSTMENTS,
+      ...raw.videoAdj,
+    },
   };
 }
 

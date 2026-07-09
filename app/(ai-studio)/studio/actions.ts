@@ -15,6 +15,7 @@ import { uploadBufferToCloudinary } from "@/lib/studio-replicate";
 import type { StudioVideoProvider } from "@/lib/ai-studio-media";
 import type { GenerateImageOptions, GenerateVideoOptions } from "@/lib/studio-types";
 
+/** Server actions לפרסום ושמירה. pipeline wrappers למטה — legacy; ה-UI משתמש ב-/api/studio/* */
 export type { GenerateImageOptions, GenerateVideoOptions } from "@/lib/studio-types";
 
 export type PublishProductToCatalogInput = {

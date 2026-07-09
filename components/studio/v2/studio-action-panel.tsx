@@ -17,73 +17,63 @@ type NextAction = {
 
 /**
  * קובע את הפעולה הבאה ההגיונית לפי מצב הצינור והזרימה.
- * הבידוד (cutout) אינו שלב חובה — הוא נחוץ רק אם רוצים להרכיב את
- * התכשיט על רקע מעוצב חדש (זרימת קטלוג) או לעצב רקע/סגנון לפני וידאו.
- * אם יש כבר תוצאה/מקור שמישים, אפשר לדלג ישר לווידאו או לפרסום —
- * ר' כפתור "עבודה ישירה מהתמונה" ב-page.tsx.
  */
 export function resolveNextAction(state: StudioV2State): NextAction | null {
   if (!state.source.url) return null;
 
   const previewReady =
     state.preview.url && state.preview.presetId === state.stylePreset;
-  const hasUsableBase = Boolean(
-    (state.result.kind === "image" && state.result.url) ||
-      state.preview.url ||
-      (state.source.kind === "image" && state.source.url)
-  );
+  const hasCatalogResult =
+    state.result.url && state.result.kind === "image" && previewReady;
 
   if (state.flow === "catalog") {
-    // מסתירים את הכפתור רק אם באמת אין מה לעדכן — יש תוצאה סופית
-    // *וגם* התצוגה המקדימה תואמת לסגנון הנבחר כרגע. אם המשתמש בחר
-    // סגנון רקע חדש, previewReady הופך ל-false וצריך להציע שוב פעולה.
-    if (state.result.url && state.result.kind === "image" && previewReady) {
-      return null;
-    }
-    if (!previewReady) {
+    if (hasCatalogResult) return null;
+
+    if (state.useAiBackground && previewReady) {
       return {
-        id: "preview",
-        label: state.cutout.url
-          ? "תצוגה מקדימה בסגנון הנבחר"
-          : "בידוד התכשיט + תצוגה מקדימה",
-        hint: state.cutout.url
-          ? "הרכבה פרוצדורלית — ללא קריאת AI"
-          : "בידוד בתשלום זעום, ההרכבה חינם. נשמר במטמון — לא יחויב שוב",
-        free: Boolean(state.cutout.url),
-        costLabel: state.cutout.url ? undefined : STUDIO_COST_LABELS.cutout,
-        icon: Wand2,
+        id: "image",
+        label: "יצירת תמונה עם רקע AI",
+        hint: "רקע גנרטיבי — קריאת AI בתשלום",
+        free: false,
+        costLabel: STUDIO_COST_LABELS.aiBackground,
+        icon: Sparkles,
       };
     }
+
+    const hasCutout = Boolean(state.cutout.url);
     return {
-      id: "image",
-      label: state.useAiBackground
-        ? "יצירת תמונה עם רקע AI"
-        : "אישור התמונה כתוצאה סופית",
-      hint: state.useAiBackground
-        ? "רקע גנרטיבי — קריאת AI בתשלום"
-        : "התצוגה המקדימה היא התוצאה — ללא עלות נוספת",
-      free: !state.useAiBackground,
-      costLabel: state.useAiBackground
-        ? STUDIO_COST_LABELS.aiBackground
-        : undefined,
-      icon: Sparkles,
+      id: "preview",
+      label: hasCutout
+        ? "יצירת תמונת קטלוג"
+        : "בידוד + יצירת תמונת קטלוג",
+      hint: hasCutout
+        ? "הרכבה פרוצדורלית על הרקע הנבחר"
+        : "בידוד (~₪0.02) + הרכבה חינם. נשמר במטמון — לא יחויב שוב",
+      free: hasCutout,
+      costLabel: hasCutout ? undefined : STUDIO_COST_LABELS.cutout,
+      icon: Wand2,
     };
   }
 
-  // שיווק — וידאו. אין חובת בידוד/תצוגה מקדימה: אם יש מקור או תוצאה
-  // שמישים, אפשר ליצור וידאו ישירות מהם. לא מסתירים את הכפתור גם אם
-  // כבר נוצר וידאו קודם — צריך אפשרות ליצור עוד וידאו עם הגדרות חדשות
-  // (משך/תנועה/מנוע שונים), אחרת אין דרך ליצור וידאו שני מאותו פרויקט.
+  // שיווק — וידאו כצעד ראשי כשיש בסיס שמיש
+  const hasUsableBase = Boolean(
+    (state.result.kind === "image" && state.result.url) ||
+      state.preview.url ||
+      (state.source.kind === "image" && state.source.url) ||
+      (state.source.kind === "video" && state.source.url)
+  );
+
   if (!hasUsableBase) {
     return {
       id: "preview",
-      label: "בידוד התכשיט + תצוגה מקדימה",
-      hint: "אופציונלי — נועד לעצב רקע חדש לפני הווידאו. אפשר גם לדלג ולעבוד ישירות מהתמונה (למטה)",
+      label: "בידוד + עיצוב רקע",
+      hint: "נדרש לפני וידאו — אין תמונת בסיס שמישה",
       free: false,
       costLabel: STUDIO_COST_LABELS.cutout,
       icon: Wand2,
     };
   }
+
   return {
     id: "video",
     label:

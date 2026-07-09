@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ImageIcon, RotateCcw, Scissors, Shuffle, Sparkles } from "lucide-react";
+import { ImageIcon, RotateCcw, Scissors, Shuffle, Sparkles, Wand2 } from "lucide-react";
 
 import {
   createStudioProject,
@@ -27,9 +27,10 @@ import { useStudioActions } from "@/lib/studio-client/use-studio-actions";
 import { StudioPortfolioPanel } from "@/components/studio/studio-portfolio-panel";
 import { StudioActionPanel } from "@/components/studio/v2/studio-action-panel";
 import { StudioAttemptsRail } from "@/components/studio/v2/studio-attempts-rail";
-import { StudioSourceTools } from "@/components/studio/v2/studio-source-tools";
+import { StudioSourceSection } from "@/components/studio/v2/studio-source-section";
 import { StudioVideoTools } from "@/components/studio/v2/studio-video-tools";
-import { StudioAdvancedAccordion } from "@/components/studio/v2/studio-advanced-accordion";
+import { StudioPromptsSection } from "@/components/studio/v2/studio-prompts-section";
+import { StudioEnginesSection } from "@/components/studio/v2/studio-engines-section";
 import { StudioBackgroundEngineChoice } from "@/components/studio/v2/studio-background-engine-choice";
 import { StudioCanvas } from "@/components/studio/v2/studio-canvas";
 import { StudioConfirmDialog } from "@/components/studio/v2/studio-confirm-dialog";
@@ -334,12 +335,6 @@ function StudioV2Content() {
                     onMotionChange={(value) =>
                       dispatch({ type: "SET_VIDEO_MOTION", value })
                     }
-                    onVideoEngineChange={(value) =>
-                      dispatch({
-                        type: "SET_ENGINES",
-                        engines: { ...state.aiEngines, video: value },
-                      })
-                    }
                     onNativeAudioChange={(value) =>
                       dispatch({ type: "SET_VIDEO_NATIVE_AUDIO", value })
                     }
@@ -434,32 +429,54 @@ function StudioV2Content() {
               <StudioStyleRail
                 value={state.stylePreset}
                 onChange={(presetId) => {
-                  const hadResult = Boolean(
-                    state.result.url || state.preview.url
-                  );
+                  const hadPreview = Boolean(state.preview.url);
                   dispatch({ type: "SET_PRESET", presetId });
-                  if (hadResult) {
+                  if (hadPreview) {
                     showToast(
-                      "סגנון חדש נבחר — התוצאה הקודמת בוטלה, יש ליצור תצוגה מקדימה חדשה"
+                      "סגנון חדש — יש ליצור תמונה מחדש. התוצאה הקודמת עדיין זמינה לפרסום"
                     );
                   }
                 }}
                 disabled={busy}
               />
 
-              <StudioBackgroundEngineChoice
-                useAiBackground={state.useAiBackground}
-                highQualityBackground={state.highQualityBackground}
-                onUseAiBackgroundChange={(value) =>
-                  dispatch({ type: "SET_USE_AI_BACKGROUND", value })
+              {state.flow === "catalog" && (
+                <StudioBackgroundEngineChoice
+                  useAiBackground={state.useAiBackground}
+                  highQualityBackground={state.highQualityBackground}
+                  onUseAiBackgroundChange={(value) =>
+                    dispatch({ type: "SET_USE_AI_BACKGROUND", value })
+                  }
+                  onHighQualityBackgroundChange={(value) =>
+                    dispatch({ type: "SET_HIGH_QUALITY_BACKGROUND", value })
+                  }
+                  disabled={busy}
+                />
+              )}
+
+              <StudioPromptsSection
+                flow={state.flow}
+                customPrompt={state.customPrompt}
+                videoPrompt={state.videoPrompt}
+                onCustomPromptChange={(value) =>
+                  dispatch({ type: "SET_CUSTOM_PROMPT", value })
                 }
-                onHighQualityBackgroundChange={(value) =>
-                  dispatch({ type: "SET_HIGH_QUALITY_BACKGROUND", value })
+                onVideoPromptChange={(value) =>
+                  dispatch({ type: "SET_VIDEO_PROMPT", value })
                 }
                 disabled={busy}
               />
 
-              <StudioSourceTools
+              <StudioEnginesSection
+                flow={state.flow}
+                engines={state.aiEngines}
+                onChange={(engines) =>
+                  dispatch({ type: "SET_ENGINES", engines })
+                }
+                disabled={busy}
+              />
+
+              <StudioSourceSection
                 sourceUrl={state.source.url}
                 adjustments={state.sourceAdj}
                 onAdjustmentsChange={(value) =>
@@ -501,12 +518,6 @@ function StudioV2Content() {
                   onMotionChange={(value) =>
                     dispatch({ type: "SET_VIDEO_MOTION", value })
                   }
-                  onVideoEngineChange={(value) =>
-                    dispatch({
-                      type: "SET_ENGINES",
-                      engines: { ...state.aiEngines, video: value },
-                    })
-                  }
                   onNativeAudioChange={(value) =>
                     dispatch({ type: "SET_VIDEO_NATIVE_AUDIO", value })
                   }
@@ -515,6 +526,18 @@ function StudioV2Content() {
                   }
                   disabled={busy}
                 />
+              )}
+
+              {state.flow === "marketing" && state.source.kind === "image" && (
+                <Button
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => void actions.makePreview()}
+                  className="w-full rounded-none border-dashed border-gold/50 text-xs font-light text-muted-foreground hover:border-gold hover:text-foreground"
+                >
+                  <Wand2 className="ml-1.5 h-3.5 w-3.5" />
+                  עיצוב רקע לפני וידאו (אופציונלי)
+                </Button>
               )}
 
               <StudioActionPanel state={state} onAction={handleAction} />
@@ -583,11 +606,6 @@ function StudioV2Content() {
                 }}
               />
 
-              <StudioAdvancedAccordion
-                state={state}
-                dispatch={dispatch}
-                disabled={busy}
-              />
             </>
           )}
         </div>

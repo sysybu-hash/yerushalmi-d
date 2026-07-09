@@ -35,7 +35,7 @@ export function StudioAttemptsRail({
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
         <p className="text-xs font-light tracking-[0.1em] text-muted-foreground">
-          הניסיונות שלכם ({attempts.length}) — לחצו להשוואה
+          הניסיונות שלכם ({attempts.length}) — לחצו לצפייה בניסיון
         </p>
         {selectedId && (
           <button
@@ -89,7 +89,7 @@ export function StudioAttemptsRail({
                 {attempt.label}
               </span>
 
-              <div className="absolute left-0.5 top-0.5 hidden gap-0.5 group-hover:flex">
+              <div className="absolute left-0.5 top-0.5 flex gap-0.5">
                 <button
                   type="button"
                   disabled={disabled}
