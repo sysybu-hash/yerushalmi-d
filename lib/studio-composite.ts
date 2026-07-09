@@ -271,8 +271,8 @@ async function stripCheckerboardBackground(buffer: Buffer): Promise<Buffer> {
 }
 
 /**
- * הסרת הילה לבנה/אפורה חצי-שקופה (Bria preserve_partial_alpha, שאריות רקע).
- * מוחקים רק פיקסלים בהירים עם אלפא חלקית — לא פאות אטומות של יהלום.
+ * הסרת הילה לבנה/אפורה חצי-שקופה (Bria, שאריות רקע).
+ * רק פיקסלים בהירים שמחוברים לשקיפות — לא פאות אטומות/בוהקות של יהלום במרכז.
  */
 async function stripWhiteMatteFringe(buffer: Buffer): Promise<Buffer> {
   const sharp = await loadSharp();
@@ -284,30 +284,64 @@ async function stripWhiteMatteFringe(buffer: Buffer): Promise<Buffer> {
   const w = info.width;
   const h = info.height;
   const out = Buffer.from(data);
+
+  const alphaAt = (x: number, y: number) => {
+    if (x < 0 || x >= w || y < 0 || y >= h) return 0;
+    return out[(y * w + x) * 4 + 3];
+  };
+
+  const isFringePixel = (i: number): boolean => {
+    const alpha = out[i + 3];
+    // אל תיגעו בפיקסלים אטומים — זה פאות יהלום/מתכת, לא הילה
+    if (alpha >= 200 || alpha < 12) return false;
+    const r = out[i];
+    const g = out[i + 1];
+    const b = out[i + 2];
+    const min = Math.min(r, g, b);
+    const spread = Math.max(r, g, b) - min;
+    return min >= 175 && spread <= 36;
+  };
+
+  const visited = new Uint8Array(w * h);
+  const queue = new Int32Array(w * h);
+  let qHead = 0;
+  let qTail = 0;
   let changed = 0;
 
+  const tryEnqueue = (x: number, y: number) => {
+    if (x < 0 || x >= w || y < 0 || y >= h) return;
+    const idx = y * w + x;
+    if (visited[idx]) return;
+    const i = idx * 4;
+    if (alphaAt(x, y) >= 12 && !isFringePixel(i)) return;
+    visited[idx] = 1;
+    queue[qTail++] = idx;
+  };
+
+  for (let x = 0; x < w; x++) {
+    tryEnqueue(x, 0);
+    tryEnqueue(x, h - 1);
+  }
   for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const i = (y * w + x) * 4;
-      const alpha = out[i + 3];
-      if (alpha < 12 || alpha > 248) continue;
+    tryEnqueue(0, y);
+    tryEnqueue(w - 1, y);
+  }
 
-      const r = out[i];
-      const g = out[i + 1];
-      const b = out[i + 2];
-      const min = Math.min(r, g, b);
-      const spread = Math.max(r, g, b) - min;
+  while (qHead < qTail) {
+    const idx = queue[qHead++];
+    const x = idx % w;
+    const y = (idx - x) / w;
+    const i = idx * 4;
 
-      const isLightFringe =
-        min >= 188 && spread <= 32 && alpha < 235;
-      const isOpaqueCheckerRemnant =
-        alpha >= 235 && min >= 210 && spread <= 28;
-
-      if (isLightFringe || isOpaqueCheckerRemnant) {
-        out[i + 3] = 0;
-        changed++;
-      }
+    if (isFringePixel(i)) {
+      out[i + 3] = 0;
+      changed++;
     }
+
+    tryEnqueue(x - 1, y);
+    tryEnqueue(x + 1, y);
+    tryEnqueue(x, y - 1);
+    tryEnqueue(x, y + 1);
   }
 
   if (changed === 0) return buffer;
@@ -845,7 +879,7 @@ async function sharpenJewelryLayer(jewelryPng: Buffer): Promise<Buffer> {
   const sharp = await loadSharp();
   const rgb = await sharp(jewelryPng)
     .removeAlpha()
-    .sharpen({ sigma: 0.6, m1: 0.8, m2: 0.22, x1: 2, y2: 10, y3: 20 })
+    .sharpen({ sigma: 0.45, m1: 0.55, m2: 0.14, x1: 2, y2: 10, y3: 20 })
     .png()
     .toBuffer();
   const alpha = await sharp(jewelryPng)
@@ -900,7 +934,6 @@ export async function compositeProductImage(
     .toBuffer();
 
   jewelryPng = await refineCutoutEdges(jewelryPng, skipFeather);
-  jewelryPng = await stripWhiteMatteFringe(jewelryPng);
   jewelryPng = await harmonizeJewelry(jewelryPng, stylePreset);
   jewelryPng = await sharpenJewelryLayer(jewelryPng);
 
