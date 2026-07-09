@@ -51,13 +51,14 @@ function assertRemoteAssetUrl(url: string) {
 async function buildLightingHints(
   customPrompt?: string,
   stylePreset: StudioStylePresetId = "luxury-marble",
-  textEngine: "replicate" | "gemini" = "replicate"
+  textEngine: "replicate" | "gemini" = "replicate",
+  context: { mode?: "catalog" | "marketing"; projectId?: number } = {}
 ) {
   const presetHints = STUDIO_PRESET_LIGHTING_HINTS[stylePreset];
   const trimmed = customPrompt?.trim();
   if (!trimmed) return presetHints;
   try {
-    const translated = await translatePrompt(trimmed, textEngine);
+    const translated = await translatePrompt(trimmed, textEngine, context);
     return translated ? `${presetHints}, ${translated}` : presetHints;
   } catch {
     return presetHints;
@@ -128,7 +129,8 @@ export async function pipelineCompositeImage(
   const lightingHints = await buildLightingHints(
     options.customPrompt,
     preset,
-    engines.text
+    engines.text,
+    { mode: studioMode, projectId: options.projectId }
   );
   const backgroundBuffer = await resolveBackgroundBuffer(
     preset,
@@ -200,7 +202,10 @@ export async function pipelineGenerateVideo(
   const motionMode = options.motionMode ?? "preserve";
 
   const englishCustom = options.customPrompt?.trim()
-    ? await translatePrompt(options.customPrompt, engines.text)
+    ? await translatePrompt(options.customPrompt, engines.text, {
+        mode: studioMode,
+        projectId: options.projectId,
+      })
     : "";
 
   const preset = options.stylePreset ?? "luxury-marble";

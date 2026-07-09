@@ -433,9 +433,17 @@ function StudioV2Content() {
 
               <StudioStyleRail
                 value={state.stylePreset}
-                onChange={(presetId) =>
-                  dispatch({ type: "SET_PRESET", presetId })
-                }
+                onChange={(presetId) => {
+                  const hadResult = Boolean(
+                    state.result.url || state.preview.url
+                  );
+                  dispatch({ type: "SET_PRESET", presetId });
+                  if (hadResult) {
+                    showToast(
+                      "סגנון חדש נבחר — התוצאה הקודמת בוטלה, יש ליצור תצוגה מקדימה חדשה"
+                    );
+                  }
+                }}
                 disabled={busy}
               />
 

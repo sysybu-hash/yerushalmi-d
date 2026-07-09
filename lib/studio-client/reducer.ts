@@ -131,16 +131,20 @@ export function studioReducer(
         busyAction: null,
       };
 
-    case "SET_PRESET":
+    case "SET_PRESET": {
+      if (state.preview.presetId === action.presetId) {
+        return { ...state, stylePreset: action.presetId };
+      }
+      // פריסט חדש מבטל תצוגה ותוצאה ישנות — אחרת נשארת תוצאה מבוססת
+      // הפריסט הקודם על המסך (ואפילו ניתנת לפרסום) בלי שהמשתמש ידע
+      // שהיא כבר לא תואמת את הבחירה החדשה.
       return {
         ...state,
         stylePreset: action.presetId,
-        // פריסט חדש מבטל תצוגה ותוצאה ישנות
-        preview:
-          state.preview.presetId === action.presetId
-            ? state.preview
-            : { ...INITIAL_STUDIO_STATE.preview },
+        preview: { ...INITIAL_STUDIO_STATE.preview },
+        result: { ...INITIAL_STUDIO_STATE.result },
       };
+    }
 
     case "SET_CUSTOM_PROMPT":
       return { ...state, customPrompt: action.value };
