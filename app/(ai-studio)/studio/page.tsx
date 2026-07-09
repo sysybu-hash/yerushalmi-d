@@ -42,6 +42,7 @@ import { StudioUploadZone } from "@/components/studio/v2/studio-upload-zone";
 import { StudioUsageMeter } from "@/components/studio/v2/studio-usage-meter";
 import { StudioVideoOptions } from "@/components/studio/v2/studio-video-options";
 import { STUDIO_COST_LABELS } from "@/components/studio/v2/studio-cost-chip";
+import { cutoutMethodLabel } from "@/lib/studio-engine-ui";
 import { Button } from "@/components/ui/button";
 
 function StudioV2Content() {
@@ -279,9 +280,10 @@ function StudioV2Content() {
                   </Button>
                 )}
               </div>
-              {state.cutout.cached && state.cutout.url && (
-                <span className="text-[10px] font-light text-emerald-700">
-                  ✓ בידוד מהמטמון — ללא חיוב
+              {state.cutout.url && (
+                <span className="text-[10px] font-light text-muted-foreground">
+                  {cutoutMethodLabel(state.cutout.url) ?? "בידוד AI"}
+                  {state.cutout.cached ? " · מהמטמון" : ""}
                 </span>
               )}
             </div>
@@ -440,12 +442,28 @@ function StudioV2Content() {
                 disabled={busy}
               />
 
+              <StudioEnginesSection
+                flow={state.flow}
+                engines={state.aiEngines}
+                onChange={(engines) =>
+                  dispatch({ type: "SET_ENGINES", engines })
+                }
+                disabled={busy}
+              />
+
               {state.flow === "catalog" && (
                 <StudioBackgroundEngineChoice
                   useAiBackground={state.useAiBackground}
+                  backgroundProvider={state.aiEngines.background}
                   highQualityBackground={state.highQualityBackground}
                   onUseAiBackgroundChange={(value) =>
                     dispatch({ type: "SET_USE_AI_BACKGROUND", value })
+                  }
+                  onBackgroundProviderChange={(value) =>
+                    dispatch({
+                      type: "SET_ENGINES",
+                      engines: { ...state.aiEngines, background: value },
+                    })
                   }
                   onHighQualityBackgroundChange={(value) =>
                     dispatch({ type: "SET_HIGH_QUALITY_BACKGROUND", value })
@@ -463,15 +481,6 @@ function StudioV2Content() {
                 }
                 onVideoPromptChange={(value) =>
                   dispatch({ type: "SET_VIDEO_PROMPT", value })
-                }
-                disabled={busy}
-              />
-
-              <StudioEnginesSection
-                flow={state.flow}
-                engines={state.aiEngines}
-                onChange={(engines) =>
-                  dispatch({ type: "SET_ENGINES", engines })
                 }
                 disabled={busy}
               />

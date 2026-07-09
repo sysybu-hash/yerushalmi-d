@@ -1,4 +1,8 @@
 import type { AiEngineConfig } from "@/lib/ai-engines";
+import {
+  isAiBackgroundProvider,
+  syncEnginesForUseAiBackground,
+} from "@/lib/studio-engine-ui";
 import type { StudioStylePresetId } from "@/lib/studio-presets";
 import type { StudioVideoDurationSec } from "@/lib/studio-video-duration";
 import type { StudioVideoMotionMode } from "@/lib/studio-types";
@@ -162,12 +166,42 @@ export function studioReducer(
       return { ...state, videoNativeAudio: action.value };
     case "SET_VIDEO_MULTISHOT":
       return { ...state, videoMultiShot: action.value };
-    case "SET_USE_AI_BACKGROUND":
-      return { ...state, useAiBackground: action.value };
+    case "SET_USE_AI_BACKGROUND": {
+      if (action.value === state.useAiBackground) {
+        return state;
+      }
+      return {
+        ...state,
+        useAiBackground: action.value,
+        aiEngines: syncEnginesForUseAiBackground(state.aiEngines, action.value),
+        preview: { ...INITIAL_STUDIO_STATE.preview },
+        result: { ...INITIAL_STUDIO_STATE.result },
+      };
+    }
     case "SET_HIGH_QUALITY_BACKGROUND":
       return { ...state, highQualityBackground: action.value };
-    case "SET_ENGINES":
-      return { ...state, aiEngines: action.engines };
+    case "SET_ENGINES": {
+      let useAiBackground = state.useAiBackground;
+      if (state.flow === "catalog") {
+        if (action.engines.background === "procedural") {
+          useAiBackground = false;
+        } else if (isAiBackgroundProvider(action.engines.background)) {
+          useAiBackground = true;
+        }
+      }
+      const modeChanged = useAiBackground !== state.useAiBackground;
+      return {
+        ...state,
+        aiEngines: action.engines,
+        useAiBackground,
+        ...(modeChanged
+          ? {
+              preview: { ...INITIAL_STUDIO_STATE.preview },
+              result: { ...INITIAL_STUDIO_STATE.result },
+            }
+          : {}),
+      };
+    }
     case "SET_PRODUCT_TITLE":
       return { ...state, productTitle: action.value };
     case "SET_PRODUCT_PRICE":

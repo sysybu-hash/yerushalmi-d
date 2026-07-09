@@ -54,8 +54,8 @@ export const AI_BACKGROUND_OPTIONS: {
 }[] = [
   {
     value: "auto",
-    label: "אוטומטי (פרוצדורלי בקטלוג)",
-    description: "רקע פרוצדורלי בקטלוג — ללא עלות API",
+    label: "אוטומטי (Gemini / Flux)",
+    description: "בוחר מנוע רקע AI זמין",
   },
   {
     value: "procedural",

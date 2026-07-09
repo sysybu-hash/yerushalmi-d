@@ -1,5 +1,9 @@
 import type { AiEngineConfig } from "@/lib/ai-engines";
 import { DEFAULT_AI_ENGINES } from "@/lib/ai-engines";
+import {
+  isAiBackgroundProvider,
+  syncEnginesForUseAiBackground,
+} from "@/lib/studio-engine-ui";
 import type { StudioStylePresetId } from "@/lib/studio-presets";
 import type { StudioVideoDurationSec } from "@/lib/studio-video-duration";
 import type { StudioVideoMotionMode } from "@/lib/studio-types";
@@ -278,9 +282,15 @@ export function snapshotToState(raw: StudioProjectSnapshot): StudioV2State {
       snapshot.videoNativeAudio ?? INITIAL_STUDIO_STATE.videoNativeAudio,
     videoMultiShot:
       snapshot.videoMultiShot ?? INITIAL_STUDIO_STATE.videoMultiShot,
-    useAiBackground: snapshot.useAiBackground,
+    useAiBackground:
+      snapshot.useAiBackground ||
+      isAiBackgroundProvider(snapshot.aiEngines.background),
     highQualityBackground: snapshot.highQualityBackground,
-    aiEngines: snapshot.aiEngines,
+    aiEngines: syncEnginesForUseAiBackground(
+      snapshot.aiEngines,
+      snapshot.useAiBackground ||
+        isAiBackgroundProvider(snapshot.aiEngines.background)
+    ),
     productTitle: snapshot.productTitle,
     productPrice: snapshot.productPrice,
     attempts: snapshot.attempts ?? [],

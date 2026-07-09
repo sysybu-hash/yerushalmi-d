@@ -33,10 +33,21 @@ export function resolveNextAction(state: StudioV2State): NextAction | null {
       return {
         id: "image",
         label: "יצירת תמונה עם רקע AI",
-        hint: "רקע גנרטיבי — קריאת AI בתשלום",
+        hint: "הטיוטה הפרוצדורלית היא רק תצוגה — כאן נוצרת התמונה הסופית",
         free: false,
         costLabel: STUDIO_COST_LABELS.aiBackground,
         icon: Sparkles,
+      };
+    }
+
+    if (state.useAiBackground && !previewReady) {
+      return {
+        id: "preview",
+        label: "יצירת טיוטה פרוצדורלית",
+        hint: "תצוגה חינמית לפני רקע AI — לא התוצאה הסופית",
+        free: Boolean(state.cutout.url),
+        costLabel: state.cutout.url ? undefined : STUDIO_COST_LABELS.cutout,
+        icon: Wand2,
       };
     }
 
