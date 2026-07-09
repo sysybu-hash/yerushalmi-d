@@ -1,6 +1,6 @@
 "use client";
 
-import type { AiBackgroundProvider, AiEngineConfig } from "@/lib/ai-engines";
+import type { AiBackgroundProvider } from "@/lib/ai-engines";
 import { AI_BACKGROUND_OPTIONS } from "@/lib/ai-engines";
 import { aiBackgroundProviderLabel } from "@/lib/studio-engine-ui";
 import { cn } from "@/lib/utils";

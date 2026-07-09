@@ -470,7 +470,7 @@ export function useStudioActions(
         await enhanceVideoAi();
       }
     }
-  }, [dispatch, makeCutout, makePreview, generateImage, generateVideo, enhanceVideoAi]);
+  }, [dispatch, makeCutout, makePreview, generateImage, generateVideo, enhanceVideoAi, enhanceSource]);
 
   return {
     makeCutout,

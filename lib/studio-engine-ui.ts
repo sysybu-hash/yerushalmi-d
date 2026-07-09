@@ -33,8 +33,10 @@ export function isAiBackgroundProvider(
   return provider === "replicate" || provider === "gemini";
 }
 
-/** מקור אמת יחיד: האם נדרש רקע AI גנרטיבי */
-export function useAiBackgroundFromEngines(engines: AiEngineConfig): boolean {
+/** האם מנוע הרקע שנבחר הוא AI גנרטיבי */
+export function aiBackgroundEnabledFromEngines(
+  engines: AiEngineConfig
+): boolean {
   return isAiBackgroundProvider(engines.background);
 }
 
@@ -49,12 +51,6 @@ export function syncEnginesForUseAiBackground(
     return { ...engines, background: "auto" };
   }
   return engines;
-}
-
-export function syncUseAiBackgroundFromEngines(
-  engines: AiEngineConfig
-): boolean {
-  return useAiBackgroundFromEngines(engines);
 }
 
 export function aiBackgroundProviderLabel(
