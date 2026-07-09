@@ -112,7 +112,15 @@ export async function validateJewelryCutout(buffer: Buffer): Promise<void> {
   }
 }
 
-/** הסרת רקע לבן/אפור אחיד — fallback כש-Bria משאיר רקע אטום */
+/**
+ * הסרת רקע לבן/אפור אחיד — fallback כש-Bria משאיר רקע אטום.
+ *
+ * קריטי: מוחקים רק פיקסלים שמחוברים פיזית לשוליים התמונה (flood-fill),
+ * לא כל פיקסל בהיר/לא-רווי בכל מקום בתמונה. הגרסה הקודמת סרקה כל
+ * פיקסל בנפרד לפי צבע בלבד — וזה בדיוק מה שפירק יהלומים מנצנצים
+ * לרסיסים: פאות בוהקות כמעט-לבנות במרכז היהלום עונות על אותו קריטריון
+ * "רקע בהיר" כמו הרקע האמיתי, ונמחקו לגמרי, גם כשהן לא מחוברות לרקע.
+ */
 async function stripLightBackground(
   buffer: Buffer,
   tolerance = 34
@@ -123,28 +131,92 @@ async function stripLightBackground(
     .raw()
     .toBuffer({ resolveWithObject: true });
 
+  const w = info.width;
+  const h = info.height;
   const out = Buffer.from(data);
-  for (let i = 0; i < out.length; i += 4) {
+
+  const isBackgroundColor = (i: number): boolean => {
     const r = out[i];
     const g = out[i + 1];
     const b = out[i + 2];
     const min = Math.min(r, g, b);
     const max = Math.max(r, g, b);
     const spread = max - min;
+    return min >= 255 - tolerance && spread <= Math.max(6, tolerance / 2);
+  };
 
-    if (min >= 255 - tolerance && spread <= Math.max(6, tolerance / 2)) {
-      out[i + 3] = 0;
-      continue;
+  // flood-fill מהשוליים בלבד — BFS על פיקסלים ש"נראים כמו רקע" ומחוברים
+  // לגבול התמונה. פאה בוהקת באמצע היהלום לא תיגע אף פעם בגבול, אז
+  // גם אם צבעה תואם, היא לא תימחק.
+  const visited = new Uint8Array(w * h);
+  const queue = new Int32Array(w * h);
+  let qHead = 0;
+  let qTail = 0;
+
+  const tryEnqueue = (x: number, y: number) => {
+    if (x < 0 || x >= w || y < 0 || y >= h) return;
+    const idx = y * w + x;
+    if (visited[idx]) return;
+    const i = idx * 4;
+    if (out[i + 3] < 12) {
+      visited[idx] = 1;
+      queue[qTail++] = idx;
+      return;
     }
+    if (!isBackgroundColor(i)) return;
+    visited[idx] = 1;
+    queue[qTail++] = idx;
+  };
 
-    if (min >= 210 - tolerance && spread <= tolerance) {
+  for (let x = 0; x < w; x++) {
+    tryEnqueue(x, 0);
+    tryEnqueue(x, h - 1);
+  }
+  for (let y = 0; y < h; y++) {
+    tryEnqueue(0, y);
+    tryEnqueue(w - 1, y);
+  }
+
+  while (qHead < qTail) {
+    const idx = queue[qHead++];
+    const x = idx % w;
+    const y = (idx / w) | 0;
+    out[idx * 4 + 3] = 0;
+    tryEnqueue(x - 1, y);
+    tryEnqueue(x + 1, y);
+    tryEnqueue(x, y - 1);
+    tryEnqueue(x, y + 1);
+  }
+
+  // רכות בשוליים: פיקסל בהיר-למחצה שנוגע ישירות באזור שכבר נמחק —
+  // feather של הגבול, לא מחיקה גורפת של כל טווח הצבע בתמונה.
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const idx = y * w + x;
+      if (visited[idx]) continue;
+      const i = idx * 4;
+      const r = out[i];
+      const g = out[i + 1];
+      const b = out[i + 2];
+      const min = Math.min(r, g, b);
+      const max = Math.max(r, g, b);
+      const spread = max - min;
+      if (min < 210 - tolerance || spread > tolerance) continue;
+
+      const touchesCleared =
+        (x > 0 && visited[idx - 1]) ||
+        (x < w - 1 && visited[idx + 1]) ||
+        (y > 0 && visited[idx - w]) ||
+        (y < h - 1 && visited[idx + w]);
+      if (!touchesCleared) continue;
+
       const lift = (min - (210 - tolerance)) / (45 + tolerance);
       out[i + 3] = Math.min(out[i + 3], Math.round(255 * Math.min(1, lift * 1.4)));
     }
   }
 
   return sharp(out, {
-    raw: { width: info.width, height: info.height, channels: 4 },
+    raw: { width: w, height: h, channels: 4 },
   })
     .png()
     .toBuffer();
@@ -264,31 +336,74 @@ async function chromaKeyGreenBackground(buffer: Buffer): Promise<Buffer> {
   }
   if (borderTotal === 0 || borderMatches / borderTotal < 0.55) return buffer;
 
-  // מחיקה לפי קרבת צבע + זיהוי ירוק-דומיננטי (למרקמים לא אחידים)
-  let keyed = 0;
-  for (let i = 0; i < out.length; i += 4) {
-    if (out[i + 3] === 0) continue;
+  // מחיקה לפי קרבת צבע + זיהוי ירוק-דומיננטי — אך ורק על פיקסלים
+  // המחוברים לשוליים (flood-fill), לא בכל מקום בתמונה. בלי זה, פאות
+  // בוהקות/מפוזרות-אור על היהלום שמזדמן להן גוון קרוב לרקע (במיוחד
+  // ירקרק-דהוי מפיזור אור) נמחקות באמצע התכשיט ולא רק ברקע עצמו.
+  const isKeyColor = (i: number): boolean => {
+    if (out[i + 3] === 0) return true;
     const r = out[i];
     const g = out[i + 1];
     const b = out[i + 2];
-
     const closeToBg = dist(i) < 165;
-    const greenish =
-      greenDominant && g > 70 && g >= r + 14 && g >= b + 14;
+    const greenish = greenDominant && g > 70 && g >= r + 14 && g >= b + 14;
+    return closeToBg || greenish;
+  };
 
-    if (closeToBg || greenish) {
+  const visited = new Uint8Array(w * h);
+  const queue = new Int32Array(w * h);
+  let qHead = 0;
+  let qTail = 0;
+
+  const tryEnqueue = (x: number, y: number) => {
+    if (x < 0 || x >= w || y < 0 || y >= h) return;
+    const idx = y * w + x;
+    if (visited[idx]) return;
+    if (!isKeyColor(idx * 4)) return;
+    visited[idx] = 1;
+    queue[qTail++] = idx;
+  };
+
+  for (let x = 0; x < w; x++) {
+    tryEnqueue(x, 0);
+    tryEnqueue(x, h - 1);
+  }
+  for (let y = 0; y < h; y++) {
+    tryEnqueue(0, y);
+    tryEnqueue(w - 1, y);
+  }
+
+  let keyed = 0;
+  while (qHead < qTail) {
+    const idx = queue[qHead++];
+    const x = idx % w;
+    const y = (idx / w) | 0;
+    const i = idx * 4;
+    if (out[i + 3] !== 0) {
       out[i + 3] = 0;
       keyed++;
-      continue;
     }
-
-    // despill — ניטרול הילה בגוון הרקע על קצוות המתכת
-    if (greenDominant && g > r && g > b && g - Math.max(r, b) > 6) {
-      out[i + 1] = Math.max(r, b);
-    }
+    tryEnqueue(x - 1, y);
+    tryEnqueue(x + 1, y);
+    tryEnqueue(x, y - 1);
+    tryEnqueue(x, y + 1);
   }
 
   if (keyed < w * h * 0.05) return buffer;
+
+  // despill — ניטרול הילה בגוון הרקע על קצוות המתכת (רק פיקסלים
+  // שנשארו אטומים, כלומר לא נמחקו ע"י ה-flood-fill)
+  if (greenDominant) {
+    for (let i = 0; i < out.length; i += 4) {
+      if (out[i + 3] === 0) continue;
+      const r = out[i];
+      const g = out[i + 1];
+      const b = out[i + 2];
+      if (g > r && g > b && g - Math.max(r, b) > 6) {
+        out[i + 1] = Math.max(r, b);
+      }
+    }
+  }
 
   // ניקוי פיקסלים בודדים "צפים" בתוך אזור שנוקה
   const alphaAt = (x: number, y: number) => out[(y * w + x) * 4 + 3];
