@@ -67,6 +67,8 @@ export type StudioV2State = {
   /** צילום הגלם שהועלה */
   source: {
     url: string | null;
+    /** המקור הראשון — לשוואת לפני/אחרי גם אחרי עריכות */
+    originalUrl: string | null;
     kind: StudioSourceKind;
     duration: number | null;
   };
@@ -127,7 +129,7 @@ export type StudioV2State = {
 
 export const INITIAL_STUDIO_STATE: StudioV2State = {
   flow: "catalog",
-  source: { url: null, kind: "image", duration: null },
+  source: { url: null, originalUrl: null, kind: "image", duration: null },
   cutout: { url: null, status: "idle", cached: false },
   preview: { url: null, kind: "image", status: "idle", presetId: null },
   result: { url: null, kind: null, status: "idle", provider: null },
@@ -222,6 +224,7 @@ export function stateToSnapshot(state: StudioV2State): StudioProjectSnapshot {
     videoNativeAudio: state.videoNativeAudio,
     videoMultiShot: state.videoMultiShot,
     resultAspect: state.resultAspect,
+    sourceOriginalUrl: state.source.originalUrl ?? "",
     sourceAdj: state.sourceAdj,
     videoAdj: state.videoAdj,
   });
@@ -250,6 +253,8 @@ export function snapshotToState(raw: StudioProjectSnapshot): StudioV2State {
     flow: snapshot.studioMode,
     source: {
       url: sourceUrl,
+      originalUrl:
+        snapshot.sourceOriginalUrl?.trim() || sourceUrl,
       kind: snapshot.sourceKind ?? "image",
       duration: null,
     },

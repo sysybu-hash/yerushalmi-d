@@ -130,6 +130,8 @@ export type StudioProjectSnapshot = {
   resultAspect?: AspectId;
   sourceAdj?: ImageAdjustments;
   videoAdj?: VideoAdjustments;
+  /** URL המקורי שהועלה — לשחזור השוואת לפני/אחרי */
+  sourceOriginalUrl?: string;
 };
 
 export function normalizeSnapshot(
@@ -175,6 +177,7 @@ export function normalizeSnapshot(
       ...DEFAULT_IMAGE_ADJUSTMENTS,
       ...raw.sourceAdj,
     },
+    sourceOriginalUrl: raw.sourceOriginalUrl ?? "",
     videoAdj: {
       ...DEFAULT_VIDEO_ADJUSTMENTS,
       ...raw.videoAdj,

@@ -900,6 +900,7 @@ export async function compositeProductImage(
     .toBuffer();
 
   jewelryPng = await refineCutoutEdges(jewelryPng, skipFeather);
+  jewelryPng = await stripWhiteMatteFringe(jewelryPng);
   jewelryPng = await harmonizeJewelry(jewelryPng, stylePreset);
   jewelryPng = await sharpenJewelryLayer(jewelryPng);
 

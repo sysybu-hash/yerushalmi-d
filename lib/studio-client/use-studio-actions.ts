@@ -378,7 +378,7 @@ export function useStudioActions(
             label: "מקור משופר AI",
             free: false,
           });
-          dispatch({ type: "SOURCE_UPLOADED", url: data.url, kind: "image" });
+          dispatch({ type: "SOURCE_UPLOADED", url: data.url, kind: "image", keepOriginal: true });
         },
         { enhanceKind: "source" }
       );

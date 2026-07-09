@@ -17,7 +17,7 @@ export function cutoutMethodLabel(url: string): string | null {
 export function resolvedCutoutHint(preference: AiEngineProvider): string {
   switch (preference) {
     case "auto":
-      return "רקע לבן אחיד → בידוד חינם; אחרת Bria (Replicate)";
+      return "Bria (Replicate) — ברירת מחדל לאיכות גבוהה";
     case "replicate":
       return "תמיד Bria (Replicate) — בתשלום";
     case "gemini":

@@ -5,7 +5,7 @@ import Image from "next/image";
 import { ArrowLeftRight, Loader2 } from "lucide-react";
 
 import type { StudioV2State } from "@/lib/studio-client/state";
-import { cutoutDisplayUrl } from "@/lib/cloudinary-url";
+import { cutoutDisplayUrl, sourceDisplayUrl } from "@/lib/cloudinary-url";
 import { buildTransformedUrl, DEFAULT_IMAGE_ADJUSTMENTS } from "@/lib/studio-transform";
 import { cn } from "@/lib/utils";
 
@@ -30,7 +30,18 @@ function canvasLabel(state: StudioV2State, base: string): string {
     }
     return "טיוטה";
   }
+  if (base === "לפני") return "לפני (צילום מקורי)";
   return base;
+}
+
+function canvasBackgroundClass(state: StudioV2State, layer: string): string {
+  if (layer === "לפני" || layer === "תכשיט מבודד") {
+    return "bg-white";
+  }
+  if (layer === "תוצאה" || layer === "תצוגה מקדימה (חינם)") {
+    return "bg-neutral-200";
+  }
+  return "bg-neutral-100";
 }
 
 /**
@@ -39,6 +50,12 @@ function canvasLabel(state: StudioV2State, base: string): string {
 export function StudioCanvas({ state }: { state: StudioV2State }) {
   const [showBefore, setShowBefore] = React.useState(false);
   const [mediaError, setMediaError] = React.useState<string | null>(null);
+
+  const beforeUrl = React.useMemo(() => {
+    const raw = state.source.originalUrl ?? state.source.url;
+    if (!raw) return null;
+    return sourceDisplayUrl(raw);
+  }, [state.source.originalUrl, state.source.url]);
 
   const current = React.useMemo(() => {
     if (state.selectedAttemptId) {
@@ -86,7 +103,11 @@ export function StudioCanvas({ state }: { state: StudioV2State }) {
       };
     }
     if (state.source.url) {
-      return { url: state.source.url, kind: state.source.kind, label: "מקור" };
+      return {
+        url: sourceDisplayUrl(state.source.url),
+        kind: state.source.kind,
+        label: "מקור",
+      };
     }
     return null;
   }, [
@@ -100,22 +121,31 @@ export function StudioCanvas({ state }: { state: StudioV2State }) {
   ]);
 
   const canCompare =
-    Boolean(state.source.url) &&
+    Boolean(beforeUrl) &&
     Boolean(current?.url) &&
-    current?.url !== state.source.url &&
+    beforeUrl !== current?.url &&
     current?.kind === "image";
 
   const displayed =
-    showBefore && canCompare
-      ? { url: state.source.url!, kind: "image" as const, label: "לפני" }
+    showBefore && canCompare && beforeUrl
+      ? { url: beforeUrl, kind: "image" as const, label: "לפני" }
       : current;
 
   const badgeLabel = displayed
     ? canvasLabel(state, displayed.label)
     : null;
 
+  const bgClass = displayed
+    ? canvasBackgroundClass(state, displayed.label)
+    : "bg-neutral-100";
+
   return (
-    <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden border border-border/60 bg-[repeating-conic-gradient(#f4f4f5_0_25%,#ffffff_0_50%)] bg-[length:24px_24px]">
+    <div
+      className={cn(
+        "relative flex aspect-square w-full items-center justify-center overflow-hidden border border-border/60",
+        bgClass
+      )}
+    >
       {displayed ? (
         displayed.kind === "video" ? (
           <video
@@ -139,9 +169,10 @@ export function StudioCanvas({ state }: { state: StudioV2State }) {
             src={displayed.url}
             alt={badgeLabel ?? displayed.label}
             fill
-            className="object-contain"
+            className="pointer-events-none select-none object-contain outline-none"
             sizes="(min-width: 1024px) 60vw, 100vw"
             unoptimized
+            draggable={false}
             onLoad={() => setMediaError(null)}
             onError={() =>
               setMediaError("התמונה לא נטענה — נסו לרענן או ליצור מחדש.")
@@ -172,8 +203,9 @@ export function StudioCanvas({ state }: { state: StudioV2State }) {
           onPointerDown={() => setShowBefore(true)}
           onPointerUp={() => setShowBefore(false)}
           onPointerLeave={() => setShowBefore(false)}
+          onPointerCancel={() => setShowBefore(false)}
           className={cn(
-            "absolute bottom-2 right-2 flex items-center gap-1 border px-3 py-1 text-[11px] font-light backdrop-blur",
+            "absolute bottom-2 right-2 z-10 flex items-center gap-1 border px-3 py-1 text-[11px] font-light backdrop-blur",
             showBefore
               ? "border-gold bg-gold/80 text-black"
               : "border-white/40 bg-black/50 text-white hover:bg-black/70"

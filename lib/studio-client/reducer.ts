@@ -47,6 +47,8 @@ export type StudioAction =
       url: string;
       kind: StudioSourceKind;
       duration?: number | null;
+      /** שומר את המקור הראשון לשוואת לפני/אחרי */
+      keepOriginal?: boolean;
     }
   | { type: "SET_PRESET"; presetId: StudioStylePresetId }
   | { type: "SET_CUSTOM_PROMPT"; value: string }
@@ -127,11 +129,16 @@ export function studioReducer(
         error: null,
       };
 
-    case "SOURCE_UPLOADED":
+    case "SOURCE_UPLOADED": {
+      const priorOriginal =
+        action.keepOriginal && state.source.originalUrl
+          ? state.source.originalUrl
+          : action.url;
       return {
         ...state,
         source: {
           url: action.url,
+          originalUrl: priorOriginal,
           kind: action.kind,
           duration: action.duration ?? null,
         },
@@ -141,6 +148,7 @@ export function studioReducer(
         error: null,
         busyAction: null,
       };
+    }
 
     case "SET_PRESET": {
       if (state.preview.presetId === action.presetId) {
@@ -350,7 +358,12 @@ export function studioReducer(
       if (!state.result.url || state.result.kind !== "image") return state;
       return {
         ...state,
-        source: { url: state.result.url, kind: "image", duration: null },
+        source: {
+          url: state.result.url,
+          originalUrl: state.source.originalUrl ?? state.result.url,
+          kind: "image",
+          duration: null,
+        },
         cutout: { ...INITIAL_STUDIO_STATE.cutout },
         preview: { ...INITIAL_STUDIO_STATE.preview },
         result: { ...INITIAL_STUDIO_STATE.result },

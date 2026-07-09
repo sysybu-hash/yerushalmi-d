@@ -499,7 +499,7 @@ function StudioV2Content() {
                     label,
                     free: true,
                   });
-                  dispatch({ type: "SOURCE_UPLOADED", url, kind: "image" });
+                  dispatch({ type: "SOURCE_UPLOADED", url, kind: "image", keepOriginal: true });
                   showToast("המקור עודכן — הבידוד ירוץ מחדש על הגרסה הערוכה");
                 }}
                 onAiEnhance={(preset) =>
