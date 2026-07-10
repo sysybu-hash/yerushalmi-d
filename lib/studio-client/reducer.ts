@@ -112,10 +112,13 @@ export function studioReducer(
       return { ...action.state, usage: state.usage };
 
     case "SET_FLOW":
+      // הבידוד (cutout) שייך למקור עצמו, לא לזרימה — קטלוג ושיווק
+      // משתמשים באותו תכשיט מבודד. מחיקתו כאן הכריחה בידוד חוזר (ותשלום
+      // חוזר) בכל מעבר טאב, גם כשכבר יש בידוד תקף. preview/result כן
+      // תלויים בזרימה (הרכבה פרוצדורלית מול zoompan/וידאו AI) ומתאפסים.
       return {
         ...state,
         flow: action.flow,
-        cutout: { ...INITIAL_STUDIO_STATE.cutout },
         preview: { ...INITIAL_STUDIO_STATE.preview },
         result: { ...INITIAL_STUDIO_STATE.result },
         error: null,
