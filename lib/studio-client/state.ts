@@ -221,7 +221,11 @@ function toClientState(state: StudioV2State): StudioClientState {
 /** שלב UI לפי מודל 4 השלבים — 2+3 גלויים יחד עד שיש תוצאה */
 export function deriveStudioStep(state: StudioV2State): 1 | 2 | 3 | 4 {
   if (!state.source.url) return 1;
-  if (state.result.url) return 4;
+  // בשיווק התוצאה הראשונה היא תמונת הבסיס לוידאו — שלב 4 (שמירה) מגיע
+  // רק אחרי שהתוצאה היא בפועל וידאו, אחרת מסתירים את כפתור יצירת הוידאו.
+  if (state.result.url && (state.flow !== "marketing" || state.result.kind === "video")) {
+    return 4;
+  }
   if (
     state.busyAction === "cutout" ||
     state.busyAction === "preview" ||

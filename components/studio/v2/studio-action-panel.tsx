@@ -67,9 +67,12 @@ export function resolveNextAction(state: StudioV2State): NextAction | null {
           : state.flow === "marketing"
             ? "בידוד + תמונת בסיס לוידאו"
             : "בידוד + יצירת תמונת קטלוג",
-      hint: useAi
-        ? "פעולה אחת — בידוד, עיצוב והרכבה על רקע AI"
-        : "פעולה אחת — בידוד והרכבה פרוצדורלית (חינם)",
+      hint:
+        state.flow === "marketing"
+          ? "לאחר יצירת התמונה יופיע כאן כפתור נוסף ליצירת הוידאו"
+          : useAi
+            ? "פעולה אחת — בידוד, עיצוב והרכבה על רקע AI"
+            : "פעולה אחת — בידוד והרכבה פרוצדורלית (חינם)",
       free: !useAi && hasCutout,
       costLabel: useAi
         ? STUDIO_COST_LABELS.aiBackground

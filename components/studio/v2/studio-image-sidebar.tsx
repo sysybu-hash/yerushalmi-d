@@ -49,7 +49,13 @@ export function StudioImageSidebar({
   const hasFinalImage = Boolean(
     state.result.url && state.result.kind === "image"
   );
-  const configuring = Boolean(state.source.url && !hasFinalResult);
+  // בשיווק, תוצאת תמונה היא רק בסיס לוידאו — עדיין לא סוף התהליך, ולכן
+  // ממשיכים להציג את פאנל ההגדרות (עם כפתור "יצירת וידאו") ולא את שורת הפרסום.
+  const awaitingVideoAfterImage =
+    state.flow === "marketing" && hasFinalImage;
+  const configuring = Boolean(
+    state.source.url && (!hasFinalResult || awaitingVideoAfterImage)
+  );
 
   return (
     <>
@@ -196,7 +202,7 @@ export function StudioImageSidebar({
         </>
       )}
 
-      {hasFinalResult && (
+      {hasFinalResult && !awaitingVideoAfterImage && (
         <>
           <StudioPublishBar
             state={state}
