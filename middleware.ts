@@ -7,12 +7,16 @@ function isStudioApi(pathname: string) {
   return pathname.startsWith("/api/studio/");
 }
 
+function isStudioBetaApi(pathname: string) {
+  return pathname.startsWith("/api/studio-beta/");
+}
+
 function isWorkspaceApi(pathname: string) {
   return pathname.startsWith("/api/workspace/");
 }
 
 function isProtectedApi(pathname: string) {
-  return isStudioApi(pathname) || isWorkspaceApi(pathname);
+  return isStudioApi(pathname) || isStudioBetaApi(pathname) || isWorkspaceApi(pathname);
 }
 
 function studioApiUnauthorized(message: string, status = 401) {
@@ -101,7 +105,9 @@ export const config = {
   matcher: [
     "/workspace/:path*",
     "/studio/:path*",
+    "/studio-beta/:path*",
     "/api/studio/:path*",
+    "/api/studio-beta/:path*",
     "/api/workspace/:path*",
     "/login",
   ],

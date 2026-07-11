@@ -57,6 +57,20 @@
       "when": 1783459999902,
       "tag": "0007_naive_wild_pack",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1783690074364,
+      "tag": "0008_empty_angel",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1783805570661,
+      "tag": "0009_majestic_tempest",
+      "breakpoints": true
     }
   ]
 }

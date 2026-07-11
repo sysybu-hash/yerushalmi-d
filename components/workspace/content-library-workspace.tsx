@@ -18,6 +18,7 @@ import {
 import type { AiMediaAsset } from "@/db/schema";
 import { CreateListingFromAssetsSheet } from "@/components/workspace/create-listing-from-assets-sheet";
 import { DownloadMediaButton } from "@/components/workspace/download-media-button";
+import { OpenInStudioBetaButton } from "@/components/workspace/open-in-studio-beta-button";
 import { EditMediaAssetDialog } from "@/components/workspace/edit-media-asset-dialog";
 import { AssetManageButtons } from "@/components/workspace/asset-manage-buttons";
 import { AiCrossNav } from "@/components/workspace/ai-cross-nav";
@@ -347,6 +348,8 @@ export function ContentLibraryWorkspace({ assets }: ContentLibraryWorkspaceProps
                         title={asset.title}
                         assetId={asset.id}
                       />
+
+                      <OpenInStudioBetaButton url={asset.generatedUrl} />
 
                       {isDraft && !isVideo && (
                         <Button

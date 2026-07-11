@@ -1,6 +1,7 @@
 import {
   ClipboardList,
   FileText,
+  FlaskConical,
   FolderHeart,
   Gem,
   LayoutDashboard,
@@ -34,6 +35,7 @@ export const WORKSPACE_NAV_LINKS: WorkspaceNavLink[] = [
   { label: "פניות", href: "/workspace/inquiries", icon: MessageSquare },
   { label: "שיווק", href: "/workspace/marketing", icon: Megaphone },
   { label: "סטודיו AI", href: "/studio", icon: Sparkles },
+  { label: "סטודיו בטא", href: "/studio-beta", icon: FlaskConical },
   { label: "עלויות AI", href: "/workspace/ai-usage", icon: BarChart3 },
   { label: "הגדרות האתר", href: "/workspace/settings", icon: Settings },
   { label: "מדריך והדרכה", href: "/workspace/help", icon: LifeBuoy },

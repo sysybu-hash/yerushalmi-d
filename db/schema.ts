@@ -14,6 +14,7 @@ import {
   boolean,
 } from "drizzle-orm/pg-core";
 import type { StudioProjectSnapshot } from "@/lib/studio-project-snapshot";
+import type { StudioBetaProjectState } from "@/lib/studio-beta/store";
 
 // סוג היהלום — טבעי או מעבדה
 export const productTypeEnum = pgEnum("product_type", ["natural", "lab"]);
@@ -235,6 +236,33 @@ export const studioActionLocks = pgTable("studio_action_locks", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+/**
+ * נעילות idempotency ומטמון תוצאה לסטודיו בטא — טבלה נפרדת ומבודדת
+ * מהסטודיו הישן (studio_action_locks).
+ */
+export const studioBetaActionLocks = pgTable("studio_beta_action_locks", {
+  key: varchar("key", { length: 160 }).primaryKey(),
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
+  resultJson: jsonb("result_json").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+/**
+ * שמירת מצב עבודה מלא בסטודיו בטא — מאפשרת לחזור ולהמשיך פרויקט
+ * (רקע/וידאו/פרומפטים שנבחרו), לא רק את התמונה כמו ai_media_assets.
+ * ה-snapshot משקף את מבנה ה-store בצד הלקוח (StudioBetaProjectState).
+ */
+export const studioBetaProjects = pgTable("studio_beta_projects", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull().default("עבודה חדשה"),
+  sourceImageUrl: text("source_image_url").notNull(),
+  thumbnailUrl: text("thumbnail_url"),
+  state: jsonb("state").$type<StudioBetaProjectState>().notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 /** מעקב שימושי API — סטודיו ומילוי אוטומטי */
 export const aiUsageEvents = pgTable("ai_usage_events", {
   id: serial("id").primaryKey(),
@@ -287,3 +315,6 @@ export type NewStudioProject = typeof studioProjects.$inferInsert;
 export type AiUsageEvent = typeof aiUsageEvents.$inferSelect;
 export type NewAiUsageEvent = typeof aiUsageEvents.$inferInsert;
 export type StudioActionLock = typeof studioActionLocks.$inferSelect;
+export type StudioBetaActionLock = typeof studioBetaActionLocks.$inferSelect;
+export type StudioBetaProject = typeof studioBetaProjects.$inferSelect;
+export type NewStudioBetaProject = typeof studioBetaProjects.$inferInsert;
