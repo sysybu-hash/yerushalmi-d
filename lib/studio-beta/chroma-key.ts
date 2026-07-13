@@ -97,6 +97,41 @@ export async function chromaKeyFromEdges(
     seed(x, y - 1);
   }
 
+  /**
+   * חורים סגורים בתכשיט (למשל הפער בתוך וו של עגיל, בין שיניים של
+   * טבעת) הם רקע ירוק שלא מחובר לשוליים דרך שרשרת — ה-flood-fill
+   * למעלה לעולם לא מגיע אליהם. כאן סורקים את כל התמונה לרכיבים
+   * מחוברים שעדיין תואמים את צבע הרקע; רכיב שגודלו מעל סף מינימלי
+   * (הגנה מפני פאה בודדת שבמקרה קרובה בצבע) הופך שקוף גם הוא.
+   */
+  const MIN_HOLE_SIZE = 6;
+  const component: number[] = [];
+  for (let hy = 0; hy < height; hy++) {
+    for (let hx = 0; hx < width; hx++) {
+      const startIdx = hy * width + hx;
+      if (visited[startIdx] || !matches(hx, hy)) continue;
+
+      component.length = 0;
+      visited[startIdx] = 1;
+      stack.push(hx, hy);
+      while (stack.length) {
+        const cy = stack.pop()!;
+        const cx = stack.pop()!;
+        component.push(cy * width + cx);
+        seed(cx + 1, cy);
+        seed(cx - 1, cy);
+        seed(cx, cy + 1);
+        seed(cx, cy - 1);
+      }
+
+      if (component.length >= MIN_HOLE_SIZE) {
+        for (const idx of component) {
+          data[idx * channels + 3] = 0;
+        }
+      }
+    }
+  }
+
   despillEdges(data, width, height, channels);
 
   return sharp(data, { raw: { width, height, channels } })

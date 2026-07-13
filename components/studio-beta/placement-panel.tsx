@@ -84,11 +84,13 @@ export function PlacementPanel() {
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
-          className="absolute w-[70%] cursor-move touch-none select-none"
+          className="absolute cursor-move touch-none select-none"
           style={{
             left: `${50 + offsetX * 100}%`,
             top: `${58 + offsetY * 100}%`,
-            transform: `translate(-50%, -50%) scale(${scale})`,
+            maxWidth: `${70 * scale}%`,
+            maxHeight: `${70 * scale}%`,
+            transform: "translate(-50%, -50%)",
           }}
         />
       </div>
