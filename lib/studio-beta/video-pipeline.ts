@@ -96,7 +96,7 @@ export async function runVideoPipeline(
       engine: input.engine,
       modelId: "cloudinary-zoompan",
       costUsd: 0,
-      mediaKind: "gif",
+      mediaKind: "video",
     };
   }
 

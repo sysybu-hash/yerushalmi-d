@@ -8,6 +8,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { StatCard } from "@/components/workspace/stat-card";
+import { CloudinaryCreditsCard } from "@/components/workspace/cloudinary-credits-card";
 import { getDashboardStats } from "@/lib/dashboard";
 
 export const dynamic = "force-dynamic";
@@ -44,6 +45,7 @@ export default async function WorkspaceDashboardPage() {
             href={STAT_HREFS[index]}
           />
         ))}
+        <CloudinaryCreditsCard />
       </div>
 
       <Card className="rounded-none border-border/60 shadow-none">

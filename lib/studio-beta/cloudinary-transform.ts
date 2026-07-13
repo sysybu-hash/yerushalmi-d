@@ -35,10 +35,12 @@ export function resizeForAiInput(cloudinaryUrl: string): string {
 }
 
 /**
- * תנועת Ken Burns חינמית על תמונה בודדת — Cloudinary לא מאפשר לגשת
- * לנכס image/upload דרך video/upload (404), אז הפלט האמיתי כאן הוא GIF
- * מונפש בתוך משאב ה-image (fl_animated), לא mp4. הצרכן צריך להציג אותו
- * ב-<img>, לא ב-<video>.
+ * תנועת Ken Burns חינמית על תמונה בודדת — וידאו mp4 אמיתי, לא GIF.
+ * נשאר תחת אותו נכס image/upload (Cloudinary לא מאפשר לגשת אליו דרך
+ * video/upload — 404), רק עם fl_animated וסיומת .mp4. שתי מלכודות:
+ * בלי f_ מפורש בשרשרת (למשל f_png) — Cloudinary מכבד פורמט מפורש
+ * ומתעלם מסיומת ה-.mp4, ומחזיר תמונה סטטית במקום וידאו; ותמיד g_center
+ * (g_auto על וידאו גורם ל-423 אסינכרוני).
  */
 export function zoompanFromImage(
   cloudinaryUrl: string,
@@ -47,9 +49,11 @@ export function zoompanFromImage(
   const seconds = Math.max(1, Math.round(durationSec));
   // maxzoom 1.02 (2%) הוא בלתי מורגש כמעט לגמרי — נראה כמו "לא קורה כלום".
   // 1.2 (20%) נותן תנועת Ken Burns שרואים בבירור לאורך משך הקליפ.
-  const transform = `e_zoompan:du_${seconds};maxzoom_1.2,g_center,w_900,q_auto,fl_animated`;
+  const flatten = "c_limit,w_900,h_900,b_white,q_100";
+  const zoompan = `e_zoompan:du_${seconds};maxzoom_1.2;fps_30;to_(g_center)`;
+  const transform = `${flatten}/${zoompan}/fl_animated/q_auto:best`;
   const withTransform = insertTransform(cloudinaryUrl, transform);
-  return withTransform.replace(/\.[a-zA-Z0-9]+$/, ".gif");
+  return withTransform.replace(/\.[a-zA-Z0-9]+$/, ".mp4");
 }
 
 /** שיפור חינמי לוידאו שהועלה — ללא f_png, g_center תמיד */
