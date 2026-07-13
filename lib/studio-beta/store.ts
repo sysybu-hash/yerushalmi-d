@@ -58,11 +58,19 @@ function initialPlacementState(): PlacementState {
   return { scale: 1, offsetX: 0, offsetY: 0 };
 }
 
+/** זום/פאן ידניים על שכבת הרקע עצמה — offsetX/offsetY הם 0..1 כמו background-position ב-CSS */
+export type BackdropPlacementState = { scale: number; offsetX: number; offsetY: number };
+
+function initialBackdropPlacementState(): BackdropPlacementState {
+  return { scale: 1, offsetX: 0.5, offsetY: 0.5 };
+}
+
 type BackgroundState = {
   engine: BackgroundEngineId;
   presetId: string | null;
   customPrompt: string;
   placement: PlacementState;
+  backdropPlacement: BackdropPlacementState;
   url: string | null;
   modelId: string | null;
   costUsd: number;
@@ -156,6 +164,7 @@ function initialBackgroundState(): BackgroundState {
     presetId: BACKGROUND_PRESETS[0].id,
     customPrompt: "",
     placement: initialPlacementState(),
+    backdropPlacement: initialBackdropPlacementState(),
     url: null,
     modelId: null,
     costUsd: 0,
@@ -272,6 +281,7 @@ type StudioBetaState = {
   setBackgroundPreset: (presetId: string) => void;
   setBackgroundCustomPrompt: (text: string) => void;
   setBackgroundPlacement: (patch: Partial<PlacementState>) => void;
+  setBackdropPlacement: (patch: Partial<BackdropPlacementState>) => void;
   runBackground: () => Promise<void>;
   approveBackground: () => void;
   goToStep: (step: 1 | 2 | 3 | 4) => void;
@@ -643,6 +653,14 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
         },
       })),
 
+    setBackdropPlacement: (patch) =>
+      set((state) => ({
+        background: {
+          ...state.background,
+          backdropPlacement: { ...state.background.backdropPlacement, ...patch },
+        },
+      })),
+
     runBackground: async () => {
       const state = get();
       if (!state.sourceImageUrl) return;
@@ -668,6 +686,7 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
             customPrompt: state.background.customPrompt || null,
             cutoutUrl: useApprovedCutout ? state.cutout.url : null,
             placement: state.background.placement,
+            backdropPlacement: state.background.backdropPlacement,
           }),
         });
         const json = await response.json();

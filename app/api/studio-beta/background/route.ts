@@ -8,7 +8,7 @@ import {
 } from "@/lib/studio-beta/locks";
 import { StudioBetaError } from "@/lib/studio-beta/errors";
 import { runBackgroundPipeline } from "@/lib/studio-beta/background-pipeline";
-import type { CompositePlacement } from "@/lib/studio-beta/composite";
+import type { BackdropPlacement, CompositePlacement } from "@/lib/studio-beta/composite";
 import type { BackgroundEngineId } from "@/lib/studio-beta/engines";
 
 export const runtime = "nodejs";
@@ -22,6 +22,7 @@ type Body = {
   mode?: "catalog" | "marketing";
   cutoutUrl?: string | null;
   placement?: CompositePlacement | null;
+  backdropPlacement?: BackdropPlacement | null;
 };
 
 const HTTP_STATUS_FOR_CODE: Record<StudioBetaError["code"], number> = {
@@ -56,6 +57,7 @@ export async function POST(request: NextRequest) {
 
   const mode = body.mode === "marketing" ? "marketing" : "catalog";
   const placement = body.placement ?? null;
+  const backdropPlacement = body.backdropPlacement ?? null;
   const lockKey = buildLockKey("background", [
     body.engine,
     body.presetId ?? "",
@@ -66,6 +68,9 @@ export async function POST(request: NextRequest) {
     placement?.scale ?? "",
     placement?.offsetX ?? "",
     placement?.offsetY ?? "",
+    backdropPlacement?.scale ?? "",
+    backdropPlacement?.offsetX ?? "",
+    backdropPlacement?.offsetY ?? "",
   ]);
 
   let lock;
@@ -94,6 +99,7 @@ export async function POST(request: NextRequest) {
       mode,
       precomputedCutoutUrl: body.cutoutUrl ?? null,
       placement,
+      backdropPlacement,
     });
     await completeLock(lockKey, result);
     return NextResponse.json({ ok: true, ...result, cached: false });

@@ -9,19 +9,59 @@ import { getLibraryBackgroundUrl } from "@/lib/studio-beta/background-library";
  */
 
 export type CompositePlacement = { scale: number; offsetX: number; offsetY: number };
+/** זום/פאן על שכבת הרקע עצמה — offsetX/offsetY הם 0..1 כמו background-position ב-CSS */
+export type BackdropPlacement = { scale: number; offsetX: number; offsetY: number };
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
+/** מכין את שכבת הרקע: זום ו-crop לפי backdropPlacement, תמיד בגודל הקנבס הסופי בדיוק */
+async function prepareBackdrop(
+  backgroundPng: Buffer,
+  canvasWidth: number,
+  canvasHeight: number,
+  backdropPlacement?: BackdropPlacement
+): Promise<Buffer> {
+  const bgScale = clamp(backdropPlacement?.scale ?? 1, 1, 2);
+  if (bgScale <= 1) {
+    return sharp(backgroundPng).resize(canvasWidth, canvasHeight, { fit: "cover" }).toBuffer();
+  }
+
+  const bgOffsetX = clamp(backdropPlacement?.offsetX ?? 0.5, 0, 1);
+  const bgOffsetY = clamp(backdropPlacement?.offsetY ?? 0.5, 0, 1);
+  const scaledWidth = Math.round(canvasWidth * bgScale);
+  const scaledHeight = Math.round(canvasHeight * bgScale);
+  const left = Math.round(bgOffsetX * (scaledWidth - canvasWidth));
+  const top = Math.round(bgOffsetY * (scaledHeight - canvasHeight));
+
+  return sharp(backgroundPng)
+    .resize(scaledWidth, scaledHeight, { fit: "cover" })
+    .extract({
+      left: clamp(left, 0, scaledWidth - canvasWidth),
+      top: clamp(top, 0, scaledHeight - canvasHeight),
+      width: canvasWidth,
+      height: canvasHeight,
+    })
+    .toBuffer();
+}
+
 export async function compositeOnBackground(
   productPng: Buffer,
   backgroundPng: Buffer,
-  placement?: CompositePlacement
+  placement?: CompositePlacement,
+  backdropPlacement?: BackdropPlacement
 ): Promise<Buffer> {
   const bgMeta = await sharp(backgroundPng).metadata();
   const canvasWidth = bgMeta.width ?? 2048;
   const canvasHeight = bgMeta.height ?? 2048;
+
+  const preparedBackground = await prepareBackdrop(
+    backgroundPng,
+    canvasWidth,
+    canvasHeight,
+    backdropPlacement
+  );
 
   const scale = clamp(placement?.scale ?? 1, 0.6, 1.3);
   const offsetX = clamp(placement?.offsetX ?? 0, -0.25, 0.25);
@@ -59,8 +99,7 @@ export async function compositeOnBackground(
   const shadowLeft = Math.round((canvasWidth - shadowWidth) / 2);
   const shadowTop = Math.round(top + productHeight - shadowHeight * 0.4);
 
-  return sharp(backgroundPng)
-    .resize(canvasWidth, canvasHeight)
+  return sharp(preparedBackground)
     .composite([
       { input: shadowBuffer, left: shadowLeft, top: shadowTop },
       { input: productBuffer, left, top },

@@ -4,6 +4,7 @@ import { attemptCutout, type CutoutResult } from "@/lib/studio-beta/cutout";
 import {
   compositeOnBackground,
   generateProceduralBackground,
+  type BackdropPlacement,
   type CompositePlacement,
 } from "@/lib/studio-beta/composite";
 import { resolveBackgroundHint } from "@/lib/studio-beta/backgrounds";
@@ -39,6 +40,8 @@ export type BackgroundPipelineInput = {
   precomputedCutoutUrl?: string | null;
   /** מיקום/גודל ידניים שנקבעו בפאנל התצוגה המקדימה — ראו lib/studio-beta/composite.ts */
   placement?: CompositePlacement | null;
+  /** זום/פאן ידניים על שכבת הרקע עצמה */
+  backdropPlacement?: BackdropPlacement | null;
 };
 
 export type BackgroundPipelineResult = {
@@ -188,7 +191,8 @@ export async function runBackgroundPipeline(
     const composited = await compositeOnBackground(
       cutoutBuffer,
       backgroundBuffer,
-      input.placement ?? undefined
+      input.placement ?? undefined,
+      input.backdropPlacement ?? undefined
     );
     const uploaded = await uploadToCloudinary({
       source: bufferToDataUri(composited),
@@ -239,7 +243,8 @@ export async function runBackgroundPipeline(
   const composited = await compositeOnBackground(
     rawBuffer,
     backgroundBuffer,
-    input.placement ?? undefined
+    input.placement ?? undefined,
+    input.backdropPlacement ?? undefined
   );
   const uploaded = await uploadToCloudinary({
     source: bufferToDataUri(composited),
