@@ -12,6 +12,7 @@ import {
   estimateEngineCostUsd,
   type ProvidersConfigured,
 } from "@/lib/studio-beta/engines";
+import { VIDEO_MOTION_PRESETS, MUSIC_STYLE_PRESETS } from "@/lib/studio-beta/cloudinary-transform";
 import { VIDEO_PROMPT_EXAMPLES } from "@/lib/studio-beta/prompt-examples";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,8 @@ export function VideoPanel({ providers }: { providers: ProvidersConfigured }) {
   const setVideoCustomPrompt = useStudioBetaStore((s) => s.setVideoCustomPrompt);
   const setVideoNegativePrompt = useStudioBetaStore((s) => s.setVideoNegativePrompt);
   const setVideoGenerateAudio = useStudioBetaStore((s) => s.setVideoGenerateAudio);
+  const toggleVideoMotion = useStudioBetaStore((s) => s.toggleVideoMotion);
+  const setVideoMusicStyle = useStudioBetaStore((s) => s.setVideoMusicStyle);
   const runVideo = useStudioBetaStore((s) => s.runVideo);
 
   const loading = video.status === "loading";
@@ -42,6 +45,77 @@ export function VideoPanel({ providers }: { providers: ProvidersConfigured }) {
           providers={providers}
         />
       </div>
+
+      {video.engine === "cloudinary-preserve" && (
+        <div className="space-y-3">
+          <div>
+            <p className="mb-2 text-xs font-light tracking-wide text-muted-foreground">
+              זום
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {VIDEO_MOTION_PRESETS.filter((p) => p.axis === "zoom").map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => toggleVideoMotion(preset.id)}
+                  className={cn(
+                    "border px-2 py-1.5 text-[11px] font-light",
+                    video.motion.includes(preset.id)
+                      ? "border-gold bg-gold/10"
+                      : "border-border/60 hover:border-gold/60"
+                  )}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="mb-2 text-xs font-light tracking-wide text-muted-foreground">
+              פאן (ניתן לשילוב עם זום)
+            </p>
+            <div className="grid grid-cols-4 gap-2">
+              {VIDEO_MOTION_PRESETS.filter((p) => p.axis === "pan").map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => toggleVideoMotion(preset.id)}
+                  className={cn(
+                    "border px-2 py-1.5 text-[11px] font-light",
+                    video.motion.includes(preset.id)
+                      ? "border-gold bg-gold/10"
+                      : "border-border/60 hover:border-gold/60"
+                  )}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="mb-2 text-xs font-light tracking-wide text-muted-foreground">
+              מוזיקת רקע
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              {MUSIC_STYLE_PRESETS.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => setVideoMusicStyle(preset.id)}
+                  className={cn(
+                    "border px-2 py-1.5 text-[11px] font-light",
+                    video.musicStyle === preset.id
+                      ? "border-gold bg-gold/10"
+                      : "border-border/60 hover:border-gold/60"
+                  )}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div>
         <p className="mb-2 text-xs font-light tracking-wide text-muted-foreground">

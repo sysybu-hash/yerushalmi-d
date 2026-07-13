@@ -12,6 +12,8 @@ import { uploadToCloudinary } from "@/lib/studio-beta/cloudinary-upload";
 import {
   resizeForAiInput,
   zoompanFromImage,
+  type VideoMotionId,
+  type MusicStyleId,
 } from "@/lib/studio-beta/cloudinary-transform";
 import {
   getVideoEngine,
@@ -35,6 +37,10 @@ export type VideoPipelineInput = {
   negativePrompt?: string | null;
   /** מוחל רק על Kling — אודיו טבעי שנוצר ע"י המודל */
   generateAudio?: boolean;
+  /** מוחל רק על המנוע החינמי (cloudinary-preserve) — סגנונות תנועת Ken Burns, ניתנים לשילוב (למשל זום+פאן) */
+  motion?: VideoMotionId[];
+  /** מוחל רק על המנוע החינמי (cloudinary-preserve) — מוזיקת רקע חינמית */
+  musicStyle?: MusicStyleId;
 };
 
 export type VideoPipelineResult = {
@@ -90,7 +96,12 @@ export async function runVideoPipeline(
     .join(" ");
 
   if (input.engine === "cloudinary-preserve") {
-    const url = zoompanFromImage(input.imageUrl, input.durationSec);
+    const url = zoompanFromImage(
+      input.imageUrl,
+      input.durationSec,
+      input.motion,
+      input.musicStyle
+    );
     return {
       resultUrl: url,
       engine: input.engine,

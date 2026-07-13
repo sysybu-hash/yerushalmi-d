@@ -9,6 +9,7 @@ import {
 import { StudioBetaError } from "@/lib/studio-beta/errors";
 import { runVideoPipeline } from "@/lib/studio-beta/video-pipeline";
 import type { VideoEngineId } from "@/lib/studio-beta/engines";
+import type { VideoMotionId, MusicStyleId } from "@/lib/studio-beta/cloudinary-transform";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -21,6 +22,8 @@ type Body = {
   mode?: "catalog" | "marketing";
   negativePrompt?: string | null;
   generateAudio?: boolean;
+  motion?: VideoMotionId[];
+  musicStyle?: MusicStyleId;
 };
 
 const HTTP_STATUS_FOR_CODE: Record<StudioBetaError["code"], number> = {
@@ -59,6 +62,8 @@ export async function POST(request: NextRequest) {
     body.negativePrompt ?? "",
     Boolean(body.generateAudio),
     mode,
+    (body.motion ?? []).join(","),
+    body.musicStyle ?? "",
   ]);
 
   let lock;
@@ -87,6 +92,8 @@ export async function POST(request: NextRequest) {
       mode,
       negativePrompt: body.negativePrompt ?? null,
       generateAudio: Boolean(body.generateAudio),
+      motion: body.motion,
+      musicStyle: body.musicStyle,
     });
     await completeLock(lockKey, result);
     return NextResponse.json({ ok: true, ...result, cached: false });

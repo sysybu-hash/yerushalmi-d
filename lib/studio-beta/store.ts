@@ -14,6 +14,9 @@ import {
   enhanceUploadedVideo,
   type SourceAspect,
   type SourceAdjustments,
+  type VideoMotionId,
+  type MusicStyleId,
+  VIDEO_MOTION_PRESETS,
 } from "@/lib/studio-beta/cloudinary-transform";
 import {
   saveStudioBetaAsset,
@@ -96,6 +99,10 @@ type VideoState = {
   negativePrompt: string;
   /** אודיו טבעי שנוצר ע"י המודל — Kling בלבד */
   generateAudio: boolean;
+  /** סגנונות תנועת Ken Burns — המנוע החינמי (cloudinary-preserve) בלבד, ניתנים לשילוב */
+  motion: VideoMotionId[];
+  /** מוזיקת רקע חינמית — המנוע החינמי (cloudinary-preserve) בלבד */
+  musicStyle: MusicStyleId;
   url: string | null;
   modelId: string | null;
   costUsd: number;
@@ -186,6 +193,8 @@ function initialVideoState(): VideoState {
     customPrompt: "",
     negativePrompt: "",
     generateAudio: false,
+    motion: ["zoom-in"],
+    musicStyle: "none",
     url: null,
     modelId: null,
     costUsd: 0,
@@ -293,6 +302,8 @@ type StudioBetaState = {
   setVideoCustomPrompt: (text: string) => void;
   setVideoNegativePrompt: (text: string) => void;
   setVideoGenerateAudio: (enabled: boolean) => void;
+  toggleVideoMotion: (id: VideoMotionId) => void;
+  setVideoMusicStyle: (style: MusicStyleId) => void;
   setVideoTrim: (startSec: number | null, endSec: number | null) => void;
   setVideoMute: (mute: boolean) => void;
   setVideoEnhance: (enhance: boolean) => void;
@@ -471,6 +482,12 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
         video: {
           ...initialVideoState(),
           ...s.video,
+          // גרסאות שמורות ישנות (לפני שהוחלף למערך בר-שילוב) שמרו כאן מחרוזת בודדת
+          motion: Array.isArray(s.video?.motion)
+            ? s.video.motion
+            : s.video?.motion
+              ? [s.video.motion as unknown as VideoMotionId]
+              : initialVideoState().motion,
           trim: { ...initialVideoTrim(), ...s.video?.trim },
         },
         imageSave: { ...initialSaveState(), ...s.imageSave },
@@ -769,6 +786,22 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
     setVideoGenerateAudio: (enabled) =>
       set((state) => ({ video: { ...state.video, generateAudio: enabled } })),
 
+    toggleVideoMotion: (id) =>
+      set((state) => {
+        const current = state.video.motion;
+        const axis = VIDEO_MOTION_PRESETS.find((p) => p.id === id)?.axis;
+        if (current.includes(id)) {
+          return { video: { ...state.video, motion: current.filter((m) => m !== id) } };
+        }
+        const withoutSameAxis = current.filter(
+          (m) => VIDEO_MOTION_PRESETS.find((p) => p.id === m)?.axis !== axis
+        );
+        return { video: { ...state.video, motion: [...withoutSameAxis, id] } };
+      }),
+
+    setVideoMusicStyle: (style) =>
+      set((state) => ({ video: { ...state.video, musicStyle: style } })),
+
     setVideoTrim: (startSec, endSec) =>
       set((state) => ({
         video: { ...state.video, trim: { ...state.video.trim, startSec, endSec } },
@@ -800,6 +833,8 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
             customPrompt: state.video.customPrompt || null,
             negativePrompt: state.video.negativePrompt || null,
             generateAudio: state.video.generateAudio,
+            motion: state.video.motion,
+            musicStyle: state.video.musicStyle,
           }),
         });
         const json = await response.json();
