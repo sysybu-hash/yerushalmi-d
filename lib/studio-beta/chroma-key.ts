@@ -97,7 +97,68 @@ export async function chromaKeyFromEdges(
     seed(x, y - 1);
   }
 
+  despillEdges(data, width, height, channels);
+
   return sharp(data, { raw: { width, height, channels } })
     .png()
     .toBuffer();
+}
+
+/**
+ * מנטרל שאריות ירוק ("green spill") בטבעת הפיקסלים הצמודה לשקיפות —
+ * פיקסלים אנטי-אליאסד בגבול התכשיט מעורבבים חלקית עם הרקע הירוק ולכן
+ * לא נתפסים ע"י ה-flood-fill (מרחק צבע גדול מדי מ-keyColor), אבל עדיין
+ * נראים ירקרקים. הבדיקה כאן גיאומטרית בלבד (קרבה לשקיפות), לא לפי צבע
+ * הפיקסל עצמו — לא נוגעת בכלל בשקיפות/אלפא, רק מעדנת את ערוץ הירוק.
+ */
+function despillEdges(
+  data: Buffer | Uint8Array,
+  width: number,
+  height: number,
+  channels: number
+): void {
+  const EDGE_BAND = 3;
+  const total = width * height;
+  const dist = new Int16Array(total).fill(-1);
+  const queue = new Int32Array(total);
+  let head = 0;
+  let tail = 0;
+
+  for (let idx = 0; idx < total; idx++) {
+    if (data[idx * channels + 3] === 0) {
+      dist[idx] = 0;
+      queue[tail++] = idx;
+    }
+  }
+
+  while (head < tail) {
+    const idx = queue[head++];
+    const d = dist[idx];
+    if (d >= EDGE_BAND) continue;
+    const x = idx % width;
+    const y = (idx / width) | 0;
+
+    const neighbors: Array<[number, number]> = [
+      [x + 1, y],
+      [x - 1, y],
+      [x, y + 1],
+      [x, y - 1],
+    ];
+    for (const [nx, ny] of neighbors) {
+      if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+      const nIdx = ny * width + nx;
+      if (dist[nIdx] !== -1) continue;
+      dist[nIdx] = d + 1;
+      queue[tail++] = nIdx;
+
+      const off = nIdx * channels;
+      const r = data[off];
+      const g = data[off + 1];
+      const b = data[off + 2];
+      const maxRB = Math.max(r, b);
+      if (g > maxRB) {
+        data[off + 1] = maxRB;
+      }
+    }
+  }
 }
