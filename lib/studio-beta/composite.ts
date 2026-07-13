@@ -1,4 +1,6 @@
 import sharp from "sharp";
+import { renderProceduralBackground } from "@/lib/studio-beta/procedural-backgrounds";
+import { getLibraryBackgroundUrl } from "@/lib/studio-beta/background-library";
 
 /**
  * הרכבה דקה בכוונה: מיקום/resize של תמונת המוצר על קנבס הרקע + צל מגע
@@ -52,20 +54,27 @@ export async function compositeOnBackground(
     .toBuffer();
 }
 
-/** רקע פרוצדורלי חינמי: גרדיאנט רך + ספוטלייט קליל, בלי קריאת AI */
+/**
+ * רקע פרוצדורלי חינמי: קודם כל מנסה תמונת רקע אמיתית מוכנה מהספרייה
+ * (נוצרה פעם אחת ב-Gemini, לא SVG) — אפס עלות AI בזמן ריצה. אם הפריסט
+ * לא בספרייה (או שההורדה נכשלה), נופל למחולל ה-SVG הניתן-להרכבה
+ * כרשת ביטחון שתמיד מחזירה רקע, גם בלי גישה לרשת.
+ */
 export async function generateProceduralBackground(
+  presetId?: string | null,
   size = 2048
 ): Promise<Buffer> {
-  const svg = Buffer.from(
-    `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <radialGradient id="g" cx="50%" cy="42%" r="70%">
-          <stop offset="0%" stop-color="#FAF8F4" />
-          <stop offset="100%" stop-color="#D9D2C4" />
-        </radialGradient>
-      </defs>
-      <rect width="${size}" height="${size}" fill="url(#g)" />
-    </svg>`
-  );
-  return sharp(svg).png().toBuffer();
+  const libraryUrl = getLibraryBackgroundUrl(presetId);
+  if (libraryUrl) {
+    try {
+      const response = await fetch(libraryUrl);
+      if (response.ok) {
+        const buffer = Buffer.from(await response.arrayBuffer());
+        return sharp(buffer).resize(size, size, { fit: "cover" }).png().toBuffer();
+      }
+    } catch {
+      // נופלים ל-SVG למטה
+    }
+  }
+  return renderProceduralBackground(presetId, size);
 }

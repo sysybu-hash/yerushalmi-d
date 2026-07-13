@@ -1,5 +1,7 @@
 /** בנק הרקעים הנבחרים לסטודיו בטא — בנוי במלואו (לא stub) */
 
+import { getLibraryBackgroundUrl } from "@/lib/studio-beta/background-library";
+
 export type BackgroundPreset = {
   id: string;
   label: string;
@@ -7,9 +9,11 @@ export type BackgroundPreset = {
   swatch: string;
   /** רמז תיאורי באנגלית — מוזרק לפרומפט ה-AI */
   hint: string;
+  /** תמונת הרקע המוכן בפועל (נוצרה פעם אחת ב-Gemini) — לתצוגה מקדימה */
+  previewUrl: string | null;
 };
 
-export const BACKGROUND_PRESETS: BackgroundPreset[] = [
+const RAW_PRESETS: Omit<BackgroundPreset, "previewUrl">[] = [
   {
     id: "white-studio",
     label: "סטודיו לבן",
@@ -83,6 +87,11 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     hint: "soft blurred botanical greenery backdrop, gentle natural light, airy and fresh mood",
   },
 ];
+
+export const BACKGROUND_PRESETS: BackgroundPreset[] = RAW_PRESETS.map((preset) => ({
+  ...preset,
+  previewUrl: getLibraryBackgroundUrl(preset.id),
+}));
 
 export function getBackgroundPreset(id: string): BackgroundPreset | undefined {
   return BACKGROUND_PRESETS.find((preset) => preset.id === id);

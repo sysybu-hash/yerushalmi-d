@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, Loader2 } from "lucide-react";
+import { ChevronDown, ExternalLink, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { EnginePicker } from "@/components/studio-beta/engine-picker";
@@ -125,10 +125,28 @@ export function BackgroundPanel({
                 )}
               >
                 <span
-                  className="h-10 w-full"
-                  style={{ backgroundColor: preset.swatch }}
+                  className="relative block h-10 w-full bg-cover bg-center"
+                  style={{
+                    backgroundColor: preset.swatch,
+                    backgroundImage: preset.previewUrl
+                      ? `url(${preset.previewUrl})`
+                      : undefined,
+                  }}
                   aria-hidden
-                />
+                >
+                  {preset.previewUrl && (
+                    <a
+                      href={preset.previewUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(event) => event.stopPropagation()}
+                      title="פתח תמונת רקע מלאה"
+                      className="absolute left-0.5 top-0.5 flex h-4 w-4 items-center justify-center bg-background/80 text-foreground/80 hover:text-gold"
+                    >
+                      <ExternalLink className="h-2.5 w-2.5" />
+                    </a>
+                  )}
+                </span>
                 <span className="text-[11px] font-light">{preset.label}</span>
               </button>
             );

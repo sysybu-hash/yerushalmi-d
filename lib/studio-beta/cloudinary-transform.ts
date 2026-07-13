@@ -45,7 +45,9 @@ export function zoompanFromImage(
   durationSec: number
 ): string {
   const seconds = Math.max(1, Math.round(durationSec));
-  const transform = `e_zoompan:du_${seconds};maxzoom_1.02,g_center,w_900,q_auto,fl_animated`;
+  // maxzoom 1.02 (2%) הוא בלתי מורגש כמעט לגמרי — נראה כמו "לא קורה כלום".
+  // 1.2 (20%) נותן תנועת Ken Burns שרואים בבירור לאורך משך הקליפ.
+  const transform = `e_zoompan:du_${seconds};maxzoom_1.2,g_center,w_900,q_auto,fl_animated`;
   const withTransform = insertTransform(cloudinaryUrl, transform);
   return withTransform.replace(/\.[a-zA-Z0-9]+$/, ".gif");
 }

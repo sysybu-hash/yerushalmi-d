@@ -140,7 +140,10 @@ export async function runBackgroundPipeline(
   const { buffer: backgroundBuffer, predictTimeSec: backgroundPredictTimeSec } =
     await (async () => {
       if (input.engine === "procedural") {
-        return { buffer: await generateProceduralBackground(), predictTimeSec: null };
+        return {
+          buffer: await generateProceduralBackground(input.presetId),
+          predictTimeSec: null,
+        };
       }
       // sdxl דורש version מוצמד — ה-owner/name הגולמי מחזיר 404 ב-Replicate
       const model =

@@ -13,11 +13,40 @@ function colorDistance(a: RGB, b: RGB): number {
   return Math.sqrt((a.r - b.r) ** 2 + (a.g - b.g) ** 2 + (a.b - b.b) ** 2);
 }
 
+/**
+ * דוגם את צבע הרקע בפועל מארבע הפינות — Gemini לא מייצר ירוק טהור
+ * (0,255,0) בעקביות, אז נעילה על הצבע התיאורטי מפספסת לגמרי (נבדק
+ * בפועל: פינות בגוון כמו 81,242,42 — מרחק ~92 מ-(0,255,0), מעל tolerance
+ * של 60, אז אף פיקסל לא נתפס ואין שקיפות בכלל).
+ */
+function sampleCornerColor(
+  data: Buffer | Uint8Array,
+  width: number,
+  height: number,
+  channels: number
+): RGB {
+  const corners: Array<[number, number]> = [
+    [0, 0],
+    [width - 1, 0],
+    [0, height - 1],
+    [width - 1, height - 1],
+  ];
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  for (const [x, y] of corners) {
+    const off = (y * width + x) * channels;
+    r += data[off];
+    g += data[off + 1];
+    b += data[off + 2];
+  }
+  return { r: r / corners.length, g: g / corners.length, b: b / corners.length };
+}
+
 export async function chromaKeyFromEdges(
   input: Buffer,
   options?: { keyColor?: RGB; tolerance?: number }
 ): Promise<Buffer> {
-  const keyColor = options?.keyColor ?? { r: 0, g: 255, b: 0 };
   const tolerance = options?.tolerance ?? 60;
 
   const { data, info } = await sharp(input)
@@ -26,6 +55,7 @@ export async function chromaKeyFromEdges(
     .toBuffer({ resolveWithObject: true });
 
   const { width, height, channels } = info;
+  const keyColor = options?.keyColor ?? sampleCornerColor(data, width, height, channels);
   const visited = new Uint8Array(width * height);
   const stack: number[] = [];
 
