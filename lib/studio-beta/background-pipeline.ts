@@ -4,6 +4,7 @@ import { attemptCutout, type CutoutResult } from "@/lib/studio-beta/cutout";
 import {
   compositeOnBackground,
   generateProceduralBackground,
+  type CompositePlacement,
 } from "@/lib/studio-beta/composite";
 import { resolveBackgroundHint } from "@/lib/studio-beta/backgrounds";
 import {
@@ -36,6 +37,8 @@ export type BackgroundPipelineInput = {
   mode: "catalog" | "marketing";
   /** בידוד שכבר בוצע ואושר ידנית (שער ה-cutout) — מדלג על attemptCutout הפנימי */
   precomputedCutoutUrl?: string | null;
+  /** מיקום/גודל ידניים שנקבעו בפאנל התצוגה המקדימה — ראו lib/studio-beta/composite.ts */
+  placement?: CompositePlacement | null;
 };
 
 export type BackgroundPipelineResult = {
@@ -182,7 +185,11 @@ export async function runBackgroundPipeline(
 
   if (cutout) {
     const cutoutBuffer = await downloadAsBuffer(cutout.url);
-    const composited = await compositeOnBackground(cutoutBuffer, backgroundBuffer);
+    const composited = await compositeOnBackground(
+      cutoutBuffer,
+      backgroundBuffer,
+      input.placement ?? undefined
+    );
     const uploaded = await uploadToCloudinary({
       source: bufferToDataUri(composited),
       resourceType: "image",
@@ -229,7 +236,11 @@ export async function runBackgroundPipeline(
 
   // מוצא אחרון — מרכיבים את התמונה המקורית כמו שהיא, לעולם לא חוסמים
   const rawBuffer = await downloadAsBuffer(input.sourceImageUrl);
-  const composited = await compositeOnBackground(rawBuffer, backgroundBuffer);
+  const composited = await compositeOnBackground(
+    rawBuffer,
+    backgroundBuffer,
+    input.placement ?? undefined
+  );
   const uploaded = await uploadToCloudinary({
     source: bufferToDataUri(composited),
     resourceType: "image",

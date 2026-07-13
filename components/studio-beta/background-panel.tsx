@@ -9,6 +9,7 @@ import { CompareToggle } from "@/components/studio-beta/compare-toggle";
 import { AspectRatioPicker } from "@/components/studio-beta/aspect-ratio-picker";
 import { AdjustPanel } from "@/components/studio-beta/adjust-panel";
 import { CutoutPanel } from "@/components/studio-beta/cutout-panel";
+import { PlacementPanel } from "@/components/studio-beta/placement-panel";
 import { SourcePrepPanel } from "@/components/studio-beta/source-prep-panel";
 import { IdentifyPanel } from "@/components/studio-beta/identify-panel";
 import { AttemptsRail } from "@/components/studio-beta/attempts-rail";
@@ -189,6 +190,8 @@ export function BackgroundPanel({
       {selectedEngineDef?.usesCutout && (
         <CutoutPanel sourceImageUrl={effectiveSourceUrl} />
       )}
+
+      {selectedEngineDef?.usesCutout && <PlacementPanel />}
 
       <Button
         type="button"

@@ -8,16 +8,27 @@ import { getLibraryBackgroundUrl } from "@/lib/studio-beta/background-library";
  * בלי הרמוניזציה לפי סגנון — הצינור הישן שסבל מזה היה מקור עיקרי לבאגים.
  */
 
+export type CompositePlacement = { scale: number; offsetX: number; offsetY: number };
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
 export async function compositeOnBackground(
   productPng: Buffer,
-  backgroundPng: Buffer
+  backgroundPng: Buffer,
+  placement?: CompositePlacement
 ): Promise<Buffer> {
   const bgMeta = await sharp(backgroundPng).metadata();
   const canvasWidth = bgMeta.width ?? 2048;
   const canvasHeight = bgMeta.height ?? 2048;
 
-  const targetWidth = Math.round(canvasWidth * 0.7);
-  const targetHeight = Math.round(canvasHeight * 0.7);
+  const scale = clamp(placement?.scale ?? 1, 0.6, 1.3);
+  const offsetX = clamp(placement?.offsetX ?? 0, -0.25, 0.25);
+  const offsetY = clamp(placement?.offsetY ?? 0, -0.25, 0.25);
+
+  const targetWidth = Math.round(canvasWidth * 0.7 * scale);
+  const targetHeight = Math.round(canvasHeight * 0.7 * scale);
 
   const productBuffer = await sharp(productPng)
     .resize(targetWidth, targetHeight, { fit: "inside" })
@@ -26,8 +37,12 @@ export async function compositeOnBackground(
   const productWidth = productMeta.width ?? targetWidth;
   const productHeight = productMeta.height ?? targetHeight;
 
-  const left = Math.round((canvasWidth - productWidth) / 2);
-  const top = Math.round(canvasHeight * 0.58 - productHeight / 2);
+  const left = Math.round(
+    (canvasWidth - productWidth) / 2 + offsetX * canvasWidth
+  );
+  const top = Math.round(
+    canvasHeight * 0.58 - productHeight / 2 + offsetY * canvasHeight
+  );
 
   const shadowWidth = Math.max(1, Math.round(productWidth * 0.75));
   const shadowHeight = Math.max(1, Math.round(productHeight * 0.1));

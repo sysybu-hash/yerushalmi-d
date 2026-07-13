@@ -8,6 +8,7 @@ import {
 } from "@/lib/studio-beta/locks";
 import { StudioBetaError } from "@/lib/studio-beta/errors";
 import { runBackgroundPipeline } from "@/lib/studio-beta/background-pipeline";
+import type { CompositePlacement } from "@/lib/studio-beta/composite";
 import type { BackgroundEngineId } from "@/lib/studio-beta/engines";
 
 export const runtime = "nodejs";
@@ -20,6 +21,7 @@ type Body = {
   customPrompt?: string | null;
   mode?: "catalog" | "marketing";
   cutoutUrl?: string | null;
+  placement?: CompositePlacement | null;
 };
 
 const HTTP_STATUS_FOR_CODE: Record<StudioBetaError["code"], number> = {
@@ -53,6 +55,7 @@ export async function POST(request: NextRequest) {
   }
 
   const mode = body.mode === "marketing" ? "marketing" : "catalog";
+  const placement = body.placement ?? null;
   const lockKey = buildLockKey("background", [
     body.engine,
     body.presetId ?? "",
@@ -60,6 +63,9 @@ export async function POST(request: NextRequest) {
     body.sourceImageUrl,
     body.cutoutUrl ?? "",
     mode,
+    placement?.scale ?? "",
+    placement?.offsetX ?? "",
+    placement?.offsetY ?? "",
   ]);
 
   let lock;
@@ -87,6 +93,7 @@ export async function POST(request: NextRequest) {
       customPrompt: body.customPrompt ?? null,
       mode,
       precomputedCutoutUrl: body.cutoutUrl ?? null,
+      placement,
     });
     await completeLock(lockKey, result);
     return NextResponse.json({ ok: true, ...result, cached: false });

@@ -51,10 +51,18 @@ type Attempt = {
   createdAt: number;
 };
 
+/** מיקום/גודל ידניים של התכשיט על הרקע — אותה נוסחה בדיוק בקליינט ובשרת */
+export type PlacementState = { scale: number; offsetX: number; offsetY: number };
+
+function initialPlacementState(): PlacementState {
+  return { scale: 1, offsetX: 0, offsetY: 0 };
+}
+
 type BackgroundState = {
   engine: BackgroundEngineId;
   presetId: string | null;
   customPrompt: string;
+  placement: PlacementState;
   url: string | null;
   modelId: string | null;
   costUsd: number;
@@ -147,6 +155,7 @@ function initialBackgroundState(): BackgroundState {
     engine: "gemini-compose",
     presetId: BACKGROUND_PRESETS[0].id,
     customPrompt: "",
+    placement: initialPlacementState(),
     url: null,
     modelId: null,
     costUsd: 0,
@@ -262,6 +271,7 @@ type StudioBetaState = {
   setBackgroundEngine: (engine: BackgroundEngineId) => void;
   setBackgroundPreset: (presetId: string) => void;
   setBackgroundCustomPrompt: (text: string) => void;
+  setBackgroundPlacement: (patch: Partial<PlacementState>) => void;
   runBackground: () => Promise<void>;
   approveBackground: () => void;
   goToStep: (step: 1 | 2 | 3 | 4) => void;
@@ -625,6 +635,14 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
         background: { ...state.background, customPrompt: text },
       })),
 
+    setBackgroundPlacement: (patch) =>
+      set((state) => ({
+        background: {
+          ...state.background,
+          placement: { ...state.background.placement, ...patch },
+        },
+      })),
+
     runBackground: async () => {
       const state = get();
       if (!state.sourceImageUrl) return;
@@ -649,6 +667,7 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
             presetId: state.background.presetId,
             customPrompt: state.background.customPrompt || null,
             cutoutUrl: useApprovedCutout ? state.cutout.url : null,
+            placement: state.background.placement,
           }),
         });
         const json = await response.json();
