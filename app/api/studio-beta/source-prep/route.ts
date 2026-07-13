@@ -7,19 +7,19 @@ import {
   failLock,
 } from "@/lib/studio-beta/locks";
 import { StudioBetaError } from "@/lib/studio-beta/errors";
-import { runBackgroundPipeline } from "@/lib/studio-beta/background-pipeline";
-import type { BackgroundEngineId } from "@/lib/studio-beta/engines";
+import {
+  runSourcePrepPipeline,
+  type SourcePrepPresetId,
+} from "@/lib/studio-beta/source-prep-pipeline";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+export const maxDuration = 60;
 
 type Body = {
   sourceImageUrl?: string;
-  engine?: BackgroundEngineId;
-  presetId?: string | null;
+  presetId?: SourcePrepPresetId | null;
   customPrompt?: string | null;
   mode?: "catalog" | "marketing";
-  cutoutUrl?: string | null;
 };
 
 const HTTP_STATUS_FOR_CODE: Record<StudioBetaError["code"], number> = {
@@ -41,24 +41,18 @@ export async function POST(request: NextRequest) {
   }
 
   const body = (await request.json().catch(() => null)) as Body | null;
-  if (!body?.sourceImageUrl || !body.engine) {
+  if (!body?.sourceImageUrl || (!body.presetId && !body.customPrompt)) {
     return NextResponse.json(
-      {
-        ok: false,
-        error: "חסרה תמונת מקור או בחירת מנוע",
-        code: "VALIDATION",
-      },
+      { ok: false, error: "חסרה תמונת מקור או בחירת פעולה", code: "VALIDATION" },
       { status: 400 }
     );
   }
 
   const mode = body.mode === "marketing" ? "marketing" : "catalog";
-  const lockKey = buildLockKey("background", [
-    body.engine,
+  const lockKey = buildLockKey("source-prep", [
+    body.sourceImageUrl,
     body.presetId ?? "",
     body.customPrompt ?? "",
-    body.sourceImageUrl,
-    body.cutoutUrl ?? "",
     mode,
   ]);
 
@@ -80,13 +74,11 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = await runBackgroundPipeline({
+    const result = await runSourcePrepPipeline({
       sourceImageUrl: body.sourceImageUrl,
-      engine: body.engine,
       presetId: body.presetId ?? null,
       customPrompt: body.customPrompt ?? null,
       mode,
-      precomputedCutoutUrl: body.cutoutUrl ?? null,
     });
     await completeLock(lockKey, result);
     return NextResponse.json({ ok: true, ...result, cached: false });

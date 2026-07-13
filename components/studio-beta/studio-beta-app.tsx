@@ -13,6 +13,7 @@ import { ProjectsPanel } from "@/components/studio-beta/projects-panel";
 import { BackgroundPanel } from "@/components/studio-beta/background-panel";
 import { OutputChoicePanel } from "@/components/studio-beta/output-choice-panel";
 import { SavePanel } from "@/components/studio-beta/save-panel";
+import { TipsPanel } from "@/components/studio-beta/tips-panel";
 
 export function StudioBetaApp({
   providers,
@@ -83,6 +84,8 @@ export function StudioBetaApp({
       {resetNotice && (
         <ResetBanner message={resetNotice} onDismiss={dismissResetNotice} />
       )}
+
+      <TipsPanel />
 
       {currentStep === 1 ? (
         <div className="space-y-4">

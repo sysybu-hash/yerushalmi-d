@@ -15,7 +15,8 @@ import { resizeForAiInput } from "@/lib/studio-beta/cloudinary-transform";
 
 export type CutoutResult = {
   url: string;
-  method: "bria" | "gemini-chroma";
+  /** "manual" = בידוד שכבר בוצע ואושר דרך שער ה-cutout הידני, לא נוצר כאן */
+  method: "bria" | "gemini-chroma" | "manual";
   modelId: string;
   costUsd: number;
 } | null;
@@ -48,7 +49,7 @@ export async function attemptCutout(
   if (isReplicateConfigured()) {
     try {
       const inputUrl = resizeForAiInput(sourceUrl);
-      const output = await runReplicateModel(BRIA_MODEL_ID, {
+      const { output, predictTimeSec } = await runReplicateModel(BRIA_MODEL_ID, {
         image: inputUrl,
         preserve_alpha: true,
       });
@@ -68,13 +69,13 @@ export async function attemptCutout(
           modelId: BRIA_MODEL_ID,
           mode,
           success: true,
-          metadata: { app: "studio-beta" },
+          metadata: { app: "studio-beta", predictTimeSec },
         });
         return {
           url: uploaded.url,
           method: "bria",
           modelId: BRIA_MODEL_ID,
-          costUsd: estimateCostUsd(BRIA_MODEL_ID, null),
+          costUsd: estimateCostUsd(BRIA_MODEL_ID, predictTimeSec),
         };
       }
     } catch {

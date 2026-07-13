@@ -32,3 +32,23 @@ export function buildBackgroundOnlyPrompt(hint: string): string {
 
 export const BACKGROUND_ONLY_NEGATIVE_PROMPT =
   "jewelry, ring, necklace, bracelet, earrings, diamond, product, hands, people, text, watermark, logo";
+
+/** תיקון קצוות חתוכים/חסרים בתמונת המקור, בלי לשנות את התכשיט עצמו */
+export function buildCompleteEdgesPrompt(): string {
+  return `Complete any cropped or missing edges of this exact jewelry product so the full item is visible in frame. Do not redesign or reinterpret any part — only extend what is naturally implied by the existing geometry. ${JEWELRY_STRUCTURE_LOCK}`;
+}
+
+/** ניקוי/החלפת רקע לרקע לבן נקי, שמירה מלאה על התכשיט */
+export function buildCleanBackgroundPrompt(): string {
+  return `Replace the background of this exact jewelry photo with a clean, seamless, evenly lit white background, professional e-commerce style. Preserve every diamond, prong, metal edge, chain link, and reflection exactly as in the input photo. ${JEWELRY_STRUCTURE_LOCK}`;
+}
+
+/** חידוד ושיפור בהירות/ניגודיות בסיסי של תמונת המקור, בלי AI גנרטיבי על התכשיט */
+export function buildSharpenSourcePrompt(): string {
+  return `Enhance the sharpness, clarity and lighting of this exact jewelry photo — crisper facet detail, balanced exposure, professional studio quality. Do not alter the product's shape, stones, or metal in any way. ${JEWELRY_STRUCTURE_LOCK}`;
+}
+
+/** זיהוי תמונה — מבקש פסקת תיאור עברית קצרה, לא JSON מובנה */
+export function buildJewelryIdentifyPrompt(): string {
+  return "תאר בעברית, בפסקה קצרה אחת (2-3 משפטים), את התכשיט שבתמונה: סוג התכשיט (טבעת/שרשרת/עגילים/צמיד/יהלום בודד וכו'), המתכת, האבן/היהלום המרכזי אם יש (סוג חיתוך אם ניתן לזהות), והסגנון הכללי. תיאור עובדתי בלבד המבוסס על מה שנראה בתמונה — בלי להמציא פרטים שלא ניתן לראות.";
+}

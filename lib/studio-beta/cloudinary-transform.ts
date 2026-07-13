@@ -57,3 +57,79 @@ export function enhanceUploadedVideo(cloudinaryUrl: string): string {
     "e_improve,e_denoise:40,e_sharpen:50,g_center"
   );
 }
+
+export type SourceAspect = "original" | "1:1" | "4:5" | "9:16" | "16:9";
+
+/** חיתוך תמונת המקור ליחס נבחר — ללא AI, חינמי */
+export function cropToAspect(cloudinaryUrl: string, aspect: SourceAspect): string {
+  if (aspect === "original") return cloudinaryUrl;
+  return insertTransform(cloudinaryUrl, `c_fill,g_auto,ar_${aspect}`);
+}
+
+export type SourceAdjustments = {
+  /** -50..50 */
+  brightness: number;
+  /** -50..50 */
+  saturation: number;
+  /** -50..50 */
+  contrast: number;
+  autoEnhance: boolean;
+};
+
+export function areAdjustmentsDefault(adjustments: SourceAdjustments): boolean {
+  return (
+    !adjustments.autoEnhance &&
+    adjustments.brightness === 0 &&
+    adjustments.saturation === 0 &&
+    adjustments.contrast === 0
+  );
+}
+
+/** כיוונון תמונה חינמי (בהירות/רוויה/קונטרסט + שיפור אוטומטי) — ללא AI */
+export function adjustImage(
+  cloudinaryUrl: string,
+  adjustments: SourceAdjustments
+): string {
+  if (areAdjustmentsDefault(adjustments)) return cloudinaryUrl;
+  const parts: string[] = [];
+  if (adjustments.autoEnhance) parts.push("e_improve", "e_sharpen:50");
+  if (adjustments.brightness) parts.push(`e_brightness:${adjustments.brightness}`);
+  if (adjustments.saturation) parts.push(`e_saturation:${adjustments.saturation}`);
+  if (adjustments.contrast) parts.push(`e_contrast:${adjustments.contrast}`);
+  return insertTransform(cloudinaryUrl, parts.join(","));
+}
+
+/**
+ * תמונת המקור בפועל שנשלחת להרכבה — כיוונון + חיתוך יחס יחד. הסדר לא
+ * משפיע כאן על התוצאה החזותית (כיוונון הוא פר-פיקסל, לא תלוי בחיתוך).
+ */
+export function getEffectiveSourceUrl(
+  cloudinaryUrl: string,
+  aspect: SourceAspect,
+  adjustments: SourceAdjustments
+): string {
+  return cropToAspect(adjustImage(cloudinaryUrl, adjustments), aspect);
+}
+
+/** חיתוך וידאו (שניות) — חינמי, לא רלוונטי ל-GIF (Ken Burns) */
+export function trimVideo(
+  cloudinaryUrl: string,
+  startSec: number | null,
+  endSec: number | null
+): string {
+  if (startSec == null && endSec == null) return cloudinaryUrl;
+  const parts: string[] = [];
+  if (startSec != null) parts.push(`so_${startSec}`);
+  if (endSec != null) parts.push(`eo_${endSec}`);
+  return insertTransform(cloudinaryUrl, parts.join(","));
+}
+
+/** השתקת אודיו בווידאו — חינמי */
+export function muteVideo(cloudinaryUrl: string): string {
+  return insertTransform(cloudinaryUrl, "ac_none");
+}
+
+/** מוסיף fl_attachment כדי שהדפדפן יוריד את הקובץ במקום לנסות לפתוח אותו */
+export function withDownloadFlag(cloudinaryUrl: string): string {
+  return insertTransform(cloudinaryUrl, "fl_attachment");
+}

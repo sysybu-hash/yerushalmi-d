@@ -7,7 +7,8 @@ export type AiUsageCapability =
   | "background"
   | "video"
   | "vision"
-  | "text";
+  | "text"
+  | "source-prep";
 
 export type AiUsageProvider = "replicate" | "gemini";
 export type AiUsageMode = "catalog" | "marketing" | "listing";

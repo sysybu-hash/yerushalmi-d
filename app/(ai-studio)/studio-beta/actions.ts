@@ -96,3 +96,25 @@ export async function deleteStudioBetaProject(id: number) {
 
   await db.delete(studioBetaProjects).where(eq(studioBetaProjects.id, id));
 }
+
+/**
+ * מילוי כותרת אוטומטי ב-AI לתמונת תוצאה — שימוש חוזר ב-lib/listing-ai.ts
+ * (אותה פונקציה שסטודיו AI וספריית התוכן כבר קוראים לה), לא pipeline חדש.
+ */
+export async function generateStudioBetaTitle(
+  imageUrl: string
+): Promise<{ title: string }> {
+  await requireAdmin();
+
+  if (!imageUrl.startsWith("https://res.cloudinary.com/")) {
+    throw new Error("נדרשת תמונה שמורה ב-Cloudinary");
+  }
+
+  const { generateListingContent } = await import("@/lib/listing-ai");
+  const result = await generateListingContent({
+    imageUrls: [imageUrl],
+    mode: "fill",
+  });
+
+  return { title: result.title };
+}

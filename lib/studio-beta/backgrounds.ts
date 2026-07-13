@@ -1,4 +1,4 @@
-/** בנק 6 הרקעים הנבחרים לסטודיו בטא — בנוי במלואו (לא stub) */
+/** בנק הרקעים הנבחרים לסטודיו בטא — בנוי במלואו (לא stub) */
 
 export type BackgroundPreset = {
   id: string;
@@ -45,6 +45,42 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
     label: "לייף-סטייל",
     swatch: "#C9B79C",
     hint: "warm natural editorial lighting, soft elegant lifestyle setting",
+  },
+  {
+    id: "midnight-blue",
+    label: "כחול חצות",
+    swatch: "#1B2740",
+    hint: "deep midnight blue gradient backdrop, cool rim light, sharp sparkle highlights on the stones",
+  },
+  {
+    id: "rose-gold-glow",
+    label: "זוהר רוז-גולד",
+    swatch: "#C99383",
+    hint: "soft rose-gold ambient glow, romantic warm haze, delicate blush highlights",
+  },
+  {
+    id: "jerusalem-stone",
+    label: "אבן ירושלמית",
+    swatch: "#D8CBB0",
+    hint: "warm Jerusalem-stone textured surface, golden late-afternoon light, subtle architectural shadow",
+  },
+  {
+    id: "concrete-minimal",
+    label: "בטון מינימלי",
+    swatch: "#A7A39C",
+    hint: "minimal matte concrete surface, soft diffused daylight, clean modern editorial mood",
+  },
+  {
+    id: "mirror-glass",
+    label: "זכוכית מראה",
+    swatch: "#DDE3E6",
+    hint: "reflective glass and mirror surface, crisp cool highlights, subtle geometric reflections",
+  },
+  {
+    id: "botanical-soft",
+    label: "בוטני רך",
+    swatch: "#B7C2A6",
+    hint: "soft blurred botanical greenery backdrop, gentle natural light, airy and fresh mood",
   },
 ];
 

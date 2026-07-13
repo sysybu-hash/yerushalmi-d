@@ -1,15 +1,15 @@
 import Link from "next/link";
-import { FolderHeart, LayoutDashboard, Sparkles } from "lucide-react";
+import { FlaskConical, FolderHeart, LayoutDashboard, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type AiCrossNavProps = {
-  current: "studio" | "content-library";
+  current: "studio" | "studio-beta" | "content-library";
   className?: string;
 };
 
-/** ניווט מהיר בין סטודיו AI, ספריית תוכן וניהול */
+/** ניווט מהיר בין סטודיו AI, סטודיו בטא, ספריית תוכן וניהול */
 export function AiCrossNav({ current, className }: AiCrossNavProps) {
   return (
     <nav
@@ -25,6 +25,17 @@ export function AiCrossNav({ current, className }: AiCrossNavProps) {
         <Link href="/studio">
           <Sparkles className="ml-1.5 h-3.5 w-3.5" strokeWidth={1.5} />
           סטודיו AI
+        </Link>
+      </Button>
+      <Button
+        asChild
+        variant={current === "studio-beta" ? "secondary" : "ghost"}
+        size="sm"
+        className="rounded-none text-xs font-light tracking-[0.08em]"
+      >
+        <Link href="/studio-beta">
+          <FlaskConical className="ml-1.5 h-3.5 w-3.5" strokeWidth={1.5} />
+          סטודיו בטא
         </Link>
       </Button>
       <Button

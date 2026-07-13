@@ -1,5 +1,5 @@
-import Link from "next/link";
-import { ArrowRight, FlaskConical } from "lucide-react";
+import { FlaskConical } from "lucide-react";
+import { AiCrossNav } from "@/components/workspace/ai-cross-nav";
 
 export const metadata = { title: "סטודיו בטא" };
 
@@ -27,13 +27,7 @@ export default function StudioBetaLayout({
               סטודיו בטא
             </span>
           </div>
-          <Link
-            href="/workspace"
-            className="inline-flex items-center text-xs font-light tracking-[0.1em] text-muted-foreground hover:text-foreground"
-          >
-            <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-            חזרה לניהול
-          </Link>
+          <AiCrossNav current="studio-beta" />
         </div>
       </header>
 

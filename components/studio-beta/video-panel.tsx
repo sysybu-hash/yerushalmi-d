@@ -4,12 +4,15 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { EnginePicker } from "@/components/studio-beta/engine-picker";
+import { ToggleChip } from "@/components/studio/studio-adjust-ui";
+import { AttemptsRail } from "@/components/studio-beta/attempts-rail";
 import { useStudioBetaStore } from "@/lib/studio-beta/store";
 import {
   VIDEO_ENGINES,
   estimateEngineCostUsd,
   type ProvidersConfigured,
 } from "@/lib/studio-beta/engines";
+import { VIDEO_PROMPT_EXAMPLES } from "@/lib/studio-beta/prompt-examples";
 import { cn } from "@/lib/utils";
 
 const DURATIONS = [4, 6, 8];
@@ -19,6 +22,8 @@ export function VideoPanel({ providers }: { providers: ProvidersConfigured }) {
   const setVideoEngine = useStudioBetaStore((s) => s.setVideoEngine);
   const setVideoDuration = useStudioBetaStore((s) => s.setVideoDuration);
   const setVideoCustomPrompt = useStudioBetaStore((s) => s.setVideoCustomPrompt);
+  const setVideoNegativePrompt = useStudioBetaStore((s) => s.setVideoNegativePrompt);
+  const setVideoGenerateAudio = useStudioBetaStore((s) => s.setVideoGenerateAudio);
   const runVideo = useStudioBetaStore((s) => s.runVideo);
 
   const loading = video.status === "loading";
@@ -61,13 +66,49 @@ export function VideoPanel({ providers }: { providers: ProvidersConfigured }) {
         </div>
       </div>
 
-      <Textarea
-        value={video.customPrompt}
-        onChange={(event) => setVideoCustomPrompt(event.target.value)}
-        placeholder="הנחיה נוספת לווידאו (אופציונלי)"
-        className="rounded-none text-sm"
-        rows={2}
-      />
+      <div>
+        <Textarea
+          value={video.customPrompt}
+          onChange={(event) => setVideoCustomPrompt(event.target.value)}
+          placeholder="הנחיה נוספת לווידאו (אופציונלי)"
+          className="rounded-none text-sm"
+          rows={2}
+        />
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {VIDEO_PROMPT_EXAMPLES.map((example) => (
+            <button
+              key={example}
+              type="button"
+              onClick={() => setVideoCustomPrompt(example)}
+              className="border border-border/60 px-2 py-1 text-[11px] font-light text-muted-foreground transition-colors hover:border-gold/60 hover:text-foreground"
+            >
+              {example}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {video.engine === "kling-v3" && (
+        <div className="space-y-2.5">
+          <details className="group">
+            <summary className="cursor-pointer text-[11px] font-light text-muted-foreground hover:text-foreground">
+              מה להימנע ממנו (אופציונלי)
+            </summary>
+            <Textarea
+              value={video.negativePrompt}
+              onChange={(event) => setVideoNegativePrompt(event.target.value)}
+              placeholder="לדוגמה: ללא סיבוב מצלמה מהיר"
+              className="mt-1.5 rounded-none text-sm"
+              rows={2}
+            />
+          </details>
+          <ToggleChip
+            label="אודיו טבעי"
+            active={video.generateAudio}
+            onClick={() => setVideoGenerateAudio(!video.generateAudio)}
+          />
+        </div>
+      )}
 
       <Button
         type="button"
@@ -100,6 +141,8 @@ export function VideoPanel({ providers }: { providers: ProvidersConfigured }) {
           className="max-h-[420px] w-full border border-border/60"
         />
       )}
+
+      <AttemptsRail kind="video" />
     </div>
   );
 }

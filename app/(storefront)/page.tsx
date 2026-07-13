@@ -230,7 +230,7 @@ export default async function HomePage() {
                     </Link>
                   </div>
 
-                  <div className="grid gap-4 sm:grid-cols-2 lg:max-w-3xl">
+                  <div className="grid grid-cols-2 gap-4 lg:max-w-3xl">
                     {group.products.map((product) => (
                       <ProductCard key={product.id} product={product} />
                     ))}

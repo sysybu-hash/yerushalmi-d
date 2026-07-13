@@ -19,6 +19,8 @@ type Body = {
   durationSec?: number;
   customPrompt?: string | null;
   mode?: "catalog" | "marketing";
+  negativePrompt?: string | null;
+  generateAudio?: boolean;
 };
 
 const HTTP_STATUS_FOR_CODE: Record<StudioBetaError["code"], number> = {
@@ -54,6 +56,8 @@ export async function POST(request: NextRequest) {
     body.imageUrl,
     durationSec,
     body.customPrompt ?? "",
+    body.negativePrompt ?? "",
+    Boolean(body.generateAudio),
     mode,
   ]);
 
@@ -81,6 +85,8 @@ export async function POST(request: NextRequest) {
       durationSec,
       customPrompt: body.customPrompt ?? null,
       mode,
+      negativePrompt: body.negativePrompt ?? null,
+      generateAudio: Boolean(body.generateAudio),
     });
     await completeLock(lockKey, result);
     return NextResponse.json({ ok: true, ...result, cached: false });

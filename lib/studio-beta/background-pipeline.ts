@@ -1,6 +1,6 @@
 import { estimateCostUsd } from "@/lib/ai-cost-rates";
 import { trackAiUsage } from "@/lib/ai-usage";
-import { attemptCutout } from "@/lib/studio-beta/cutout";
+import { attemptCutout, type CutoutResult } from "@/lib/studio-beta/cutout";
 import {
   compositeOnBackground,
   generateProceduralBackground,
@@ -34,6 +34,8 @@ export type BackgroundPipelineInput = {
   presetId: string | null;
   customPrompt: string | null;
   mode: "catalog" | "marketing";
+  /** בידוד שכבר בוצע ואושר ידנית (שער ה-cutout) — מדלג על attemptCutout הפנימי */
+  precomputedCutoutUrl?: string | null;
 };
 
 export type BackgroundPipelineResult = {
@@ -135,37 +137,45 @@ export async function runBackgroundPipeline(
     };
   }
 
-  const backgroundBuffer = await (async () => {
-    if (input.engine === "procedural") {
-      return generateProceduralBackground();
-    }
-    // sdxl דורש version מוצמד — ה-owner/name הגולמי מחזיר 404 ב-Replicate
-    const model =
-      input.engine === "flux-schnell"
-        ? "black-forest-labs/flux-schnell"
-        : "stability-ai/sdxl:7762fd07cf82c948538e41f63f77d685e02b063e37e496e96eefd46c929f9bdc";
-    const output = await runReplicateModel(
-      model,
-      input.engine === "flux-schnell"
-        ? { prompt: buildBackgroundOnlyPrompt(hint) }
-        : {
-            prompt: buildBackgroundOnlyPrompt(hint),
-            negative_prompt: BACKGROUND_ONLY_NEGATIVE_PROMPT,
-            width: 1024,
-            height: 1024,
-          }
-    );
-    const url = firstUrlFromOutput(output);
-    if (!url) {
-      throw new StudioBetaError(
-        "PROVIDER_ERROR",
-        `${engine.label} לא החזיר תמונה`
+  const { buffer: backgroundBuffer, predictTimeSec: backgroundPredictTimeSec } =
+    await (async () => {
+      if (input.engine === "procedural") {
+        return { buffer: await generateProceduralBackground(), predictTimeSec: null };
+      }
+      // sdxl דורש version מוצמד — ה-owner/name הגולמי מחזיר 404 ב-Replicate
+      const model =
+        input.engine === "flux-schnell"
+          ? "black-forest-labs/flux-schnell"
+          : "stability-ai/sdxl:7762fd07cf82c948538e41f63f77d685e02b063e37e496e96eefd46c929f9bdc";
+      const { output, predictTimeSec } = await runReplicateModel(
+        model,
+        input.engine === "flux-schnell"
+          ? { prompt: buildBackgroundOnlyPrompt(hint) }
+          : {
+              prompt: buildBackgroundOnlyPrompt(hint),
+              negative_prompt: BACKGROUND_ONLY_NEGATIVE_PROMPT,
+              width: 1024,
+              height: 1024,
+            }
       );
-    }
-    return downloadAsBuffer(url);
-  })();
+      const url = firstUrlFromOutput(output);
+      if (!url) {
+        throw new StudioBetaError(
+          "PROVIDER_ERROR",
+          `${engine.label} לא החזיר תמונה`
+        );
+      }
+      return { buffer: await downloadAsBuffer(url), predictTimeSec };
+    })();
 
-  const cutout = await attemptCutout(input.sourceImageUrl, input.mode);
+  const cutout: CutoutResult = input.precomputedCutoutUrl
+    ? {
+        url: input.precomputedCutoutUrl,
+        method: "manual",
+        modelId: "manual-cutout-gate",
+        costUsd: 0,
+      }
+    : await attemptCutout(input.sourceImageUrl, input.mode);
 
   if (cutout) {
     const cutoutBuffer = await downloadAsBuffer(cutout.url);
@@ -182,14 +192,14 @@ export async function runBackgroundPipeline(
         modelId: engine.costModelId,
         mode: input.mode,
         success: true,
-        metadata: { app: "studio-beta" },
+        metadata: { app: "studio-beta", predictTimeSec: backgroundPredictTimeSec },
       });
     }
     return {
       resultUrl: uploaded.url,
       engine: input.engine,
       modelId: engine.costModelId ?? "procedural",
-      costUsd: estimateCostUsd(engine.costModelId ?? "", null),
+      costUsd: estimateCostUsd(engine.costModelId ?? "", backgroundPredictTimeSec),
       usedCutout: true,
       fallbackNote: null,
     };

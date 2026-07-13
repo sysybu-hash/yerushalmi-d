@@ -61,6 +61,12 @@ type GeminiGenerateContentResponse = {
   candidates?: Array<{ content?: { parts?: GeminiContentPart[] } }>;
 };
 
+type GeminiTextPart = { text?: string };
+
+type GeminiGenerateTextResponse = {
+  candidates?: Array<{ content?: { parts?: GeminiTextPart[] } }>;
+};
+
 type GeminiOperationStart = { name?: string };
 
 type GeminiOperationStatus = {
@@ -124,6 +130,54 @@ export async function generateOrEditImage(
   throw lastError instanceof StudioBetaError
     ? lastError
     : mapProviderError("Gemini", lastError);
+}
+
+const GEMINI_VISION_MODEL = "gemini-3.5-flash";
+
+type ImageAnalyzeInput = {
+  prompt: string;
+  /** data URI מלא (data:image/png;base64,...) של תמונת הקלט */
+  imageDataUri: string;
+};
+
+/** ניתוח תמונה — מחזיר טקסט תיאורי (לא תמונה), למשל זיהוי תכשיט */
+export async function analyzeImage(
+  input: ImageAnalyzeInput
+): Promise<{ text: string; modelId: string }> {
+  const apiKey = getApiKey();
+  const [, mimeType, base64] =
+    input.imageDataUri.match(/^data:([^;]+);base64,([\s\S]+)$/) ?? [];
+  if (!base64) {
+    throw new StudioBetaError("VALIDATION", "תמונת קלט לא תקינה לניתוח");
+  }
+
+  const json = await fetchJson<GeminiGenerateTextResponse>(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_VISION_MODEL}:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              { text: input.prompt },
+              { inlineData: { mimeType, data: base64 } },
+            ],
+          },
+        ],
+      }),
+    }
+  );
+
+  const text = json?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+  if (!text) {
+    throw new StudioBetaError(
+      "PROVIDER_ERROR",
+      `תגובת Gemini (${GEMINI_VISION_MODEL}) ללא טקסט`
+    );
+  }
+
+  return { text, modelId: GEMINI_VISION_MODEL };
 }
 
 type VeoInput = {

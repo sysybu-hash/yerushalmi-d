@@ -1,12 +1,55 @@
 import { create } from "zustand";
-import type { BackgroundEngineId, VideoEngineId } from "@/lib/studio-beta/engines";
+import {
+  getBackgroundEngine,
+  getVideoEngine,
+  type BackgroundEngineId,
+  type VideoEngineId,
+} from "@/lib/studio-beta/engines";
 import { BACKGROUND_PRESETS } from "@/lib/studio-beta/backgrounds";
+import type { SourcePrepPresetId } from "@/lib/studio-beta/source-prep-pipeline";
+import {
+  getEffectiveSourceUrl,
+  trimVideo,
+  muteVideo,
+  enhanceUploadedVideo,
+  type SourceAspect,
+  type SourceAdjustments,
+} from "@/lib/studio-beta/cloudinary-transform";
 import {
   saveStudioBetaAsset,
   saveStudioBetaProject,
 } from "@/app/(ai-studio)/studio-beta/actions";
 
+/** תמונת המקור בפועל (אחרי חיתוך/כיוונון) — לשימוש בתצוגה מקדימה וב-payload */
+export function selectEffectiveSourceUrl(state: {
+  sourceImageUrl: string | null;
+  sourceAspect: SourceAspect;
+  sourceAdjustments: SourceAdjustments;
+}): string | null {
+  if (!state.sourceImageUrl) return null;
+  return getEffectiveSourceUrl(
+    state.sourceImageUrl,
+    state.sourceAspect,
+    state.sourceAdjustments
+  );
+}
+
 type StepStatus = "idle" | "loading" | "done" | "error";
+
+/** תקרת מספר ניסיונות שמורים במסילה — קטן מ-40 של v2, בטא נשאר קליל יותר */
+const MAX_ATTEMPTS = 20;
+
+type Attempt = {
+  id: string;
+  kind: "background" | "video";
+  url: string;
+  label: string;
+  engine: string;
+  modelId: string | null;
+  costUsd: number;
+  mediaKind?: "video" | "gif";
+  createdAt: number;
+};
 
 type BackgroundState = {
   engine: BackgroundEngineId;
@@ -21,22 +64,59 @@ type BackgroundState = {
   error: string | null;
 };
 
+type VideoTrimState = {
+  startSec: number | null;
+  endSec: number | null;
+  mute: boolean;
+  /** שיפור וידאו חינמי (Cloudinary — חידוד ומניעת רעש), לא AI */
+  enhance: boolean;
+};
+
 type VideoState = {
   engine: VideoEngineId;
   durationSec: number;
   customPrompt: string;
+  /** מוחל רק כשהמנוע Kling — לשאר המנועים אין תמיכה בפרמטר הזה */
+  negativePrompt: string;
+  /** אודיו טבעי שנוצר ע"י המודל — Kling בלבד */
+  generateAudio: boolean;
   url: string | null;
   modelId: string | null;
   costUsd: number;
   mediaKind: "video" | "gif" | null;
   status: StepStatus;
   error: string | null;
+  trim: VideoTrimState;
 };
 
 type SaveState = {
   status: StepStatus;
   error: string | null;
   assetId: number | null;
+};
+
+type CutoutState = {
+  status: StepStatus;
+  url: string | null;
+  costUsd: number;
+  error: string | null;
+  /** אישור ידני של המשתמש לפני שממשיכים להרכבה */
+  approved: boolean;
+};
+
+type SourcePrepState = {
+  status: StepStatus;
+  error: string | null;
+  costUsd: number;
+  appliedLabel: string | null;
+};
+
+type IdentifyState = {
+  status: StepStatus;
+  description: string | null;
+  modelId: string | null;
+  costUsd: number;
+  error: string | null;
 };
 
 type OutputChoice = "image" | "video" | null;
@@ -46,12 +126,20 @@ export type StudioBetaProjectState = {
   currentStep: 1 | 2 | 3 | 4;
   maxStepReached: 1 | 2 | 3 | 4;
   sourceImageUrl: string | null;
+  /** התמונה כפי שהועלתה במקור — לפני כל הכנת מקור ב-AI, לצורך "שחזר למקור" */
+  originalSourceImageUrl: string | null;
+  sourceAspect: SourceAspect;
+  sourceAdjustments: SourceAdjustments;
+  sourcePrep: SourcePrepState;
+  identify: IdentifyState;
+  cutout: CutoutState;
   background: BackgroundState;
   outputChoice: OutputChoice;
   video: VideoState;
   imageSave: SaveState;
   videoSave: SaveState;
   sessionCostUsd: number;
+  attempts: Attempt[];
 };
 
 function initialBackgroundState(): BackgroundState {
@@ -69,17 +157,24 @@ function initialBackgroundState(): BackgroundState {
   };
 }
 
+function initialVideoTrim(): VideoTrimState {
+  return { startSec: null, endSec: null, mute: false, enhance: false };
+}
+
 function initialVideoState(): VideoState {
   return {
     engine: "cloudinary-preserve",
     durationSec: 8,
     customPrompt: "",
+    negativePrompt: "",
+    generateAudio: false,
     url: null,
     modelId: null,
     costUsd: 0,
     mediaKind: null,
     status: "idle",
     error: null,
+    trim: initialVideoTrim(),
   };
 }
 
@@ -87,10 +182,33 @@ function initialSaveState(): SaveState {
   return { status: "idle", error: null, assetId: null };
 }
 
+function initialSourceAdjustments(): SourceAdjustments {
+  return { brightness: 0, saturation: 0, contrast: 0, autoEnhance: false };
+}
+
+function initialCutoutState(): CutoutState {
+  return { status: "idle", url: null, costUsd: 0, error: null, approved: false };
+}
+
+function initialSourcePrepState(): SourcePrepState {
+  return { status: "idle", error: null, costUsd: 0, appliedLabel: null };
+}
+
+function initialIdentifyState(): IdentifyState {
+  return { status: "idle", description: null, modelId: null, costUsd: 0, error: null };
+}
+
 type StudioBetaState = {
   currentStep: 1 | 2 | 3 | 4;
   sourceImageUrl: string | null;
+  originalSourceImageUrl: string | null;
   resetNotice: string | null;
+
+  sourceAspect: SourceAspect;
+  sourceAdjustments: SourceAdjustments;
+  sourcePrep: SourcePrepState;
+  identify: IdentifyState;
+  cutout: CutoutState;
 
   background: BackgroundState;
   outputChoice: OutputChoice;
@@ -101,11 +219,17 @@ type StudioBetaState = {
 
   sessionCostUsd: number;
 
+  /** מסילת ניסיונות — כל רקע/וידאו שנוצר בהצלחה, לא רק התוצאה הנוכחית */
+  attempts: Attempt[];
+
   /** מזהה הפרויקט השמור המשויך לעבודה הנוכחית, אם נטען/נשמר כבר */
   currentProjectId: number | null;
 
   /** השלב הרחוק ביותר שכבר הושג — קובע אילו לשוניות בכותרת ניתנות ללחיצה */
   maxStepReached: 1 | 2 | 3 | 4;
+
+  selectAttempt: (id: string) => void;
+  deleteAttempt: (id: string) => void;
 
   setSourceImage: (url: string) => void;
   dismissResetNotice: () => void;
@@ -113,6 +237,27 @@ type StudioBetaState = {
     id: number;
     state: StudioBetaProjectState;
   }) => void;
+
+  setSourceAspect: (aspect: SourceAspect) => void;
+  setSourceAdjustment: (
+    key: "brightness" | "saturation" | "contrast",
+    value: number
+  ) => void;
+  setAutoEnhance: (enabled: boolean) => void;
+  resetSourceAdjustments: () => void;
+
+  runSourcePrep: (
+    presetId: SourcePrepPresetId | null,
+    customPrompt: string | null,
+    label: string
+  ) => Promise<void>;
+  revertToOriginalSource: () => void;
+
+  runIdentify: () => Promise<void>;
+
+  runCutout: () => Promise<void>;
+  retryCutout: () => Promise<void>;
+  approveCutout: () => void;
 
   setBackgroundEngine: (engine: BackgroundEngineId) => void;
   setBackgroundPreset: (presetId: string) => void;
@@ -126,10 +271,15 @@ type StudioBetaState = {
   setVideoEngine: (engine: VideoEngineId) => void;
   setVideoDuration: (sec: number) => void;
   setVideoCustomPrompt: (text: string) => void;
+  setVideoNegativePrompt: (text: string) => void;
+  setVideoGenerateAudio: (enabled: boolean) => void;
+  setVideoTrim: (startSec: number | null, endSec: number | null) => void;
+  setVideoMute: (mute: boolean) => void;
+  setVideoEnhance: (enhance: boolean) => void;
   runVideo: () => Promise<void>;
 
-  saveImageToLibrary: () => Promise<void>;
-  saveVideoToLibrary: () => Promise<void>;
+  saveImageToLibrary: (title?: string) => Promise<void>;
+  saveVideoToLibrary: (title?: string) => Promise<void>;
   startOver: () => void;
 };
 
@@ -147,12 +297,19 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
         currentStep: state.currentStep,
         maxStepReached: state.maxStepReached,
         sourceImageUrl: state.sourceImageUrl,
+        originalSourceImageUrl: state.originalSourceImageUrl,
+        sourceAspect: state.sourceAspect,
+        sourceAdjustments: state.sourceAdjustments,
+        sourcePrep: state.sourcePrep,
+        identify: state.identify,
+        cutout: state.cutout,
         background: state.background,
         outputChoice: state.outputChoice,
         video: state.video,
         imageSave: state.imageSave,
         videoSave: state.videoSave,
         sessionCostUsd: state.sessionCostUsd,
+        attempts: state.attempts,
       };
       const result = await saveStudioBetaProject({
         id: state.currentProjectId,
@@ -166,10 +323,30 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
     }
   };
 
+  /** מוסיף ניסיון חדש למסילה — דה-דופ לפי URL, תקרה MAX_ATTEMPTS */
+  const pushAttempt = (attempt: Omit<Attempt, "id" | "createdAt">) => {
+    set((s) => {
+      if (s.attempts.some((a) => a.url === attempt.url)) return {};
+      const next: Attempt = {
+        ...attempt,
+        id: crypto.randomUUID(),
+        createdAt: Date.now(),
+      };
+      return { attempts: [next, ...s.attempts].slice(0, MAX_ATTEMPTS) };
+    });
+  };
+
   return {
     currentStep: 1,
     sourceImageUrl: null,
+    originalSourceImageUrl: null,
     resetNotice: null,
+
+    sourceAspect: "original",
+    sourceAdjustments: initialSourceAdjustments(),
+    sourcePrep: initialSourcePrepState(),
+    identify: initialIdentifyState(),
+    cutout: initialCutoutState(),
 
     background: initialBackgroundState(),
     outputChoice: null,
@@ -179,12 +356,48 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
     videoSave: initialSaveState(),
 
     sessionCostUsd: 0,
+    attempts: [],
     currentProjectId: null,
     maxStepReached: 1,
+
+    selectAttempt: (id) =>
+      set((state) => {
+        const attempt = state.attempts.find((a) => a.id === id);
+        if (!attempt) return {};
+        if (attempt.kind === "background") {
+          return {
+            background: {
+              ...state.background,
+              status: "done",
+              url: attempt.url,
+              engine: attempt.engine as BackgroundEngineId,
+              modelId: attempt.modelId,
+              costUsd: attempt.costUsd,
+            },
+          };
+        }
+        return {
+          video: {
+            ...state.video,
+            status: "done",
+            url: attempt.url,
+            engine: attempt.engine as VideoEngineId,
+            modelId: attempt.modelId,
+            costUsd: attempt.costUsd,
+            mediaKind: attempt.mediaKind ?? "video",
+          },
+        };
+      }),
+
+    deleteAttempt: (id) =>
+      set((state) => ({
+        attempts: state.attempts.filter((a) => a.id !== id),
+      })),
 
     setSourceImage: (url) => {
       set((state) => ({
         sourceImageUrl: url,
+        originalSourceImageUrl: url,
         currentStep: 2,
         maxStepReached: 2,
         currentProjectId: null,
@@ -192,9 +405,15 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
           state.sourceImageUrl !== null
             ? "התמונה הוחלפה — הרקע והווידאו אופסו"
             : null,
+        sourceAspect: "original",
+        sourceAdjustments: initialSourceAdjustments(),
+        sourcePrep: initialSourcePrepState(),
+        identify: initialIdentifyState(),
+        cutout: initialCutoutState(),
         background: initialBackgroundState(),
         outputChoice: null,
         video: initialVideoState(),
+        attempts: [],
         imageSave: initialSaveState(),
         videoSave: initialSaveState(),
       }));
@@ -203,14 +422,197 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
 
     dismissResetNotice: () => set({ resetNotice: null }),
 
+    /**
+     * מיזוג מוגן-ברירת-מחדל, לא spread גולמי: פרויקטים שנשמרו לפני
+     * שדה חדש נוסף (למשל sourceAspect/videoTrim) יקבלו את ברירת המחדל
+     * הנוכחית של אותו שדה במקום undefined.
+     */
     hydrateFromProject: (project) => {
+      const s = project.state;
       set({
         currentProjectId: project.id,
         resetNotice: null,
-        ...project.state,
-        maxStepReached: project.state.maxStepReached ?? project.state.currentStep,
+        currentStep: s.currentStep,
+        maxStepReached: s.maxStepReached ?? s.currentStep,
+        sourceImageUrl: s.sourceImageUrl,
+        originalSourceImageUrl: s.originalSourceImageUrl ?? s.sourceImageUrl,
+        sourceAspect: s.sourceAspect ?? "original",
+        sourceAdjustments: {
+          ...initialSourceAdjustments(),
+          ...s.sourceAdjustments,
+        },
+        sourcePrep: { ...initialSourcePrepState(), ...s.sourcePrep },
+        identify: { ...initialIdentifyState(), ...s.identify },
+        cutout: { ...initialCutoutState(), ...s.cutout },
+        outputChoice: s.outputChoice,
+        sessionCostUsd: s.sessionCostUsd,
+        attempts: s.attempts ?? [],
+        background: { ...initialBackgroundState(), ...s.background },
+        video: {
+          ...initialVideoState(),
+          ...s.video,
+          trim: { ...initialVideoTrim(), ...s.video?.trim },
+        },
+        imageSave: { ...initialSaveState(), ...s.imageSave },
+        videoSave: { ...initialSaveState(), ...s.videoSave },
       });
     },
+
+    setSourceAspect: (aspect) => set({ sourceAspect: aspect }),
+
+    setSourceAdjustment: (key, value) =>
+      set((state) => ({
+        sourceAdjustments: { ...state.sourceAdjustments, [key]: value },
+      })),
+
+    setAutoEnhance: (enabled) =>
+      set((state) => ({
+        sourceAdjustments: { ...state.sourceAdjustments, autoEnhance: enabled },
+      })),
+
+    resetSourceAdjustments: () =>
+      set({ sourceAdjustments: initialSourceAdjustments() }),
+
+    /**
+     * הכנת מקור ב-AI (השלמת קצוות/ניקוי רקע/חידוד) — מחליפה את
+     * sourceImageUrl בתוצאה, אבל originalSourceImageUrl נשאר כפי שהועלה
+     * במקור כדי לאפשר "שחזר למקור" בכל שלב.
+     */
+    runSourcePrep: async (presetId, customPrompt, label) => {
+      const state = get();
+      if (!state.sourceImageUrl) return;
+      set((s) => ({
+        sourcePrep: { ...s.sourcePrep, status: "loading", error: null },
+      }));
+      try {
+        const response = await fetch("/api/studio-beta/source-prep", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sourceImageUrl: state.sourceImageUrl,
+            presetId,
+            customPrompt,
+          }),
+        });
+        const json = await response.json();
+        if (!json.ok) throw new Error(json.error ?? "הכנת המקור נכשלה");
+        set((s) => ({
+          sourceImageUrl: json.resultUrl,
+          sourcePrep: {
+            status: "done",
+            error: null,
+            costUsd: json.costUsd ?? 0,
+            appliedLabel: label,
+          },
+          sessionCostUsd: json.cached
+            ? s.sessionCostUsd
+            : s.sessionCostUsd + (json.costUsd ?? 0),
+        }));
+      } catch (error) {
+        set((s) => ({
+          sourcePrep: {
+            ...s.sourcePrep,
+            status: "error",
+            error: error instanceof Error ? error.message : "שגיאה לא צפויה",
+          },
+        }));
+      }
+    },
+
+    revertToOriginalSource: () =>
+      set((state) => {
+        if (!state.originalSourceImageUrl) return {};
+        return {
+          sourceImageUrl: state.originalSourceImageUrl,
+          sourcePrep: initialSourcePrepState(),
+        };
+      }),
+
+    /** זיהוי תמונה ב-AI — תיאור חופשי בעברית, לא משנה שום דבר בתמונה עצמה */
+    runIdentify: async () => {
+      const state = get();
+      if (!state.sourceImageUrl) return;
+      set((s) => ({ identify: { ...s.identify, status: "loading", error: null } }));
+      try {
+        const response = await fetch("/api/studio-beta/identify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sourceImageUrl: state.sourceImageUrl }),
+        });
+        const json = await response.json();
+        if (!json.ok) throw new Error(json.error ?? "זיהוי התמונה נכשל");
+        set((s) => ({
+          identify: {
+            status: "done",
+            description: json.description,
+            modelId: json.modelId ?? null,
+            costUsd: json.costUsd ?? 0,
+            error: null,
+          },
+          sessionCostUsd: json.cached
+            ? s.sessionCostUsd
+            : s.sessionCostUsd + (json.costUsd ?? 0),
+        }));
+      } catch (error) {
+        set((s) => ({
+          identify: {
+            ...s.identify,
+            status: "error",
+            error: error instanceof Error ? error.message : "שגיאה לא צפויה",
+          },
+        }));
+      }
+    },
+
+    /** שער בידוד ידני — נעשה כפעולה עצמאית, לפני הרכבת הרקע */
+    runCutout: async () => {
+      const state = get();
+      if (!state.sourceImageUrl) return;
+      const effectiveSourceUrl = getEffectiveSourceUrl(
+        state.sourceImageUrl,
+        state.sourceAspect,
+        state.sourceAdjustments
+      );
+      set((s) => ({
+        cutout: { ...s.cutout, status: "loading", error: null, approved: false },
+      }));
+      try {
+        const response = await fetch("/api/studio-beta/cutout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sourceImageUrl: effectiveSourceUrl }),
+        });
+        const json = await response.json();
+        if (!json.ok) throw new Error(json.error ?? "הבידוד נכשל");
+        set((s) => ({
+          cutout: {
+            status: "done",
+            url: json.url,
+            costUsd: json.costUsd ?? 0,
+            error: null,
+            approved: false,
+          },
+          sessionCostUsd: json.cached
+            ? s.sessionCostUsd
+            : s.sessionCostUsd + (json.costUsd ?? 0),
+        }));
+      } catch (error) {
+        set((s) => ({
+          cutout: {
+            ...s.cutout,
+            status: "error",
+            error: error instanceof Error ? error.message : "שגיאה לא צפויה",
+          },
+        }));
+      }
+    },
+
+    retryCutout: async () => {
+      await get().runCutout();
+    },
+
+    approveCutout: () =>
+      set((state) => ({ cutout: { ...state.cutout, approved: true } })),
 
     setBackgroundEngine: (engine) =>
       set((state) => ({ background: { ...state.background, engine } })),
@@ -226,16 +628,27 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
     runBackground: async () => {
       const state = get();
       if (!state.sourceImageUrl) return;
+      const effectiveSourceUrl = getEffectiveSourceUrl(
+        state.sourceImageUrl,
+        state.sourceAspect,
+        state.sourceAdjustments
+      );
+      const engineDef = getBackgroundEngine(state.background.engine);
+      const useApprovedCutout =
+        Boolean(engineDef?.usesCutout) &&
+        state.cutout.status === "done" &&
+        state.cutout.approved;
       set((s) => ({ background: { ...s.background, status: "loading", error: null } }));
       try {
         const response = await fetch("/api/studio-beta/background", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            sourceImageUrl: state.sourceImageUrl,
+            sourceImageUrl: effectiveSourceUrl,
             engine: state.background.engine,
             presetId: state.background.presetId,
             customPrompt: state.background.customPrompt || null,
+            cutoutUrl: useApprovedCutout ? state.cutout.url : null,
           }),
         });
         const json = await response.json();
@@ -255,6 +668,14 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
             ? s.sessionCostUsd
             : s.sessionCostUsd + (json.costUsd ?? 0),
         }));
+        pushAttempt({
+          kind: "background",
+          url: json.resultUrl,
+          label: engineDef?.label ?? state.background.engine,
+          engine: state.background.engine,
+          modelId: json.modelId ?? null,
+          costUsd: json.costUsd ?? 0,
+        });
         void persistProject();
       } catch (error) {
         set((s) => ({
@@ -304,6 +725,27 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
     setVideoCustomPrompt: (text) =>
       set((state) => ({ video: { ...state.video, customPrompt: text } })),
 
+    setVideoNegativePrompt: (text) =>
+      set((state) => ({ video: { ...state.video, negativePrompt: text } })),
+
+    setVideoGenerateAudio: (enabled) =>
+      set((state) => ({ video: { ...state.video, generateAudio: enabled } })),
+
+    setVideoTrim: (startSec, endSec) =>
+      set((state) => ({
+        video: { ...state.video, trim: { ...state.video.trim, startSec, endSec } },
+      })),
+
+    setVideoMute: (mute) =>
+      set((state) => ({
+        video: { ...state.video, trim: { ...state.video.trim, mute } },
+      })),
+
+    setVideoEnhance: (enhance) =>
+      set((state) => ({
+        video: { ...state.video, trim: { ...state.video.trim, enhance } },
+      })),
+
     runVideo: async () => {
       const state = get();
       const imageUrl = state.background.url ?? state.sourceImageUrl;
@@ -318,6 +760,8 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
             engine: state.video.engine,
             durationSec: state.video.durationSec,
             customPrompt: state.video.customPrompt || null,
+            negativePrompt: state.video.negativePrompt || null,
+            generateAudio: state.video.generateAudio,
           }),
         });
         const json = await response.json();
@@ -330,6 +774,7 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
             modelId: json.modelId,
             costUsd: json.costUsd ?? 0,
             mediaKind: json.mediaKind ?? "video",
+            trim: initialVideoTrim(),
           },
           videoSave: initialSaveState(),
           currentStep: 4,
@@ -338,6 +783,15 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
             ? s.sessionCostUsd
             : s.sessionCostUsd + (json.costUsd ?? 0),
         }));
+        pushAttempt({
+          kind: "video",
+          url: json.resultUrl,
+          label: getVideoEngine(state.video.engine)?.label ?? state.video.engine,
+          engine: state.video.engine,
+          modelId: json.modelId ?? null,
+          costUsd: json.costUsd ?? 0,
+          mediaKind: json.mediaKind ?? "video",
+        });
         void persistProject();
       } catch (error) {
         set((s) => ({
@@ -354,7 +808,7 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
      * שמירת התמונה והווידאו הן פעולות עצמאיות זו מזו: שמירת אחת אינה
      * "נועלת" את האפשרות להמשיך ליצור/לשמור את השנייה — אין מסך סופי.
      */
-    saveImageToLibrary: async () => {
+    saveImageToLibrary: async (title) => {
       const state = get();
       const url = state.background.url;
       if (!state.sourceImageUrl || !url) return;
@@ -364,6 +818,7 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
           mediaType: "image",
           originalUrl: state.sourceImageUrl,
           generatedUrl: url,
+          title: title?.trim() || null,
         });
         set({ imageSave: { status: "done", error: null, assetId: result.id } });
         void persistProject();
@@ -378,16 +833,25 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
       }
     },
 
-    saveVideoToLibrary: async () => {
+    saveVideoToLibrary: async (title) => {
       const state = get();
       const url = state.video.url;
       if (!state.sourceImageUrl || !url) return;
+      const isRealVideo = state.video.mediaKind === "video";
+      const trim = state.video.trim;
+      let finalUrl = url;
+      if (isRealVideo) {
+        if (trim.enhance) finalUrl = enhanceUploadedVideo(finalUrl);
+        if (trim.mute) finalUrl = muteVideo(finalUrl);
+        finalUrl = trimVideo(finalUrl, trim.startSec, trim.endSec);
+      }
       set({ videoSave: { status: "loading", error: null, assetId: null } });
       try {
         const result = await saveStudioBetaAsset({
-          mediaType: state.video.mediaKind === "video" ? "video" : "image",
+          mediaType: isRealVideo ? "video" : "image",
           originalUrl: state.sourceImageUrl,
-          generatedUrl: url,
+          generatedUrl: finalUrl,
+          title: title?.trim() || null,
         });
         set({ videoSave: { status: "done", error: null, assetId: result.id } });
         void persistProject();
@@ -407,10 +871,17 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
         currentStep: 1,
         maxStepReached: 1,
         sourceImageUrl: null,
+        originalSourceImageUrl: null,
         resetNotice: null,
+        sourceAspect: "original",
+        sourceAdjustments: initialSourceAdjustments(),
+        sourcePrep: initialSourcePrepState(),
+        identify: initialIdentifyState(),
+        cutout: initialCutoutState(),
         background: initialBackgroundState(),
         outputChoice: null,
         video: initialVideoState(),
+        attempts: [],
         imageSave: initialSaveState(),
         videoSave: initialSaveState(),
         currentProjectId: null,

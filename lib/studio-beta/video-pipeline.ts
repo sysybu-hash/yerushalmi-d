@@ -31,6 +31,10 @@ export type VideoPipelineInput = {
   durationSec: number;
   customPrompt: string | null;
   mode: "catalog" | "marketing";
+  /** מוחל רק על Kling — ל-Veo אין פרמטר כזה בקליינט הקיים */
+  negativePrompt?: string | null;
+  /** מוחל רק על Kling — אודיו טבעי שנוצר ע"י המודל */
+  generateAudio?: boolean;
 };
 
 export type VideoPipelineResult = {
@@ -97,12 +101,19 @@ export async function runVideoPipeline(
   }
 
   if (input.engine === "kling-v3") {
-    const output = await runReplicateModel("kwaivgi/kling-v3-video", {
-      start_image: resizeForAiInput(input.imageUrl),
-      prompt,
-      negative_prompt: DEFAULT_VIDEO_NEGATIVE_PROMPT,
-      duration: input.durationSec,
-    });
+    const negativePrompt = [DEFAULT_VIDEO_NEGATIVE_PROMPT, input.negativePrompt]
+      .filter(Boolean)
+      .join(", ");
+    const { output, predictTimeSec } = await runReplicateModel(
+      "kwaivgi/kling-v3-video",
+      {
+        start_image: resizeForAiInput(input.imageUrl),
+        prompt,
+        negative_prompt: negativePrompt,
+        duration: input.durationSec,
+        generate_audio: Boolean(input.generateAudio),
+      }
+    );
     const url = firstUrlFromOutput(output);
     if (!url) {
       throw new StudioBetaError("PROVIDER_ERROR", "Kling לא החזיר וידאו");
@@ -119,7 +130,7 @@ export async function runVideoPipeline(
       modelId: "kwaivgi/kling-v3-video",
       mode: input.mode,
       success: true,
-      metadata: { app: "studio-beta" },
+      metadata: { app: "studio-beta", predictTimeSec },
     });
     return {
       resultUrl: uploaded.url,
