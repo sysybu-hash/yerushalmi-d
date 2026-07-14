@@ -1,10 +1,9 @@
 "use client";
 
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { EnginePicker } from "@/components/studio-beta/engine-picker";
-import { CostBadge } from "@/components/studio-beta/cost-badge";
 import { ToggleChip } from "@/components/studio/studio-adjust-ui";
 import { AttemptsRail } from "@/components/studio-beta/attempts-rail";
 import { useStudioBetaStore } from "@/lib/studio-beta/store";
@@ -13,7 +12,6 @@ import {
   estimateEngineCostUsd,
   type ProvidersConfigured,
 } from "@/lib/studio-beta/engines";
-import { estimateCostUsd } from "@/lib/ai-cost-rates";
 import { VIDEO_MOTION_PRESETS, MUSIC_STYLE_PRESETS } from "@/lib/studio-beta/cloudinary-transform";
 import { VIDEO_PROMPT_EXAMPLES } from "@/lib/studio-beta/prompt-examples";
 import {
@@ -37,11 +35,8 @@ export function VideoPanel({ providers }: { providers: ProvidersConfigured }) {
   const toggleVideoMotion = useStudioBetaStore((s) => s.toggleVideoMotion);
   const setVideoMusicStyle = useStudioBetaStore((s) => s.setVideoMusicStyle);
   const runVideo = useStudioBetaStore((s) => s.runVideo);
-  const enhanceVideoAi = useStudioBetaStore((s) => s.enhanceVideoAi);
 
   const loading = video.status === "loading";
-  const enhancing = video.aiEnhance.status === "loading";
-  const enhanceCostEstimate = estimateCostUsd("veo-3.1-generate-preview", null);
   const durationOptions = STUDIO_VIDEO_DURATION_OPTIONS.filter((option) =>
     video.engine === "veo-fast" || video.engine === "veo-pro"
       ? VEO_DURATIONS.includes(option.value)
@@ -271,34 +266,9 @@ export function VideoPanel({ providers }: { providers: ProvidersConfigured }) {
       )}
 
       {video.url && (
-        <div className="space-y-2 border-t border-border/60 pt-3">
-          <p className="text-xs font-light text-muted-foreground">
-            או: שיפור תאורה ותנועה ב-AI (Veo) — בתשלום
-          </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={enhancing}
-            onClick={() => void enhanceVideoAi()}
-            className="w-full rounded-none text-xs tracking-[0.1em]"
-          >
-            {enhancing ? (
-              <Loader2 className="ml-1.5 h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Sparkles className="ml-1.5 h-3.5 w-3.5" />
-            )}
-            שיפור וידאו ב-AI
-            <span className="mr-auto">
-              <CostBadge costUsd={enhanceCostEstimate} />
-            </span>
-          </Button>
-          {video.aiEnhance.error && (
-            <p className="text-xs font-light text-destructive">
-              {video.aiEnhance.error}
-            </p>
-          )}
-        </div>
+        <p className="text-xs font-light text-muted-foreground">
+          אפשרויות מיטוב נוספות (כולל שיפור AI) זמינות בשלב השמירה.
+        </p>
       )}
 
       <AttemptsRail kind="video" />

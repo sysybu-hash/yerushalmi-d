@@ -5,9 +5,11 @@ import { Check, CheckCircle2, Copy, Download, Loader2, Pencil, Sparkles, Video }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ToggleChip } from "@/components/studio/studio-adjust-ui";
+import { CostBadge } from "@/components/studio-beta/cost-badge";
 import { useStudioBetaStore } from "@/lib/studio-beta/store";
 import { withDownloadFlag } from "@/lib/studio-beta/cloudinary-transform";
 import { videoFrameJpgUrl } from "@/lib/cloudinary-url";
+import { estimateCostUsd } from "@/lib/ai-cost-rates";
 import { generateStudioBetaTitle } from "@/app/(ai-studio)/studio-beta/actions";
 
 function ResultActions({
@@ -204,6 +206,44 @@ function VideoTrimControls() {
   );
 }
 
+function AiEnhanceControls() {
+  const video = useStudioBetaStore((s) => s.video);
+  const enhanceVideoAi = useStudioBetaStore((s) => s.enhanceVideoAi);
+  const enhancing = video.aiEnhance.status === "loading";
+  const costEstimate = estimateCostUsd("veo-3.1-generate-preview", null);
+
+  return (
+    <div className="space-y-2 border border-border/60 p-2.5">
+      <p className="text-xs font-light text-muted-foreground">
+        או: שיפור תאורה ותנועה ב-AI (Veo) — בתשלום
+      </p>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={enhancing}
+        onClick={() => void enhanceVideoAi()}
+        className="w-full rounded-none text-xs tracking-[0.1em]"
+      >
+        {enhancing ? (
+          <Loader2 className="ml-1.5 h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <Sparkles className="ml-1.5 h-3.5 w-3.5" />
+        )}
+        שיפור וידאו ב-AI
+        <span className="mr-auto">
+          <CostBadge costUsd={costEstimate} />
+        </span>
+      </Button>
+      {video.aiEnhance.error && (
+        <p className="text-xs font-light text-destructive">
+          {video.aiEnhance.error}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function SavePanel() {
   const background = useStudioBetaStore((s) => s.background);
   const video = useStudioBetaStore((s) => s.video);
@@ -280,7 +320,12 @@ export function SavePanel() {
           {video.url && (
             <ResultActions url={video.url} filename="yerushalmi-jewelry.mp4" />
           )}
-          {video.mediaKind === "video" && <VideoTrimControls />}
+          {video.mediaKind === "video" && (
+            <>
+              <VideoTrimControls />
+              <AiEnhanceControls />
+            </>
+          )}
           <SaveRow
             label="הווידאו"
             saved={videoSave.status === "done"}
