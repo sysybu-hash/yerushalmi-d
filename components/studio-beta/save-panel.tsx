@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { ToggleChip } from "@/components/studio/studio-adjust-ui";
 import { useStudioBetaStore } from "@/lib/studio-beta/store";
 import { withDownloadFlag } from "@/lib/studio-beta/cloudinary-transform";
+import { videoFrameJpgUrl } from "@/lib/cloudinary-url";
 import { generateStudioBetaTitle } from "@/app/(ai-studio)/studio-beta/actions";
 
 function ResultActions({
@@ -206,6 +207,8 @@ function VideoTrimControls() {
 export function SavePanel() {
   const background = useStudioBetaStore((s) => s.background);
   const video = useStudioBetaStore((s) => s.video);
+  const sourceKind = useStudioBetaStore((s) => s.sourceKind);
+  const sourceImageUrl = useStudioBetaStore((s) => s.sourceImageUrl);
   const imageSave = useStudioBetaStore((s) => s.imageSave);
   const videoSave = useStudioBetaStore((s) => s.videoSave);
   const saveImageToLibrary = useStudioBetaStore((s) => s.saveImageToLibrary);
@@ -216,34 +219,45 @@ export function SavePanel() {
   const [imageTitle, setImageTitle] = useState("");
   const [videoTitle, setVideoTitle] = useState("");
 
+  const hasImage = Boolean(background.url);
   const hasVideo = Boolean(video.url);
-  if (!background.url) return null;
+  // וידאו-מקור: אין background.url בכלל (שלב הרקע מדולג) — התוצאה היא הווידאו עצמו
+  if (!hasImage && !hasVideo) return null;
+
+  const aiImageSource =
+    background.url ??
+    (sourceKind === "video" && sourceImageUrl
+      ? videoFrameJpgUrl(sourceImageUrl, 0)
+      : sourceImageUrl) ??
+    "";
 
   return (
     <div className="space-y-6">
-      <div className="space-y-2">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={background.url}
-          alt="תמונת התוצאה"
-          className="max-h-[420px] w-full border border-border/60 object-contain"
-        />
-        <ResultActions
-          url={background.url}
-          filename="yerushalmi-jewelry.png"
-          allowContinueEditing
-        />
-        <SaveRow
-          label="התמונה"
-          saved={imageSave.status === "done"}
-          loading={imageSave.status === "loading"}
-          error={imageSave.error}
-          title={imageTitle}
-          onTitleChange={setImageTitle}
-          onSave={() => saveImageToLibrary(imageTitle)}
-          imageUrlForAi={background.url}
-        />
-      </div>
+      {hasImage && (
+        <div className="space-y-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={background.url ?? undefined}
+            alt="תמונת התוצאה"
+            className="max-h-[420px] w-full border border-border/60 object-contain"
+          />
+          <ResultActions
+            url={background.url!}
+            filename="yerushalmi-jewelry.png"
+            allowContinueEditing
+          />
+          <SaveRow
+            label="התמונה"
+            saved={imageSave.status === "done"}
+            loading={imageSave.status === "loading"}
+            error={imageSave.error}
+            title={imageTitle}
+            onTitleChange={setImageTitle}
+            onSave={() => saveImageToLibrary(imageTitle)}
+            imageUrlForAi={aiImageSource}
+          />
+        </div>
+      )}
 
       {hasVideo ? (
         <div className="space-y-2 border-t border-border/60 pt-4">
@@ -275,7 +289,7 @@ export function SavePanel() {
             title={videoTitle}
             onTitleChange={setVideoTitle}
             onSave={() => saveVideoToLibrary(videoTitle)}
-            imageUrlForAi={background.url}
+            imageUrlForAi={aiImageSource}
           />
         </div>
       ) : (
