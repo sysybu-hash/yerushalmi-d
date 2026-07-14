@@ -26,17 +26,29 @@ import {
   JEWELRY_STRUCTURE_LOCK,
 } from "@/lib/studio-beta/prompts";
 import { StudioBetaError } from "@/lib/studio-beta/errors";
+import {
+  mapDurationForKling,
+  mapDurationForVeo,
+  type StudioVideoDurationSec,
+} from "@/lib/studio-video-duration";
+import {
+  buildKlingMultiPrompt,
+  type MultiShotTemplateId,
+} from "@/lib/studio-multishot";
+import { opaqueImageUrlForVideo, videoFrameJpgUrl } from "@/lib/cloudinary-url";
 
 export type VideoPipelineInput = {
   imageUrl: string;
   engine: VideoEngineId;
-  durationSec: number;
+  durationSec: StudioVideoDurationSec;
   customPrompt: string | null;
   mode: "catalog" | "marketing";
   /** מוחל רק על Kling — ל-Veo אין פרמטר כזה בקליינט הקיים */
   negativePrompt?: string | null;
   /** מוחל רק על Kling — אודיו טבעי שנוצר ע"י המודל */
   generateAudio?: boolean;
+  /** מוחל רק על Kling — תבנית multi-shot (מספר צילומים בקליפ אחד) */
+  multiShotTemplate?: MultiShotTemplateId;
   /** מוחל רק על המנוע החינמי (cloudinary-preserve) — סגנונות תנועת Ken Burns, ניתנים לשילוב (למשל זום+פאן) */
   motion?: VideoMotionId[];
   /** מוחל רק על המנוע החינמי (cloudinary-preserve) — מוזיקת רקע חינמית */
@@ -115,14 +127,21 @@ export async function runVideoPipeline(
     const negativePrompt = [DEFAULT_VIDEO_NEGATIVE_PROMPT, input.negativePrompt]
       .filter(Boolean)
       .join(", ");
+    const klingDuration = mapDurationForKling(input.durationSec);
+    const multiPrompt = buildKlingMultiPrompt(
+      input.multiShotTemplate ?? "none",
+      klingDuration,
+      JEWELRY_STRUCTURE_LOCK
+    );
     const { output, predictTimeSec } = await runReplicateModel(
       "kwaivgi/kling-v3-video",
       {
         start_image: resizeForAiInput(input.imageUrl),
         prompt,
         negative_prompt: negativePrompt,
-        duration: input.durationSec,
+        duration: klingDuration,
         generate_audio: Boolean(input.generateAudio),
+        ...(multiPrompt ? { multi_prompt: multiPrompt } : {}),
       }
     );
     const url = firstUrlFromOutput(output);
@@ -141,7 +160,11 @@ export async function runVideoPipeline(
       modelId: "kwaivgi/kling-v3-video",
       mode: input.mode,
       success: true,
-      metadata: { app: "studio-beta", predictTimeSec },
+      metadata: {
+        app: "studio-beta",
+        predictTimeSec,
+        ...(multiPrompt ? { multiShot: input.multiShotTemplate } : {}),
+      },
     });
     return {
       resultUrl: uploaded.url,
@@ -157,7 +180,7 @@ export async function runVideoPipeline(
   const { videoUrl, modelId } = await generateVeoVideo({
     prompt,
     imageDataUri: bufferToDataUri(sourceBuffer, "image/png"),
-    durationSec: input.durationSec,
+    durationSec: mapDurationForVeo(input.durationSec),
     fast: input.engine === "veo-fast",
   });
   const videoBuffer = await downloadAsBuffer(videoUrl);
@@ -180,5 +203,82 @@ export async function runVideoPipeline(
     modelId,
     costUsd: estimateCostUsd(modelId, null),
     mediaKind: "video",
+  };
+}
+
+export type VideoEnhancePipelineInput = {
+  videoUrl: string;
+  mode: "catalog" | "marketing";
+};
+
+export type VideoEnhancePipelineResult = {
+  resultUrl: string;
+  modelId: string;
+  costUsd: number;
+};
+
+const VIDEO_ENHANCE_PROMPT =
+  "Luxury jewelry product video on opaque solid studio background, static camera, micro sparkle on existing facets only, professional catalog lighting";
+
+/** משך קבוע לפעולת שיפור — זו פעולת פוליש חד-פעמית, לא יצירה מחדש עם בחירת משתמש */
+const VIDEO_ENHANCE_DURATION_SEC = 6;
+
+/**
+ * שיפור וידאו קיים ב-Veo: מפריים מהוידאו הנוכחי, יוצר מחדש דרך Veo Pro
+ * (איכות עדיפה על מהירות כאן). לא אופה מוזיקה — זו פעולת בטא נפרדת מהמוזיקה
+ * החינמית הקיימת (cloudinary-transform.ts), לא צנרת ה-Mixkit השבורה של v2.
+ */
+export async function runVideoEnhancePipeline(
+  input: VideoEnhancePipelineInput
+): Promise<VideoEnhancePipelineResult> {
+  if (!isGeminiConfigured()) {
+    throw new StudioBetaError(
+      "PROVIDER_NOT_CONFIGURED",
+      "Gemini (Veo) אינו מוגדר במערכת"
+    );
+  }
+  if (!input.videoUrl.includes("res.cloudinary.com")) {
+    throw new StudioBetaError(
+      "VALIDATION",
+      "שיפור AI דורש וידאו שהועלה ל-Cloudinary"
+    );
+  }
+
+  const frameUrl = videoFrameJpgUrl(input.videoUrl, 0);
+  const veoInputUrl = opaqueImageUrlForVideo(frameUrl);
+  const prompt = [
+    JEWELRY_STRUCTURE_LOCK,
+    VIDEO_ENHANCE_PROMPT,
+    "The entire frame must be fully opaque with a continuous solid background — no transparency, no alpha holes, no checkerboard.",
+  ].join(" ");
+
+  const sourceBuffer = await downloadAsBuffer(veoInputUrl);
+  const { videoUrl: generatedUrl, modelId } = await generateVeoVideo({
+    prompt,
+    imageDataUri: bufferToDataUri(sourceBuffer, "image/jpeg"),
+    durationSec: VIDEO_ENHANCE_DURATION_SEC,
+    fast: false,
+  });
+
+  const videoBuffer = await downloadAsBuffer(generatedUrl);
+  const uploaded = await uploadToCloudinary({
+    source: bufferToDataUri(videoBuffer, "video/mp4"),
+    resourceType: "video",
+    filenamePrefix: "studio-beta-video-enhance",
+  });
+
+  await trackAiUsage({
+    provider: "gemini",
+    capability: "video",
+    modelId,
+    mode: input.mode,
+    success: true,
+    metadata: { app: "studio-beta", kind: "video-enhance" },
+  });
+
+  return {
+    resultUrl: uploaded.url,
+    modelId,
+    costUsd: estimateCostUsd(modelId, null),
   };
 }

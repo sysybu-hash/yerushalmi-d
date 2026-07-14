@@ -7,26 +7,14 @@ import {
   failLock,
 } from "@/lib/studio-beta/locks";
 import { StudioBetaError } from "@/lib/studio-beta/errors";
-import { runVideoPipeline } from "@/lib/studio-beta/video-pipeline";
-import type { VideoEngineId } from "@/lib/studio-beta/engines";
-import type { VideoMotionId, MusicStyleId } from "@/lib/studio-beta/cloudinary-transform";
-import { parseStudioVideoDuration } from "@/lib/studio-video-duration";
-import type { MultiShotTemplateId } from "@/lib/studio-multishot";
+import { runVideoEnhancePipeline } from "@/lib/studio-beta/video-pipeline";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
 type Body = {
-  imageUrl?: string;
-  engine?: VideoEngineId;
-  durationSec?: number;
-  customPrompt?: string | null;
+  videoUrl?: string;
   mode?: "catalog" | "marketing";
-  negativePrompt?: string | null;
-  generateAudio?: boolean;
-  motion?: VideoMotionId[];
-  musicStyle?: MusicStyleId;
-  multiShotTemplate?: MultiShotTemplateId;
 };
 
 const HTTP_STATUS_FOR_CODE: Record<StudioBetaError["code"], number> = {
@@ -48,28 +36,15 @@ export async function POST(request: NextRequest) {
   }
 
   const body = (await request.json().catch(() => null)) as Body | null;
-  if (!body?.imageUrl || !body.engine) {
+  if (!body?.videoUrl) {
     return NextResponse.json(
-      { ok: false, error: "חסרה תמונה או בחירת מנוע וידאו", code: "VALIDATION" },
+      { ok: false, error: "חסרה כתובת וידאו", code: "VALIDATION" },
       { status: 400 }
     );
   }
 
   const mode = body.mode === "marketing" ? "marketing" : "catalog";
-  const durationSec = parseStudioVideoDuration(body.durationSec);
-  const multiShotTemplate = body.multiShotTemplate ?? "none";
-  const lockKey = buildLockKey("video", [
-    body.engine,
-    body.imageUrl,
-    durationSec,
-    body.customPrompt ?? "",
-    body.negativePrompt ?? "",
-    Boolean(body.generateAudio),
-    mode,
-    (body.motion ?? []).join(","),
-    body.musicStyle ?? "",
-    multiShotTemplate,
-  ]);
+  const lockKey = buildLockKey("enhance-video", [body.videoUrl, mode]);
 
   let lock;
   try {
@@ -89,17 +64,9 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = await runVideoPipeline({
-      imageUrl: body.imageUrl,
-      engine: body.engine,
-      durationSec,
-      customPrompt: body.customPrompt ?? null,
+    const result = await runVideoEnhancePipeline({
+      videoUrl: body.videoUrl,
       mode,
-      negativePrompt: body.negativePrompt ?? null,
-      generateAudio: Boolean(body.generateAudio),
-      multiShotTemplate,
-      motion: body.motion,
-      musicStyle: body.musicStyle,
     });
     await completeLock(lockKey, result);
     return NextResponse.json({ ok: true, ...result, cached: false });

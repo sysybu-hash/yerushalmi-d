@@ -25,6 +25,7 @@ export function StudioBetaApp({
   const currentStep = useStudioBetaStore((s) => s.currentStep);
   const maxStepReached = useStudioBetaStore((s) => s.maxStepReached);
   const sourceImageUrl = useStudioBetaStore((s) => s.sourceImageUrl);
+  const sourceKind = useStudioBetaStore((s) => s.sourceKind);
   const resetNotice = useStudioBetaStore((s) => s.resetNotice);
   const dismissResetNotice = useStudioBetaStore((s) => s.dismissResetNotice);
   const setSourceImage = useStudioBetaStore((s) => s.setSourceImage);
@@ -76,6 +77,7 @@ export function StudioBetaApp({
         <StepHeader
           currentStep={currentStep}
           maxStepReached={maxStepReached}
+          sourceKind={sourceKind}
           onStepClick={goToStep}
         />
         <SessionCostMeter />
@@ -124,22 +126,24 @@ export function StudioBetaApp({
         </div>
       ) : (
         <div className="space-y-6">
-          <div className="flex items-center gap-3 border border-border/40 p-2">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={sourceImageUrl ?? undefined}
-              alt="תמונת המקור"
-              className="h-14 w-14 shrink-0 object-cover"
-            />
-            <span className="flex-1 text-xs font-light text-muted-foreground">
-              תמונת המקור
-            </span>
-            <UploadZone
-              onUploaded={setSourceImage}
-              compact
-              className="w-auto px-4 py-2"
-            />
-          </div>
+          {sourceKind === "image" && (
+            <div className="flex items-center gap-3 border border-border/40 p-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={sourceImageUrl ?? undefined}
+                alt="תמונת המקור"
+                className="h-14 w-14 shrink-0 object-cover"
+              />
+              <span className="flex-1 text-xs font-light text-muted-foreground">
+                תמונת המקור
+              </span>
+              <UploadZone
+                onUploaded={setSourceImage}
+                compact
+                className="w-auto px-4 py-2"
+              />
+            </div>
+          )}
 
           {currentStep === 2 && <BackgroundPanel providers={providers} />}
           {currentStep === 3 && <OutputChoicePanel providers={providers} />}

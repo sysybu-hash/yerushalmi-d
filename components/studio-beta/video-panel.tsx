@@ -1,9 +1,10 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { EnginePicker } from "@/components/studio-beta/engine-picker";
+import { CostBadge } from "@/components/studio-beta/cost-badge";
 import { ToggleChip } from "@/components/studio/studio-adjust-ui";
 import { AttemptsRail } from "@/components/studio-beta/attempts-rail";
 import { useStudioBetaStore } from "@/lib/studio-beta/store";
@@ -12,11 +13,18 @@ import {
   estimateEngineCostUsd,
   type ProvidersConfigured,
 } from "@/lib/studio-beta/engines";
+import { estimateCostUsd } from "@/lib/ai-cost-rates";
 import { VIDEO_MOTION_PRESETS, MUSIC_STYLE_PRESETS } from "@/lib/studio-beta/cloudinary-transform";
 import { VIDEO_PROMPT_EXAMPLES } from "@/lib/studio-beta/prompt-examples";
+import {
+  STUDIO_VIDEO_DURATION_OPTIONS,
+  type StudioVideoDurationSec,
+} from "@/lib/studio-video-duration";
+import { MULTISHOT_TEMPLATES } from "@/lib/studio-multishot";
 import { cn } from "@/lib/utils";
 
-const DURATIONS = [4, 6, 8];
+/** ל-Veo יש רק 4/6/8 שניות בפועל — Kling והמנוע החינמי תומכים בטווח המלא */
+const VEO_DURATIONS: readonly StudioVideoDurationSec[] = [4, 6, 8];
 
 export function VideoPanel({ providers }: { providers: ProvidersConfigured }) {
   const video = useStudioBetaStore((s) => s.video);
@@ -25,11 +33,20 @@ export function VideoPanel({ providers }: { providers: ProvidersConfigured }) {
   const setVideoCustomPrompt = useStudioBetaStore((s) => s.setVideoCustomPrompt);
   const setVideoNegativePrompt = useStudioBetaStore((s) => s.setVideoNegativePrompt);
   const setVideoGenerateAudio = useStudioBetaStore((s) => s.setVideoGenerateAudio);
+  const setVideoMultiShot = useStudioBetaStore((s) => s.setVideoMultiShot);
   const toggleVideoMotion = useStudioBetaStore((s) => s.toggleVideoMotion);
   const setVideoMusicStyle = useStudioBetaStore((s) => s.setVideoMusicStyle);
   const runVideo = useStudioBetaStore((s) => s.runVideo);
+  const enhanceVideoAi = useStudioBetaStore((s) => s.enhanceVideoAi);
 
   const loading = video.status === "loading";
+  const enhancing = video.aiEnhance.status === "loading";
+  const enhanceCostEstimate = estimateCostUsd("veo-3.1-generate-preview", null);
+  const durationOptions = STUDIO_VIDEO_DURATION_OPTIONS.filter((option) =>
+    video.engine === "veo-fast" || video.engine === "veo-pro"
+      ? VEO_DURATIONS.includes(option.value)
+      : true
+  );
 
   return (
     <div className="space-y-4 border-t border-border/60 pt-4">
@@ -121,20 +138,21 @@ export function VideoPanel({ providers }: { providers: ProvidersConfigured }) {
         <p className="mb-2 text-xs font-light tracking-wide text-muted-foreground">
           משך (שניות)
         </p>
-        <div className="flex gap-2">
-          {DURATIONS.map((sec) => (
+        <div className="flex flex-wrap gap-2">
+          {durationOptions.map((option) => (
             <button
-              key={sec}
+              key={option.value}
               type="button"
-              onClick={() => setVideoDuration(sec)}
+              title={option.hint}
+              onClick={() => setVideoDuration(option.value)}
               className={cn(
                 "border px-3 py-1 text-xs font-light",
-                video.durationSec === sec
+                video.durationSec === option.value
                   ? "border-gold bg-gold/10"
                   : "border-border/60 hover:border-gold/60"
               )}
             >
-              {sec} שנ&apos;
+              {option.label}
             </button>
           ))}
         </div>
@@ -164,6 +182,42 @@ export function VideoPanel({ providers }: { providers: ProvidersConfigured }) {
 
       {video.engine === "kling-v3" && (
         <div className="space-y-2.5">
+          <div>
+            <p className="mb-2 text-xs font-light tracking-wide text-muted-foreground">
+              תבנית מולטי-שוט (אופציונלי)
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setVideoMultiShot("none")}
+                title="צילום אחד רציף, בלי תבנית"
+                className={cn(
+                  "border px-2 py-1.5 text-[11px] font-light",
+                  video.multiShotTemplate === "none"
+                    ? "border-gold bg-gold/10"
+                    : "border-border/60 hover:border-gold/60"
+                )}
+              >
+                ללא תבנית
+              </button>
+              {MULTISHOT_TEMPLATES.map((template) => (
+                <button
+                  key={template.id}
+                  type="button"
+                  onClick={() => setVideoMultiShot(template.id)}
+                  title={template.description}
+                  className={cn(
+                    "border px-2 py-1.5 text-[11px] font-light",
+                    video.multiShotTemplate === template.id
+                      ? "border-gold bg-gold/10"
+                      : "border-border/60 hover:border-gold/60"
+                  )}
+                >
+                  {template.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <details className="group">
             <summary className="cursor-pointer text-[11px] font-light text-muted-foreground hover:text-foreground">
               מה להימנע ממנו (אופציונלי)
@@ -214,6 +268,37 @@ export function VideoPanel({ providers }: { providers: ProvidersConfigured }) {
           playsInline
           className="max-h-[420px] w-full border border-border/60"
         />
+      )}
+
+      {video.url && (
+        <div className="space-y-2 border-t border-border/60 pt-3">
+          <p className="text-xs font-light text-muted-foreground">
+            או: שיפור תאורה ותנועה ב-AI (Veo) — בתשלום
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={enhancing}
+            onClick={() => void enhanceVideoAi()}
+            className="w-full rounded-none text-xs tracking-[0.1em]"
+          >
+            {enhancing ? (
+              <Loader2 className="ml-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="ml-1.5 h-3.5 w-3.5" />
+            )}
+            שיפור וידאו ב-AI
+            <span className="mr-auto">
+              <CostBadge costUsd={enhanceCostEstimate} />
+            </span>
+          </Button>
+          {video.aiEnhance.error && (
+            <p className="text-xs font-light text-destructive">
+              {video.aiEnhance.error}
+            </p>
+          )}
+        </div>
       )}
 
       <AttemptsRail kind="video" />

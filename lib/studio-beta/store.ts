@@ -22,6 +22,9 @@ import {
   saveStudioBetaAsset,
   saveStudioBetaProject,
 } from "@/app/(ai-studio)/studio-beta/actions";
+import type { StudioVideoDurationSec } from "@/lib/studio-video-duration";
+import type { MultiShotTemplateId } from "@/lib/studio-multishot";
+import { videoFrameJpgUrl } from "@/lib/cloudinary-url";
 
 /** תמונת המקור בפועל (אחרי חיתוך/כיוונון) — לשימוש בתצוגה מקדימה וב-payload */
 export function selectEffectiveSourceUrl(state: {
@@ -93,12 +96,14 @@ type VideoTrimState = {
 
 type VideoState = {
   engine: VideoEngineId;
-  durationSec: number;
+  durationSec: StudioVideoDurationSec;
   customPrompt: string;
   /** מוחל רק כשהמנוע Kling — לשאר המנועים אין תמיכה בפרמטר הזה */
   negativePrompt: string;
   /** אודיו טבעי שנוצר ע"י המודל — Kling בלבד */
   generateAudio: boolean;
+  /** תבנית multi-shot (כמה צילומים בקליפ אחד) — Kling בלבד */
+  multiShotTemplate: MultiShotTemplateId;
   /** סגנונות תנועת Ken Burns — המנוע החינמי (cloudinary-preserve) בלבד, ניתנים לשילוב */
   motion: VideoMotionId[];
   /** מוזיקת רקע חינמית — המנוע החינמי (cloudinary-preserve) בלבד */
@@ -110,7 +115,11 @@ type VideoState = {
   status: StepStatus;
   error: string | null;
   trim: VideoTrimState;
+  /** פעולת "שיפור וידאו ב-AI" (Veo, בתשלום) — נפרד מ-status הכללי כדי לא להתנגש עם יצירה */
+  aiEnhance: VideoAiEnhanceState;
 };
+
+type VideoAiEnhanceState = { status: StepStatus; error: string | null };
 
 type SaveState = {
   status: StepStatus;
@@ -144,11 +153,15 @@ type IdentifyState = {
 
 type OutputChoice = "image" | "video" | null;
 
+export type SourceKind = "image" | "video";
+
 /** תת-קבוצת ה-store הניתנת לשמירה/שחזור כפרויקט (בלי פעולות/פונקציות) */
 export type StudioBetaProjectState = {
   currentStep: 1 | 2 | 3 | 4;
   maxStepReached: 1 | 2 | 3 | 4;
   sourceImageUrl: string | null;
+  /** תמונה או וידאו — וידאו-מקור מדלג ישר להעלאה→שמירה, בלי בידוד/רקע */
+  sourceKind: SourceKind;
   /** התמונה כפי שהועלתה במקור — לפני כל הכנת מקור ב-AI, לצורך "שחזר למקור" */
   originalSourceImageUrl: string | null;
   sourceAspect: SourceAspect;
@@ -186,6 +199,10 @@ function initialVideoTrim(): VideoTrimState {
   return { startSec: null, endSec: null, mute: false, enhance: false };
 }
 
+function initialVideoAiEnhanceState(): VideoAiEnhanceState {
+  return { status: "idle", error: null };
+}
+
 function initialVideoState(): VideoState {
   return {
     engine: "cloudinary-preserve",
@@ -193,6 +210,7 @@ function initialVideoState(): VideoState {
     customPrompt: "",
     negativePrompt: "",
     generateAudio: false,
+    multiShotTemplate: "none",
     motion: ["zoom-in"],
     musicStyle: "none",
     url: null,
@@ -202,6 +220,7 @@ function initialVideoState(): VideoState {
     status: "idle",
     error: null,
     trim: initialVideoTrim(),
+    aiEnhance: initialVideoAiEnhanceState(),
   };
 }
 
@@ -228,6 +247,7 @@ function initialIdentifyState(): IdentifyState {
 type StudioBetaState = {
   currentStep: 1 | 2 | 3 | 4;
   sourceImageUrl: string | null;
+  sourceKind: SourceKind;
   originalSourceImageUrl: string | null;
   resetNotice: string | null;
 
@@ -258,7 +278,7 @@ type StudioBetaState = {
   selectAttempt: (id: string) => void;
   deleteAttempt: (id: string) => void;
 
-  setSourceImage: (url: string) => void;
+  setSourceImage: (url: string, kind?: SourceKind) => void;
   dismissResetNotice: () => void;
   hydrateFromProject: (project: {
     id: number;
@@ -298,16 +318,18 @@ type StudioBetaState = {
   chooseOutput: (choice: OutputChoice) => void;
   continueToVideo: () => void;
   setVideoEngine: (engine: VideoEngineId) => void;
-  setVideoDuration: (sec: number) => void;
+  setVideoDuration: (sec: StudioVideoDurationSec) => void;
   setVideoCustomPrompt: (text: string) => void;
   setVideoNegativePrompt: (text: string) => void;
   setVideoGenerateAudio: (enabled: boolean) => void;
+  setVideoMultiShot: (template: MultiShotTemplateId) => void;
   toggleVideoMotion: (id: VideoMotionId) => void;
   setVideoMusicStyle: (style: MusicStyleId) => void;
   setVideoTrim: (startSec: number | null, endSec: number | null) => void;
   setVideoMute: (mute: boolean) => void;
   setVideoEnhance: (enhance: boolean) => void;
   runVideo: () => Promise<void>;
+  enhanceVideoAi: () => Promise<void>;
 
   saveImageToLibrary: (title?: string) => Promise<void>;
   saveVideoToLibrary: (title?: string) => Promise<void>;
@@ -328,6 +350,7 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
         currentStep: state.currentStep,
         maxStepReached: state.maxStepReached,
         sourceImageUrl: state.sourceImageUrl,
+        sourceKind: state.sourceKind,
         originalSourceImageUrl: state.originalSourceImageUrl,
         sourceAspect: state.sourceAspect,
         sourceAdjustments: state.sourceAdjustments,
@@ -342,10 +365,15 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
         sessionCostUsd: state.sessionCostUsd,
         attempts: state.attempts,
       };
+      const thumbnailUrl =
+        state.background.url ??
+        (state.sourceKind === "video" && state.sourceImageUrl
+          ? videoFrameJpgUrl(state.sourceImageUrl, 0)
+          : state.sourceImageUrl);
       const result = await saveStudioBetaProject({
         id: state.currentProjectId,
         sourceImageUrl: state.sourceImageUrl,
-        thumbnailUrl: state.background.url ?? state.sourceImageUrl,
+        thumbnailUrl,
         state: snapshot,
       });
       set({ currentProjectId: result.id });
@@ -370,6 +398,7 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
   return {
     currentStep: 1,
     sourceImageUrl: null,
+    sourceKind: "image",
     originalSourceImageUrl: null,
     resetNotice: null,
 
@@ -425,16 +454,20 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
         attempts: state.attempts.filter((a) => a.id !== id),
       })),
 
-    setSourceImage: (url) => {
+    setSourceImage: (url, kind = "image") => {
       set((state) => ({
         sourceImageUrl: url,
+        sourceKind: kind,
         originalSourceImageUrl: url,
-        currentStep: 2,
-        maxStepReached: 2,
+        // וידאו-מקור מדלג ישר לשמירה — אין בידוד/רקע רלוונטיים לוידאו
+        currentStep: kind === "video" ? 4 : 2,
+        maxStepReached: kind === "video" ? 4 : 2,
         currentProjectId: null,
         resetNotice:
           state.sourceImageUrl !== null
-            ? "התמונה הוחלפה — הרקע והווידאו אופסו"
+            ? kind === "video"
+              ? "הוידאו הוחלף"
+              : "התמונה הוחלפה — הרקע והווידאו אופסו"
             : null,
         sourceAspect: "original",
         sourceAdjustments: initialSourceAdjustments(),
@@ -442,8 +475,11 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
         identify: initialIdentifyState(),
         cutout: initialCutoutState(),
         background: initialBackgroundState(),
-        outputChoice: null,
-        video: initialVideoState(),
+        outputChoice: kind === "video" ? "video" : null,
+        video:
+          kind === "video"
+            ? { ...initialVideoState(), url, mediaKind: "video", status: "done" }
+            : initialVideoState(),
         attempts: [],
         imageSave: initialSaveState(),
         videoSave: initialSaveState(),
@@ -466,6 +502,7 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
         currentStep: s.currentStep,
         maxStepReached: s.maxStepReached ?? s.currentStep,
         sourceImageUrl: s.sourceImageUrl,
+        sourceKind: s.sourceKind ?? "image",
         originalSourceImageUrl: s.originalSourceImageUrl ?? s.sourceImageUrl,
         sourceAspect: s.sourceAspect ?? "original",
         sourceAdjustments: {
@@ -489,6 +526,7 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
               ? [s.video.motion as unknown as VideoMotionId]
               : initialVideoState().motion,
           trim: { ...initialVideoTrim(), ...s.video?.trim },
+          aiEnhance: { ...initialVideoAiEnhanceState(), ...s.video?.aiEnhance },
         },
         imageSave: { ...initialSaveState(), ...s.imageSave },
         videoSave: { ...initialSaveState(), ...s.videoSave },
@@ -786,6 +824,9 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
     setVideoGenerateAudio: (enabled) =>
       set((state) => ({ video: { ...state.video, generateAudio: enabled } })),
 
+    setVideoMultiShot: (template) =>
+      set((state) => ({ video: { ...state.video, multiShotTemplate: template } })),
+
     toggleVideoMotion: (id) =>
       set((state) => {
         const current = state.video.motion;
@@ -833,6 +874,7 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
             customPrompt: state.video.customPrompt || null,
             negativePrompt: state.video.negativePrompt || null,
             generateAudio: state.video.generateAudio,
+            multiShotTemplate: state.video.multiShotTemplate,
             motion: state.video.motion,
             musicStyle: state.video.musicStyle,
           }),
@@ -872,6 +914,58 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
             ...s.video,
             status: "error",
             error: error instanceof Error ? error.message : "שגיאה לא צפויה",
+          },
+        }));
+      }
+    },
+
+    enhanceVideoAi: async () => {
+      const state = get();
+      const videoUrl = state.video.url;
+      if (!videoUrl) return;
+      set((s) => ({
+        video: { ...s.video, aiEnhance: { status: "loading", error: null } },
+      }));
+      try {
+        const response = await fetch("/api/studio-beta/enhance-video", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ videoUrl }),
+        });
+        const json = await response.json();
+        if (!json.ok) throw new Error(json.error ?? "שיפור הווידאו נכשל");
+        set((s) => ({
+          video: {
+            ...s.video,
+            url: json.resultUrl,
+            modelId: json.modelId,
+            costUsd: json.costUsd ?? 0,
+            mediaKind: "video",
+            aiEnhance: { status: "done", error: null },
+          },
+          videoSave: initialSaveState(),
+          sessionCostUsd: json.cached
+            ? s.sessionCostUsd
+            : s.sessionCostUsd + (json.costUsd ?? 0),
+        }));
+        pushAttempt({
+          kind: "video",
+          url: json.resultUrl,
+          label: "שיפור AI (Veo)",
+          engine: "veo-enhance",
+          modelId: json.modelId ?? null,
+          costUsd: json.costUsd ?? 0,
+          mediaKind: "video",
+        });
+        void persistProject();
+      } catch (error) {
+        set((s) => ({
+          video: {
+            ...s.video,
+            aiEnhance: {
+              status: "error",
+              error: error instanceof Error ? error.message : "שגיאה לא צפויה",
+            },
           },
         }));
       }
@@ -944,6 +1038,7 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
         currentStep: 1,
         maxStepReached: 1,
         sourceImageUrl: null,
+        sourceKind: "image",
         originalSourceImageUrl: null,
         resetNotice: null,
         sourceAspect: "original",
