@@ -2,31 +2,22 @@
 
 import { cn } from "@/lib/utils";
 
-const ALL_STEPS = [
+const STEPS = [
   { id: 1, label: "העלאה" },
   { id: 2, label: "רקע" },
   { id: 3, label: "תמונה או וידאו" },
   { id: 4, label: "שמירה" },
 ] as const;
 
-/** וידאו-מקור מדלג ישר להעלאה←שמירה — אין בידוד/רקע/בחירת פלט רלוונטיים */
-const VIDEO_SOURCE_STEPS = [
-  { id: 1, label: "העלאה" },
-  { id: 4, label: "שמירה" },
-] as const;
-
 export function StepHeader({
   currentStep,
   maxStepReached = currentStep,
-  sourceKind = "image",
   onStepClick,
 }: {
   currentStep: 1 | 2 | 3 | 4;
   maxStepReached?: 1 | 2 | 3 | 4;
-  sourceKind?: "image" | "video";
   onStepClick?: (step: 1 | 2 | 3 | 4) => void;
 }) {
-  const STEPS = sourceKind === "video" ? VIDEO_SOURCE_STEPS : ALL_STEPS;
   return (
     <ol className="flex items-center gap-2 text-xs font-light tracking-wide">
       {STEPS.map((step, index) => {

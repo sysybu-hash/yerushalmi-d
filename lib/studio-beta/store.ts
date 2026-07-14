@@ -160,8 +160,10 @@ export type StudioBetaProjectState = {
   currentStep: 1 | 2 | 3 | 4;
   maxStepReached: 1 | 2 | 3 | 4;
   sourceImageUrl: string | null;
-  /** תמונה או וידאו — וידאו-מקור מדלג ישר להעלאה→שמירה, בלי בידוד/רקע */
+  /** תמונה או וידאו — בוידאו-מקור, sourceImageUrl הוא פריים מחולץ, לא הוידאו עצמו */
   sourceKind: SourceKind;
+  /** הוידאו הגולמי שהועלה (רק כש-sourceKind הוא video) — לאפשרות "המשך עם המקורי" */
+  originalVideoUrl: string | null;
   /** התמונה כפי שהועלתה במקור — לפני כל הכנת מקור ב-AI, לצורך "שחזר למקור" */
   originalSourceImageUrl: string | null;
   sourceAspect: SourceAspect;
@@ -248,6 +250,7 @@ type StudioBetaState = {
   currentStep: 1 | 2 | 3 | 4;
   sourceImageUrl: string | null;
   sourceKind: SourceKind;
+  originalVideoUrl: string | null;
   originalSourceImageUrl: string | null;
   resetNotice: string | null;
 
@@ -279,6 +282,8 @@ type StudioBetaState = {
   deleteAttempt: (id: string) => void;
 
   setSourceImage: (url: string, kind?: SourceKind) => void;
+  /** ממשיכים עם הוידאו הגולמי שהועלה כפי שהוא, בלי יצירה מחדש */
+  continueWithOriginalVideo: () => void;
   dismissResetNotice: () => void;
   hydrateFromProject: (project: {
     id: number;
@@ -351,6 +356,7 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
         maxStepReached: state.maxStepReached,
         sourceImageUrl: state.sourceImageUrl,
         sourceKind: state.sourceKind,
+        originalVideoUrl: state.originalVideoUrl,
         originalSourceImageUrl: state.originalSourceImageUrl,
         sourceAspect: state.sourceAspect,
         sourceAdjustments: state.sourceAdjustments,
@@ -365,11 +371,8 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
         sessionCostUsd: state.sessionCostUsd,
         attempts: state.attempts,
       };
-      const thumbnailUrl =
-        state.background.url ??
-        (state.sourceKind === "video" && state.sourceImageUrl
-          ? videoFrameJpgUrl(state.sourceImageUrl, 0)
-          : state.sourceImageUrl);
+      // sourceImageUrl הוא תמיד תמונה תקינה עכשיו — גם בוידאו-מקור זה הפריים המחולץ, לא הוידאו עצמו
+      const thumbnailUrl = state.background.url ?? state.sourceImageUrl;
       const result = await saveStudioBetaProject({
         id: state.currentProjectId,
         sourceImageUrl: state.sourceImageUrl,
@@ -399,6 +402,7 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
     currentStep: 1,
     sourceImageUrl: null,
     sourceKind: "image",
+    originalVideoUrl: null,
     originalSourceImageUrl: null,
     resetNotice: null,
 
@@ -455,13 +459,16 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
       })),
 
     setSourceImage: (url, kind = "image") => {
+      // וידאו-מקור: מחלצים פריים ומטפלים בו כמו בתמונה רגילה — רקע/בידוד/יצירת
+      // וידאו-AI כולם זמינים; הוידאו הגולמי נשמר בצד ל"המשך עם המקורי"
+      const effectiveUrl = kind === "video" ? videoFrameJpgUrl(url, 0) : url;
       set((state) => ({
-        sourceImageUrl: url,
+        sourceImageUrl: effectiveUrl,
         sourceKind: kind,
-        originalSourceImageUrl: url,
-        // וידאו-מקור מדלג ישר לשמירה — אין בידוד/רקע רלוונטיים לוידאו
-        currentStep: kind === "video" ? 4 : 2,
-        maxStepReached: kind === "video" ? 4 : 2,
+        originalVideoUrl: kind === "video" ? url : null,
+        originalSourceImageUrl: effectiveUrl,
+        currentStep: 2,
+        maxStepReached: 2,
         currentProjectId: null,
         resetNotice:
           state.sourceImageUrl !== null
@@ -475,14 +482,28 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
         identify: initialIdentifyState(),
         cutout: initialCutoutState(),
         background: initialBackgroundState(),
-        outputChoice: kind === "video" ? "video" : null,
-        video:
-          kind === "video"
-            ? { ...initialVideoState(), url, mediaKind: "video", status: "done" }
-            : initialVideoState(),
+        outputChoice: null,
+        video: initialVideoState(),
         attempts: [],
         imageSave: initialSaveState(),
         videoSave: initialSaveState(),
+      }));
+      void persistProject();
+    },
+
+    continueWithOriginalVideo: () => {
+      const originalVideoUrl = get().originalVideoUrl;
+      if (!originalVideoUrl) return;
+      set((s) => ({
+        video: {
+          ...initialVideoState(),
+          url: originalVideoUrl,
+          mediaKind: "video",
+          status: "done",
+        },
+        videoSave: initialSaveState(),
+        currentStep: 4,
+        maxStepReached: Math.max(s.maxStepReached, 4) as 1 | 2 | 3 | 4,
       }));
       void persistProject();
     },
@@ -503,6 +524,9 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
         maxStepReached: s.maxStepReached ?? s.currentStep,
         sourceImageUrl: s.sourceImageUrl,
         sourceKind: s.sourceKind ?? "image",
+        // פרויקטים ישנים (לפני חילוץ-פריים) שמרו את הוידאו הגולמי כ-sourceImageUrl עצמו
+        originalVideoUrl:
+          s.originalVideoUrl ?? (s.sourceKind === "video" ? s.sourceImageUrl : null),
         originalSourceImageUrl: s.originalSourceImageUrl ?? s.sourceImageUrl,
         sourceAspect: s.sourceAspect ?? "original",
         sourceAdjustments: {
@@ -1039,6 +1063,7 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
         maxStepReached: 1,
         sourceImageUrl: null,
         sourceKind: "image",
+        originalVideoUrl: null,
         originalSourceImageUrl: null,
         resetNotice: null,
         sourceAspect: "original",

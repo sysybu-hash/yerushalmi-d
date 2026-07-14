@@ -77,7 +77,6 @@ export function StudioBetaApp({
         <StepHeader
           currentStep={currentStep}
           maxStepReached={maxStepReached}
-          sourceKind={sourceKind}
           onStepClick={goToStep}
         />
         <SessionCostMeter />
@@ -126,24 +125,22 @@ export function StudioBetaApp({
         </div>
       ) : (
         <div className="space-y-6">
-          {sourceKind === "image" && (
-            <div className="flex items-center gap-3 border border-border/40 p-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={sourceImageUrl ?? undefined}
-                alt="תמונת המקור"
-                className="h-14 w-14 shrink-0 object-cover"
-              />
-              <span className="flex-1 text-xs font-light text-muted-foreground">
-                תמונת המקור
-              </span>
-              <UploadZone
-                onUploaded={setSourceImage}
-                compact
-                className="w-auto px-4 py-2"
-              />
-            </div>
-          )}
+          <div className="flex items-center gap-3 border border-border/40 p-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={sourceImageUrl ?? undefined}
+              alt="תמונת המקור"
+              className="h-14 w-14 shrink-0 object-cover"
+            />
+            <span className="flex-1 text-xs font-light text-muted-foreground">
+              {sourceKind === "video" ? "פריים מהוידאו שהועלה" : "תמונת המקור"}
+            </span>
+            <UploadZone
+              onUploaded={setSourceImage}
+              compact
+              className="w-auto px-4 py-2"
+            />
+          </div>
 
           {currentStep === 2 && <BackgroundPanel providers={providers} />}
           {currentStep === 3 && <OutputChoicePanel providers={providers} />}
