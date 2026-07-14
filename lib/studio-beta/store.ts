@@ -281,7 +281,11 @@ type StudioBetaState = {
   selectAttempt: (id: string) => void;
   deleteAttempt: (id: string) => void;
 
-  setSourceImage: (url: string, kind?: SourceKind) => void;
+  setSourceImage: (
+    url: string,
+    kind?: SourceKind,
+    frameOffsetSec?: number
+  ) => void;
   /** ממשיכים עם הוידאו הגולמי שהועלה כפי שהוא, בלי יצירה מחדש */
   continueWithOriginalVideo: () => void;
   dismissResetNotice: () => void;
@@ -458,10 +462,12 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
         attempts: state.attempts.filter((a) => a.id !== id),
       })),
 
-    setSourceImage: (url, kind = "image") => {
-      // וידאו-מקור: מחלצים פריים ומטפלים בו כמו בתמונה רגילה — רקע/בידוד/יצירת
-      // וידאו-AI כולם זמינים; הוידאו הגולמי נשמר בצד ל"המשך עם המקורי"
-      const effectiveUrl = kind === "video" ? videoFrameJpgUrl(url, 0) : url;
+    setSourceImage: (url, kind = "image", frameOffsetSec = 0) => {
+      // וידאו-מקור: מחלצים פריים (לפי הפריים שנבחר בבורר) ומטפלים בו כמו
+      // בתמונה רגילה — רקע/בידוד/יצירת וידאו-AI כולם זמינים; הוידאו הגולמי
+      // נשמר בצד ל"המשך עם המקורי"
+      const effectiveUrl =
+        kind === "video" ? videoFrameJpgUrl(url, frameOffsetSec) : url;
       set((state) => ({
         sourceImageUrl: effectiveUrl,
         sourceKind: kind,

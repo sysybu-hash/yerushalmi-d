@@ -9,6 +9,7 @@ import { StepHeader } from "@/components/studio-beta/step-header";
 import { SessionCostMeter } from "@/components/studio-beta/session-cost-meter";
 import { ResetBanner } from "@/components/studio-beta/reset-banner";
 import { UploadZone } from "@/components/studio-beta/upload-zone";
+import { VideoFramePicker } from "@/components/studio-beta/video-frame-picker";
 import { ProjectsPanel } from "@/components/studio-beta/projects-panel";
 import { BackgroundPanel } from "@/components/studio-beta/background-panel";
 import { OutputChoicePanel } from "@/components/studio-beta/output-choice-panel";
@@ -31,6 +32,16 @@ export function StudioBetaApp({
   const setSourceImage = useStudioBetaStore((s) => s.setSourceImage);
   const goToStep = useStudioBetaStore((s) => s.goToStep);
   const [uploadTab, setUploadTab] = useState<"new" | "projects">("new");
+  const [pendingVideoUrl, setPendingVideoUrl] = useState<string | null>(null);
+
+  // וידאו נדרש לבחירת פריים לפני שהוא הופך למקור בפועל; תמונה ממשיכה מיד
+  const handleUploaded = (url: string, kind: "image" | "video") => {
+    if (kind === "video") {
+      setPendingVideoUrl(url);
+      return;
+    }
+    setSourceImage(url, "image");
+  };
 
   const router = useRouter();
   const pathname = usePathname();
@@ -88,7 +99,16 @@ export function StudioBetaApp({
 
       <TipsPanel />
 
-      {currentStep === 1 ? (
+      {pendingVideoUrl ? (
+        <VideoFramePicker
+          videoUrl={pendingVideoUrl}
+          onConfirm={(frameOffsetSec) => {
+            setSourceImage(pendingVideoUrl, "video", frameOffsetSec);
+            setPendingVideoUrl(null);
+          }}
+          onCancel={() => setPendingVideoUrl(null)}
+        />
+      ) : currentStep === 1 ? (
         <div className="space-y-4">
           <div className="flex gap-2 text-xs font-light tracking-wide">
             <button
@@ -118,7 +138,7 @@ export function StudioBetaApp({
           </div>
 
           {uploadTab === "new" ? (
-            <UploadZone onUploaded={setSourceImage} />
+            <UploadZone onUploaded={handleUploaded} />
           ) : (
             <ProjectsPanel />
           )}
@@ -136,7 +156,7 @@ export function StudioBetaApp({
               {sourceKind === "video" ? "פריים מהוידאו שהועלה" : "תמונת המקור"}
             </span>
             <UploadZone
-              onUploaded={setSourceImage}
+              onUploaded={handleUploaded}
               compact
               className="w-auto px-4 py-2"
             />
