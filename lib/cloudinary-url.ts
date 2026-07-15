@@ -24,18 +24,23 @@ export function visionAnalysisUrl(cloudinaryUrl: string): string {
   );
 }
 
-/** פריים מווידאו לסטודיו — שומר רזולוציה מקורית, בלי upscaling מלאכותי */
+/**
+ * פריים מווידאו לסטודיו — שומר רזולוציה מקורית, בלי upscaling מלאכותי.
+ * a_auto מתקן סיבוב לפי מטא-דאטה של הווידאו — בלעדיו חילוץ פריים
+ * (so_) לפעמים מתעלם ממטריצת הסיבוב שה-<video> עצמו כן מכבד בתצוגה,
+ * והפריים יוצא מסובב ביחס למה שרואים בנגן.
+ */
 export function studioVideoFrameUrl(
   cloudinaryVideoUrl: string,
   offsetSec = 0
 ): string {
   return withCloudinaryTransform(
     cloudinaryVideoUrl,
-    `so_${Math.max(0, offsetSec)},c_limit,w_1920,h_1920,q_100,f_jpg`
+    `so_${Math.max(0, offsetSec)},a_auto,c_limit,w_1920,h_1920,q_100,f_jpg`
   );
 }
 
-/** פריים מווידאו Cloudinary כ-JPEG לעיבוד AI */
+/** פריים מווידאו Cloudinary כ-JPEG לעיבוד AI — a_auto מתקן סיבוב, ראו הערה למעלה */
 export function videoFrameJpgUrl(
   cloudinaryVideoUrl: string,
   offsetSec = 0,
@@ -43,7 +48,7 @@ export function videoFrameJpgUrl(
 ): string {
   return withCloudinaryTransform(
     cloudinaryVideoUrl,
-    `so_${Math.max(0, offsetSec)},w_${maxWidth},c_limit,f_jpg,q_auto:best`
+    `so_${Math.max(0, offsetSec)},a_auto,w_${maxWidth},c_limit,f_jpg,q_auto:best`
   );
 }
 

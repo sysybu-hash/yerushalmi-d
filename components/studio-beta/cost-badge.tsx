@@ -1,4 +1,6 @@
 import { cn } from "@/lib/utils";
+import { useStudioBetaStore } from "@/lib/studio-beta/store";
+import { formatStudioCost } from "@/lib/studio-beta/currency";
 
 export function CostBadge({
   costUsd,
@@ -7,6 +9,7 @@ export function CostBadge({
   costUsd: number;
   className?: string;
 }) {
+  const currency = useStudioBetaStore((s) => s.currency);
   const isFree = costUsd <= 0;
   return (
     <span
@@ -18,7 +21,7 @@ export function CostBadge({
         className
       )}
     >
-      {isFree ? "חינם" : `$${costUsd.toFixed(3)}`}
+      {isFree ? "חינם" : formatStudioCost(costUsd, currency)}
     </span>
   );
 }

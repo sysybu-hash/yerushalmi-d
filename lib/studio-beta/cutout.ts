@@ -12,11 +12,12 @@ import { chromaKeyFromEdges } from "@/lib/studio-beta/chroma-key";
 import { GEMINI_ISOLATE_PROMPT } from "@/lib/studio-beta/prompts";
 import { uploadToCloudinary } from "@/lib/studio-beta/cloudinary-upload";
 import { resizeForAiInput } from "@/lib/studio-beta/cloudinary-transform";
+import { tryProceduralJewelryCutout } from "@/lib/studio-composite";
 
 export type CutoutResult = {
   url: string;
   /** "manual" = בידוד שכבר בוצע ואושר דרך שער ה-cutout הידני, לא נוצר כאן */
-  method: "bria" | "gemini-chroma" | "manual";
+  method: "procedural" | "bria" | "gemini-chroma" | "manual";
   modelId: string;
   costUsd: number;
 } | null;
@@ -36,16 +37,40 @@ function bufferToDataUri(buffer: Buffer, mime = "image/png"): string {
 const BRIA_MODEL_ID = "bria/remove-background";
 
 /**
- * ניסיון בידוד best-effort — לעולם לא זורק. מנסה Bria (Replicate) קודם:
- * זול, אמין, ומחזיר אלפא נקי טבעית בלי צורך בעיבוד נוסף. אם לא
- * מוגדר/נכשל, מנסה Gemini + flood-fill ירוק מינימלי (נתיב פחות מדויק,
- * מסומן ככזה). אם גם זה נכשל — מחזיר null בלי שגיאה כדי שהקורא ימשיך
- * עם התמונה המקורית, בלי "עצירה קשה".
+ * ניסיון בידוד best-effort — לעולם לא זורק. מנסה קודם פרוצדורלי (חינם,
+ * מקומי, flood-fill מהשוליים — עובד רק על רקע אחיד בהיר, `lib/studio-composite.ts`)
+ * — אם התמונה מתאימה, אין שום עלות AI בכלל. רק אם זה נכשל (רקע לא
+ * אחיד/עסוק) עוברים ל-Bria (Replicate): זול, אמין, ומחזיר אלפא נקי
+ * טבעית בלי צורך בעיבוד נוסף. אם לא מוגדר/נכשל, מנסה Gemini + flood-fill
+ * ירוק מינימלי (נתיב פחות מדויק, מסומן ככזה — עלול לשנות פרטים/זווית
+ * כי זה מודל גנרטיבי, לא בידוד טהור). אם גם זה נכשל — מחזיר null בלי
+ * שגיאה כדי שהקורא ימשיך עם התמונה המקורית, בלי "עצירה קשה".
  */
 export async function attemptCutout(
   sourceUrl: string,
   mode: "catalog" | "marketing"
 ): Promise<CutoutResult> {
+  try {
+    const sourceBuffer = await downloadAsBuffer(resizeForAiInput(sourceUrl));
+    const proceduralResult = await tryProceduralJewelryCutout(sourceBuffer);
+    if (proceduralResult) {
+      const uploaded = await uploadToCloudinary({
+        source: bufferToDataUri(proceduralResult),
+        resourceType: "image",
+        filenamePrefix: "studio-beta-cutout-procedural",
+      });
+      // חינמי ומקומי לגמרי — לא נרשם ל-ai_usage_events (הטבלה מיועדת למעקב עלות AI אמיתי)
+      return {
+        url: uploaded.url,
+        method: "procedural",
+        modelId: "procedural-flood-fill",
+        costUsd: 0,
+      };
+    }
+  } catch {
+    // רקע לא אחיד/לא מתאים לשיטה החינמית — ממשיכים לשרשרת ה-AI
+  }
+
   if (isReplicateConfigured()) {
     try {
       const inputUrl = resizeForAiInput(sourceUrl);

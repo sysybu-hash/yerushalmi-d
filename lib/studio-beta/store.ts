@@ -25,6 +25,7 @@ import {
 import type { StudioVideoDurationSec } from "@/lib/studio-video-duration";
 import type { MultiShotTemplateId } from "@/lib/studio-multishot";
 import { videoFrameJpgUrl } from "@/lib/cloudinary-url";
+import type { StudioCurrency } from "@/lib/studio-beta/currency";
 
 /** תמונת המקור בפועל (אחרי חיתוך/כיוונון) — לשימוש בתצוגה מקדימה וב-payload */
 export function selectEffectiveSourceUrl(state: {
@@ -269,6 +270,9 @@ type StudioBetaState = {
 
   sessionCostUsd: number;
 
+  /** העדפת תצוגה בלבד — לא נשמר בפרויקט, לא משנה שום חישוב עלות פנימי */
+  currency: StudioCurrency;
+
   /** מסילת ניסיונות — כל רקע/וידאו שנוצר בהצלחה, לא רק התוצאה הנוכחית */
   attempts: Attempt[];
 
@@ -286,6 +290,7 @@ type StudioBetaState = {
     kind?: SourceKind,
     frameOffsetSec?: number
   ) => void;
+  setCurrency: (currency: StudioCurrency) => void;
   /** ממשיכים עם הוידאו הגולמי שהועלה כפי שהוא, בלי יצירה מחדש */
   continueWithOriginalVideo: () => void;
   dismissResetNotice: () => void;
@@ -424,6 +429,7 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
     videoSave: initialSaveState(),
 
     sessionCostUsd: 0,
+    currency: "usd",
     attempts: [],
     currentProjectId: null,
     maxStepReached: 1,
@@ -513,6 +519,8 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
       }));
       void persistProject();
     },
+
+    setCurrency: (currency) => set({ currency }),
 
     dismissResetNotice: () => set({ resetNotice: null }),
 
