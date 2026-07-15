@@ -25,7 +25,10 @@ import {
 import type { StudioVideoDurationSec } from "@/lib/studio-video-duration";
 import type { MultiShotTemplateId } from "@/lib/studio-multishot";
 import { videoFrameJpgUrl } from "@/lib/cloudinary-url";
-import type { StudioCurrency } from "@/lib/studio-beta/currency";
+import {
+  FALLBACK_ILS_PER_USD,
+  type StudioCurrency,
+} from "@/lib/studio-beta/currency";
 
 /** תמונת המקור בפועל (אחרי חיתוך/כיוונון) — לשימוש בתצוגה מקדימה וב-payload */
 export function selectEffectiveSourceUrl(state: {
@@ -272,6 +275,8 @@ type StudioBetaState = {
 
   /** העדפת תצוגה בלבד — לא נשמר בפרויקט, לא משנה שום חישוב עלות פנימי */
   currency: StudioCurrency;
+  /** שער דולר→שקל בפועל — נטען פעם אחת מ-/api/studio-beta/exchange-rate */
+  ilsPerUsd: number;
 
   /** מסילת ניסיונות — כל רקע/וידאו שנוצר בהצלחה, לא רק התוצאה הנוכחית */
   attempts: Attempt[];
@@ -291,6 +296,7 @@ type StudioBetaState = {
     frameOffsetSec?: number
   ) => void;
   setCurrency: (currency: StudioCurrency) => void;
+  setIlsPerUsd: (rate: number) => void;
   /** ממשיכים עם הוידאו הגולמי שהועלה כפי שהוא, בלי יצירה מחדש */
   continueWithOriginalVideo: () => void;
   dismissResetNotice: () => void;
@@ -430,6 +436,7 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
 
     sessionCostUsd: 0,
     currency: "usd",
+    ilsPerUsd: FALLBACK_ILS_PER_USD,
     attempts: [],
     currentProjectId: null,
     maxStepReached: 1,
@@ -521,6 +528,7 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
     },
 
     setCurrency: (currency) => set({ currency }),
+    setIlsPerUsd: (rate) => set({ ilsPerUsd: rate }),
 
     dismissResetNotice: () => set({ resetNotice: null }),
 

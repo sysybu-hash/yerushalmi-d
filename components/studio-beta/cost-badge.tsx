@@ -10,6 +10,7 @@ export function CostBadge({
   className?: string;
 }) {
   const currency = useStudioBetaStore((s) => s.currency);
+  const ilsPerUsd = useStudioBetaStore((s) => s.ilsPerUsd);
   const isFree = costUsd <= 0;
   return (
     <span
@@ -21,7 +22,7 @@ export function CostBadge({
         className
       )}
     >
-      {isFree ? "חינם" : formatStudioCost(costUsd, currency)}
+      {isFree ? "חינם" : formatStudioCost(costUsd, currency, ilsPerUsd)}
     </span>
   );
 }
