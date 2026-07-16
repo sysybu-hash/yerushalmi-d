@@ -12,6 +12,7 @@ import { UploadZone } from "@/components/studio-beta/upload-zone";
 import { VideoFramePicker } from "@/components/studio-beta/video-frame-picker";
 import { ProjectsPanel } from "@/components/studio-beta/projects-panel";
 import { BackgroundPanel } from "@/components/studio-beta/background-panel";
+import { AutoMagicPanel } from "@/components/studio-beta/auto-magic-panel";
 import { OutputChoicePanel } from "@/components/studio-beta/output-choice-panel";
 import { SavePanel } from "@/components/studio-beta/save-panel";
 import { TipsPanel } from "@/components/studio-beta/tips-panel";
@@ -162,7 +163,12 @@ export function StudioBetaApp({
             />
           </div>
 
-          {currentStep === 2 && <BackgroundPanel providers={providers} />}
+          {currentStep === 2 && (
+            <>
+              <AutoMagicPanel providers={providers} />
+              <BackgroundPanel providers={providers} />
+            </>
+          )}
           {currentStep === 3 && <OutputChoicePanel providers={providers} />}
           {currentStep === 4 && <SavePanel />}
         </div>

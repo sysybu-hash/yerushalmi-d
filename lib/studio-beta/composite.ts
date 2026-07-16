@@ -116,7 +116,8 @@ export async function compositeOnBackground(
  */
 export async function generateProceduralBackground(
   presetId?: string | null,
-  size = 2048
+  width = 2048,
+  height = 2048
 ): Promise<Buffer> {
   const libraryUrl = getLibraryBackgroundUrl(presetId);
   if (libraryUrl) {
@@ -124,11 +125,14 @@ export async function generateProceduralBackground(
       const response = await fetch(libraryUrl);
       if (response.ok) {
         const buffer = Buffer.from(await response.arrayBuffer());
-        return sharp(buffer).resize(size, size, { fit: "cover" }).png().toBuffer();
+        return sharp(buffer).resize(width, height, { fit: "cover" }).png().toBuffer();
       }
     } catch {
       // נופלים ל-SVG למטה
     }
   }
-  return renderProceduralBackground(presetId, size);
+  // מחולל ה-SVG מצייר ריבוע — חותכים cover ליחס המבוקש כשצריך
+  const square = await renderProceduralBackground(presetId, Math.max(width, height));
+  if (width === height) return square;
+  return sharp(square).resize(width, height, { fit: "cover" }).png().toBuffer();
 }

@@ -25,6 +25,11 @@ export const AI_COST_RATES: Record<string, AiCostRate> = {
     rateUsd: 0.004,
     flatUsd: 0.012,
   },
+  "lucataco/sdxl-controlnet": {
+    billing: "per_second",
+    rateUsd: 0.001525,
+    flatUsd: 0.03,
+  },
   "kwaivgi/kling-v3-video": {
     billing: "per_call",
     rateUsd: 0.35,

@@ -10,8 +10,11 @@ import {
 } from "@/lib/studio-beta/gemini-client";
 import { uploadToCloudinary } from "@/lib/studio-beta/cloudinary-upload";
 import {
+  aspectToKlingParam,
+  aspectToVeoParam,
   resizeForAiInput,
   zoompanFromImage,
+  type SourceAspect,
   type VideoMotionId,
   type MusicStyleId,
 } from "@/lib/studio-beta/cloudinary-transform";
@@ -53,6 +56,12 @@ export type VideoPipelineInput = {
   motion?: VideoMotionId[];
   /** מוחל רק על המנוע החינמי (cloudinary-preserve) — מוזיקת רקע חינמית */
   musicStyle?: MusicStyleId;
+  /**
+   * יחס התמונה הנבחר — Kling מקבל aspect_ratio (16:9/9:16/1:1 בלבד),
+   * Veo מקבל aspectRatio (16:9/9:16 בלבד). כשהיחס לא נתמך משמיטים,
+   * והמודל עוקב אחרי פריים הפתיחה שכבר חתוך ליחס ממילא.
+   */
+  sourceAspect?: SourceAspect;
 };
 
 export type VideoPipelineResult = {
@@ -142,6 +151,10 @@ export async function runVideoPipeline(
         duration: klingDuration,
         generate_audio: Boolean(input.generateAudio),
         ...(multiPrompt ? { multi_prompt: multiPrompt } : {}),
+        ...(() => {
+          const klingAspect = aspectToKlingParam(input.sourceAspect ?? "original");
+          return klingAspect ? { aspect_ratio: klingAspect } : {};
+        })(),
       }
     );
     const url = firstUrlFromOutput(output);
@@ -182,6 +195,7 @@ export async function runVideoPipeline(
     imageDataUri: bufferToDataUri(sourceBuffer, "image/png"),
     durationSec: mapDurationForVeo(input.durationSec),
     fast: input.engine === "veo-fast",
+    aspectRatio: aspectToVeoParam(input.sourceAspect ?? "original"),
   });
   const videoBuffer = await downloadAsBuffer(videoUrl);
   const uploaded = await uploadToCloudinary({

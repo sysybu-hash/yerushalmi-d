@@ -178,6 +178,43 @@ export function cropToAspect(cloudinaryUrl: string, aspect: SourceAspect): strin
   return insertTransform(cloudinaryUrl, `c_fill,g_auto,ar_${aspect}`);
 }
 
+/**
+ * מיפוי יחס תמונה לפרמטרים של מנועי היצירה — אומת מול הסכמות בפועל
+ * (Replicate openapi_schema, 7/2026):
+ * - Flux Schnell מקבל aspect_ratio ישירות (enum שכולל את כל הארבעה שלנו).
+ * - SDXL מקבל width/height בלבד — ערכי ה-buckets שהמודל אומן עליהם.
+ * - Kling v3 מקבל aspect_ratio מתוך ["16:9","9:16","1:1"] — 4:5 לא נתמך,
+ *   ואז משמיטים ונשענים על פריים הפתיחה (start_image) שכבר חתוך ליחס.
+ * - Veo 3.1 מקבל aspectRatio רק "16:9"/"9:16".
+ */
+export type AspectDimensions = { width: number; height: number };
+
+export function aspectToSdxlDimensions(aspect: SourceAspect): AspectDimensions {
+  switch (aspect) {
+    case "4:5":
+      return { width: 896, height: 1152 };
+    case "9:16":
+      return { width: 768, height: 1344 };
+    case "16:9":
+      return { width: 1344, height: 768 };
+    default:
+      return { width: 1024, height: 1024 };
+  }
+}
+
+/** Flux — original ממופה ל-1:1 (ברירת המחדל של המודל ממילא) */
+export function aspectToFluxParam(aspect: SourceAspect): "1:1" | "4:5" | "9:16" | "16:9" {
+  return aspect === "original" ? "1:1" : aspect;
+}
+
+export function aspectToKlingParam(aspect: SourceAspect): "1:1" | "9:16" | "16:9" | null {
+  return aspect === "1:1" || aspect === "9:16" || aspect === "16:9" ? aspect : null;
+}
+
+export function aspectToVeoParam(aspect: SourceAspect): "16:9" | "9:16" | null {
+  return aspect === "16:9" || aspect === "9:16" ? aspect : null;
+}
+
 export type SourceAdjustments = {
   /** -50..50 */
   brightness: number;

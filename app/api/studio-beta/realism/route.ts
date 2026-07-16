@@ -7,31 +7,16 @@ import {
   failLock,
 } from "@/lib/studio-beta/locks";
 import { StudioBetaError } from "@/lib/studio-beta/errors";
-import { runVideoPipeline } from "@/lib/studio-beta/video-pipeline";
-import type { VideoEngineId } from "@/lib/studio-beta/engines";
-import type {
-  VideoMotionId,
-  MusicStyleId,
-  SourceAspect,
-} from "@/lib/studio-beta/cloudinary-transform";
-import { parseStudioVideoDuration } from "@/lib/studio-video-duration";
-import type { MultiShotTemplateId } from "@/lib/studio-multishot";
+import { runRealismPipeline } from "@/lib/studio-beta/realism-pipeline";
 
 export const runtime = "nodejs";
-export const maxDuration = 300;
+export const maxDuration = 120;
 
 type Body = {
-  imageUrl?: string;
-  engine?: VideoEngineId;
-  durationSec?: number;
+  compositeUrl?: string;
+  presetId?: string | null;
   customPrompt?: string | null;
   mode?: "catalog" | "marketing";
-  negativePrompt?: string | null;
-  generateAudio?: boolean;
-  motion?: VideoMotionId[];
-  musicStyle?: MusicStyleId;
-  multiShotTemplate?: MultiShotTemplateId;
-  sourceAspect?: SourceAspect;
 };
 
 const HTTP_STATUS_FOR_CODE: Record<StudioBetaError["code"], number> = {
@@ -53,30 +38,19 @@ export async function POST(request: NextRequest) {
   }
 
   const body = (await request.json().catch(() => null)) as Body | null;
-  if (!body?.imageUrl || !body.engine) {
+  if (!body?.compositeUrl) {
     return NextResponse.json(
-      { ok: false, error: "חסרה תמונה או בחירת מנוע וידאו", code: "VALIDATION" },
+      { ok: false, error: "חסרה תמונה מורכבת לפאס הריאליזם", code: "VALIDATION" },
       { status: 400 }
     );
   }
 
   const mode = body.mode === "marketing" ? "marketing" : "catalog";
-  const durationSec = parseStudioVideoDuration(body.durationSec);
-  const multiShotTemplate = body.multiShotTemplate ?? "none";
-  const sourceAspect = body.sourceAspect ?? "original";
-  const lockKey = buildLockKey("video", [
-    body.engine,
-    // חובה במפתח — אחרת בקשה ביחס אחר תקבל תוצאה שמורה של יחס קודם
-    sourceAspect,
-    body.imageUrl,
-    durationSec,
+  const lockKey = buildLockKey("realism", [
+    body.compositeUrl,
+    body.presetId ?? "",
     body.customPrompt ?? "",
-    body.negativePrompt ?? "",
-    Boolean(body.generateAudio),
     mode,
-    (body.motion ?? []).join(","),
-    body.musicStyle ?? "",
-    multiShotTemplate,
   ]);
 
   let lock;
@@ -97,18 +71,11 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = await runVideoPipeline({
-      imageUrl: body.imageUrl,
-      engine: body.engine,
-      durationSec,
+    const result = await runRealismPipeline({
+      compositeUrl: body.compositeUrl,
+      presetId: body.presetId ?? null,
       customPrompt: body.customPrompt ?? null,
       mode,
-      negativePrompt: body.negativePrompt ?? null,
-      generateAudio: Boolean(body.generateAudio),
-      multiShotTemplate,
-      motion: body.motion,
-      musicStyle: body.musicStyle,
-      sourceAspect,
     });
     await completeLock(lockKey, result);
     return NextResponse.json({ ok: true, ...result, cached: false });

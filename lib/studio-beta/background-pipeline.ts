@@ -22,7 +22,12 @@ import {
   isGeminiConfigured,
 } from "@/lib/studio-beta/gemini-client";
 import { uploadToCloudinary } from "@/lib/studio-beta/cloudinary-upload";
-import { resizeForAiInput } from "@/lib/studio-beta/cloudinary-transform";
+import {
+  aspectToFluxParam,
+  aspectToSdxlDimensions,
+  resizeForAiInput,
+  type SourceAspect,
+} from "@/lib/studio-beta/cloudinary-transform";
 import {
   getBackgroundEngine,
   isEngineAvailable,
@@ -42,6 +47,8 @@ export type BackgroundPipelineInput = {
   placement?: CompositePlacement | null;
   /** זום/פאן ידניים על שכבת הרקע עצמה */
   backdropPlacement?: BackdropPlacement | null;
+  /** יחס התמונה הנבחר — קובע את מידות הרקע שנוצר (Flux/SDXL/פרוצדורלי) */
+  sourceAspect?: SourceAspect;
 };
 
 export type BackgroundPipelineResult = {
@@ -143,11 +150,18 @@ export async function runBackgroundPipeline(
     };
   }
 
+  const aspect = input.sourceAspect ?? "original";
+  const dims = aspectToSdxlDimensions(aspect);
+
   const { buffer: backgroundBuffer, predictTimeSec: backgroundPredictTimeSec } =
     await (async () => {
       if (input.engine === "procedural") {
         return {
-          buffer: await generateProceduralBackground(input.presetId),
+          buffer: await generateProceduralBackground(
+            input.presetId,
+            dims.width,
+            dims.height
+          ),
           predictTimeSec: null,
         };
       }
@@ -159,12 +173,17 @@ export async function runBackgroundPipeline(
       const { output, predictTimeSec } = await runReplicateModel(
         model,
         input.engine === "flux-schnell"
-          ? { prompt: buildBackgroundOnlyPrompt(hint) }
+          ? {
+              prompt: buildBackgroundOnlyPrompt(hint),
+              // Flux מקבל aspect_ratio ישירות (אומת מול הסכמה) — עדיף על width/height
+              aspect_ratio: aspectToFluxParam(aspect),
+            }
           : {
               prompt: buildBackgroundOnlyPrompt(hint),
               negative_prompt: BACKGROUND_ONLY_NEGATIVE_PROMPT,
-              width: 1024,
-              height: 1024,
+              // SDXL buckets לפי היחס הנבחר — הקנבס ב-composite נגזר מהרקע
+              width: dims.width,
+              height: dims.height,
             }
       );
       const url = firstUrlFromOutput(output);

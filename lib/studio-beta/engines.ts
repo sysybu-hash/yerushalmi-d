@@ -116,6 +116,20 @@ export const VIDEO_ENGINES: EngineDef[] = [
   },
 ];
 
+/**
+ * מנוע פאס הריאליזם (צללים/השתקפויות על ה-composite) — בכוונה לא חלק
+ * מ-BACKGROUND_ENGINES: הוא לא מופיע בבורר המנועים, ורץ אוטומטית רק
+ * בתוך שרשרת ה-Auto-Magic.
+ */
+export const REALISM_ENGINE: EngineDef = {
+  id: "controlnet-realism",
+  label: "פאס ריאליזם",
+  description: "צללים והשתקפויות טבעיים על התוצאה המורכבת (SDXL-ControlNet)",
+  provider: "replicate",
+  costModelId: "lucataco/sdxl-controlnet",
+  usesCutout: false,
+};
+
 export function getBackgroundEngine(id: string): EngineDef | undefined {
   return BACKGROUND_ENGINES.find((engine) => engine.id === id);
 }

@@ -10,6 +10,7 @@ import { StudioBetaError } from "@/lib/studio-beta/errors";
 import { runBackgroundPipeline } from "@/lib/studio-beta/background-pipeline";
 import type { BackdropPlacement, CompositePlacement } from "@/lib/studio-beta/composite";
 import type { BackgroundEngineId } from "@/lib/studio-beta/engines";
+import type { SourceAspect } from "@/lib/studio-beta/cloudinary-transform";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -23,6 +24,7 @@ type Body = {
   cutoutUrl?: string | null;
   placement?: CompositePlacement | null;
   backdropPlacement?: BackdropPlacement | null;
+  sourceAspect?: SourceAspect;
 };
 
 const HTTP_STATUS_FOR_CODE: Record<StudioBetaError["code"], number> = {
@@ -58,8 +60,11 @@ export async function POST(request: NextRequest) {
   const mode = body.mode === "marketing" ? "marketing" : "catalog";
   const placement = body.placement ?? null;
   const backdropPlacement = body.backdropPlacement ?? null;
+  const sourceAspect = body.sourceAspect ?? "original";
   const lockKey = buildLockKey("background", [
     body.engine,
+    // חובה במפתח — אחרת בקשה ב-16:9 תקבל תוצאה שמורה של 1:1
+    sourceAspect,
     body.presetId ?? "",
     body.customPrompt ?? "",
     body.sourceImageUrl,
@@ -100,6 +105,7 @@ export async function POST(request: NextRequest) {
       precomputedCutoutUrl: body.cutoutUrl ?? null,
       placement,
       backdropPlacement,
+      sourceAspect,
     });
     await completeLock(lockKey, result);
     return NextResponse.json({ ok: true, ...result, cached: false });

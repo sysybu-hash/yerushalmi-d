@@ -82,7 +82,7 @@ export function BackgroundPanel({
             />
             <div>
               <p className="mb-1.5 text-[11px] font-light text-muted-foreground">
-                יחס תמונה
+                יחס תמונה — משפיע גם על מידות הרקע שנוצר ב-AI
               </p>
               <AspectRatioPicker value={sourceAspect} onChange={setSourceAspect} />
             </div>

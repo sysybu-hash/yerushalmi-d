@@ -185,6 +185,8 @@ type VeoInput = {
   imageDataUri: string;
   durationSec: number;
   fast: boolean;
+  /** Veo 3.1 תומך רק "16:9"/"9:16" — null/undefined = השמטה (ברירת מחדל של המודל) */
+  aspectRatio?: "16:9" | "9:16" | null;
 };
 
 /** יצירת וידאו Veo (image-to-video) עם polling עד VEO_POLL_TIMEOUT_MS */
@@ -211,7 +213,10 @@ export async function generateVeoVideo(
             image: { bytesBase64Encoded: base64, mimeType },
           },
         ],
-        parameters: { durationSeconds: input.durationSec },
+        parameters: {
+          durationSeconds: input.durationSec,
+          ...(input.aspectRatio ? { aspectRatio: input.aspectRatio } : {}),
+        },
       }),
     }
   );

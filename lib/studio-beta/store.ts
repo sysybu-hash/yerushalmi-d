@@ -155,6 +155,26 @@ type IdentifyState = {
   error: string | null;
 };
 
+/**
+ * פאס הריאליזם (ControlNet) — רץ אוטומטית רק בשרשרת ה-Auto-Magic.
+ * בהצלחה התוצאה מחליפה את background.url (וה-composite הקודם נשאר במסילה).
+ */
+type RealismState = {
+  status: StepStatus;
+  url: string | null;
+  costUsd: number;
+  error: string | null;
+};
+
+export type AutoMagicStage = "identify" | "cutout" | "background" | "realism";
+
+/** מצב שרשרת ה-Auto-Magic — transient, לא נשמר בפרויקט */
+type AutoMagicState = {
+  status: StepStatus;
+  currentStage: AutoMagicStage | null;
+  error: string | null;
+};
+
 type OutputChoice = "image" | "video" | null;
 
 export type SourceKind = "image" | "video";
@@ -176,6 +196,7 @@ export type StudioBetaProjectState = {
   identify: IdentifyState;
   cutout: CutoutState;
   background: BackgroundState;
+  realism: RealismState;
   outputChoice: OutputChoice;
   video: VideoState;
   imageSave: SaveState;
@@ -250,6 +271,14 @@ function initialIdentifyState(): IdentifyState {
   return { status: "idle", description: null, modelId: null, costUsd: 0, error: null };
 }
 
+function initialRealismState(): RealismState {
+  return { status: "idle", url: null, costUsd: 0, error: null };
+}
+
+function initialAutoMagicState(): AutoMagicState {
+  return { status: "idle", currentStage: null, error: null };
+}
+
 type StudioBetaState = {
   currentStep: 1 | 2 | 3 | 4;
   sourceImageUrl: string | null;
@@ -265,6 +294,8 @@ type StudioBetaState = {
   cutout: CutoutState;
 
   background: BackgroundState;
+  realism: RealismState;
+  autoMagic: AutoMagicState;
   outputChoice: OutputChoice;
   video: VideoState;
 
@@ -332,6 +363,10 @@ type StudioBetaState = {
   setBackgroundPlacement: (patch: Partial<PlacementState>) => void;
   setBackdropPlacement: (patch: Partial<BackdropPlacementState>) => void;
   runBackground: () => Promise<void>;
+  /** פאס ריאליזם (ControlNet) על ה-composite — נקרא מתוך runAutoMagic */
+  runRealism: () => Promise<void>;
+  /** שרשרת בלחיצה אחת: זיהוי → בידוד (אישור אוטומטי) → רקע+הרכבה → ריאליזם */
+  runAutoMagic: (engineOverride?: BackgroundEngineId) => Promise<void>;
   approveBackground: () => void;
   goToStep: (step: 1 | 2 | 3 | 4) => void;
 
@@ -379,6 +414,7 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
         identify: state.identify,
         cutout: state.cutout,
         background: state.background,
+        realism: state.realism,
         outputChoice: state.outputChoice,
         video: state.video,
         imageSave: state.imageSave,
@@ -428,6 +464,8 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
     cutout: initialCutoutState(),
 
     background: initialBackgroundState(),
+    realism: initialRealismState(),
+    autoMagic: initialAutoMagicState(),
     outputChoice: null,
     video: initialVideoState(),
 
@@ -501,6 +539,8 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
         identify: initialIdentifyState(),
         cutout: initialCutoutState(),
         background: initialBackgroundState(),
+        realism: initialRealismState(),
+        autoMagic: initialAutoMagicState(),
         outputChoice: null,
         video: initialVideoState(),
         attempts: [],
@@ -562,6 +602,8 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
         sessionCostUsd: s.sessionCostUsd,
         attempts: s.attempts ?? [],
         background: { ...initialBackgroundState(), ...s.background },
+        realism: { ...initialRealismState(), ...s.realism },
+        autoMagic: initialAutoMagicState(),
         video: {
           ...initialVideoState(),
           ...s.video,
@@ -788,6 +830,7 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
             cutoutUrl: useApprovedCutout ? state.cutout.url : null,
             placement: state.background.placement,
             backdropPlacement: state.background.backdropPlacement,
+            sourceAspect: state.sourceAspect,
           }),
         });
         const json = await response.json();
@@ -802,6 +845,8 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
             usedCutout: Boolean(json.usedCutout),
             fallbackNote: json.fallbackNote ?? null,
           },
+          // composite חדש מבטל פאס ריאליזם קודם — הוא רץ על התוצאה הישנה
+          realism: initialRealismState(),
           imageSave: initialSaveState(),
           sessionCostUsd: json.cached
             ? s.sessionCostUsd
@@ -825,6 +870,115 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
           },
         }));
       }
+    },
+
+    /**
+     * פאס ריאליזם (ControlNet) על ה-composite הנוכחי — התוצאה מחליפה את
+     * background.url; ה-composite הקודם נשאר במסילת הניסיונות כ-rollback חינמי.
+     */
+    runRealism: async () => {
+      const state = get();
+      const compositeUrl = state.background.url;
+      if (!compositeUrl) return;
+      set((s) => ({ realism: { ...s.realism, status: "loading", error: null } }));
+      try {
+        const response = await fetch("/api/studio-beta/realism", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            compositeUrl,
+            presetId: state.background.presetId,
+            customPrompt: state.background.customPrompt || null,
+          }),
+        });
+        const json = await response.json();
+        if (!json.ok) throw new Error(json.error ?? "פאס הריאליזם נכשל");
+        set((s) => ({
+          realism: {
+            status: "done",
+            url: json.resultUrl,
+            costUsd: json.costUsd ?? 0,
+            error: null,
+          },
+          background: { ...s.background, url: json.resultUrl },
+          imageSave: initialSaveState(),
+          sessionCostUsd: json.cached
+            ? s.sessionCostUsd
+            : s.sessionCostUsd + (json.costUsd ?? 0),
+        }));
+        pushAttempt({
+          kind: "background",
+          url: json.resultUrl,
+          label: "פאס ריאליזם",
+          engine: state.background.engine,
+          modelId: json.modelId ?? null,
+          costUsd: json.costUsd ?? 0,
+        });
+        void persistProject();
+      } catch (error) {
+        set((s) => ({
+          realism: {
+            ...s.realism,
+            status: "error",
+            error: error instanceof Error ? error.message : "שגיאה לא צפויה",
+          },
+        }));
+      }
+    },
+
+    /**
+     * שרשרת Auto-Magic בלחיצה אחת. עקרונות הכשל:
+     * זיהוי — תיאורי בלבד, כשל לא עוצר; בידוד — כשל לא עוצר (ל-pipeline
+     * הרקע יש fallbacks משלו), הצלחה מאושרת אוטומטית; רקע — כשל עוצר;
+     * ריאליזם — כשל מסומן כשגיאה אבל ה-composite נשאר תקף (הצלחה מדורגת).
+     */
+    runAutoMagic: async (engineOverride) => {
+      const state = get();
+      if (!state.sourceImageUrl) return;
+      if (state.autoMagic.status === "loading") return;
+      if (engineOverride) {
+        set((s) => ({ background: { ...s.background, engine: engineOverride } }));
+      }
+
+      set({ autoMagic: { status: "loading", currentStage: "identify", error: null } });
+      await get().runIdentify();
+
+      set((s) => ({ autoMagic: { ...s.autoMagic, currentStage: "cutout" } }));
+      await get().runCutout();
+      if (get().cutout.status === "done") {
+        // אישור אוטומטי בשרשרת — המשתמש רואה את התוצאה במסילה ויכול לתקן
+        get().approveCutout();
+      }
+
+      set((s) => ({ autoMagic: { ...s.autoMagic, currentStage: "background" } }));
+      await get().runBackground();
+      if (get().background.status !== "done" || !get().background.url) {
+        set({
+          autoMagic: {
+            status: "error",
+            currentStage: "background",
+            error: get().background.error ?? "יצירת הרקע נכשלה",
+          },
+        });
+        return;
+      }
+
+      set((s) => ({ autoMagic: { ...s.autoMagic, currentStage: "realism" } }));
+      await get().runRealism();
+      if (get().realism.status !== "done") {
+        set({
+          autoMagic: {
+            status: "error",
+            currentStage: "realism",
+            error:
+              get().realism.error ??
+              "פאס הריאליזם נכשל — התמונה המורכבת עדיין זמינה",
+          },
+        });
+        return;
+      }
+
+      set({ autoMagic: { status: "done", currentStage: null, error: null } });
     },
 
     approveBackground: () => {
@@ -923,6 +1077,7 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
             multiShotTemplate: state.video.multiShotTemplate,
             motion: state.video.motion,
             musicStyle: state.video.musicStyle,
+            sourceAspect: state.sourceAspect,
           }),
         });
         const json = await response.json();
@@ -1094,6 +1249,8 @@ export const useStudioBetaStore = create<StudioBetaState>((set, get) => {
         identify: initialIdentifyState(),
         cutout: initialCutoutState(),
         background: initialBackgroundState(),
+        realism: initialRealismState(),
+        autoMagic: initialAutoMagicState(),
         outputChoice: null,
         video: initialVideoState(),
         attempts: [],

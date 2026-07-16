@@ -48,6 +48,20 @@ export function buildSharpenSourcePrompt(): string {
   return `Enhance the sharpness, clarity and lighting of this exact jewelry photo — crisper facet detail, balanced exposure, professional studio quality. Do not alter the product's shape, stones, or metal in any way. ${JEWELRY_STRUCTURE_LOCK}`;
 }
 
+/**
+ * פאס ריאליזם (ControlNet) — רץ על התמונה המורכבת כדי להוסיף צל מגע
+ * והשתקפויות טבעיות. ה-canny conditioning שומר על קווי המתאר, וה-lock
+ * המילולי מוצמד בנוסף כרשת ביטחון.
+ */
+export function buildRealismPrompt(hint: string): string {
+  return `Professional luxury jewelry product photograph, natural soft contact shadow beneath the jewelry, subtle realistic surface reflections on the backdrop, cohesive studio lighting between product and background, photorealistic, high-end e-commerce quality${
+    hint ? `, ${hint}` : ""
+  }. ${JEWELRY_STRUCTURE_LOCK}`;
+}
+
+export const REALISM_NEGATIVE_PROMPT =
+  "deformed jewelry, changed gemstones, different ring design, warped metal, melted prongs, extra prongs, missing stones, blob diamond, wrong facet geometry, altered chain links, blur, distortion, low quality, oversaturated, text, watermark, hands, people";
+
 /** זיהוי תמונה — מבקש פסקת תיאור עברית קצרה, לא JSON מובנה */
 export function buildJewelryIdentifyPrompt(): string {
   return "תאר בעברית, בפסקה קצרה אחת (2-3 משפטים), את התכשיט שבתמונה: סוג התכשיט (טבעת/שרשרת/עגילים/צמיד/יהלום בודד וכו'), המתכת, האבן/היהלום המרכזי אם יש (סוג חיתוך אם ניתן לזהות), והסגנון הכללי. תיאור עובדתי בלבד המבוסס על מה שנראה בתמונה — בלי להמציא פרטים שלא ניתן לראות.";
